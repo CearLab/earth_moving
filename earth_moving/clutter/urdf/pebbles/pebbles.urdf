@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<robot name="shovel" >
+
+  <!-- Materials -->
+  <material name="dark_grey"><color rgba="0.2 0.2 0.2 1.0" /></material>
+  <material name="light_grey"><color rgba="0.4 0.4 0.4 1.0" /></material>
+  <material name="yellow"><color rgba="0.8 0.8 0.0 1.0" /></material>
+  <material name="black"><color rgba="0.15 0.15 0.15 1.0" /></material>
+  <material name="blue"><color rgba="0 0 .8 1"/></material>
+
+  <link name="base_link"></link>
+
+  <!-- from base to pebbles -->
+  <joint name="base_pebbles_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <parent link="base_link"/>
+    <child link="pebbles_link" />
+  </joint>
+
+  <link name="pebbles_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <!-- visual with box -->
+        <!-- 2 cm side -->
+        <box size="1e-2 1e-2 1e-2"/>
+        <!-- visual with .stl (fancy style) -->
+        <!-- <mesh filename="package://pebbles/files/Key_Rock_1.stl" scale="0.002 0.002 0.002"/> -->
+      </geometry>
+      <material name="black" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <!-- 2 cm side -->  
+        <box size="1e-2 1e-2 1e-2"/>
+      </geometry>
+    </collision>
+    <inertial>      
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <!-- 2 grams -->
+      <mass value="2e-3"/>
+      <!-- ineetia (isotropic): m*l^2 -->
+      <inertia
+        ixx="2e-7" ixy="0.0" ixz="0.0" iyy="2e-7" iyz="0.0" izz="2e-7"/>
+      </inertial>
+  </link>
+  
+</robot>

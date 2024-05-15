@@ -1,0 +1,107 @@
+<?xml version="1.0"?>
+<robot name="shovel">
+
+  <!-- Materials -->  
+  <material name="dark_grey"><color rgba="0.2 0.2 0.2 1.0" /></material>
+  <material name="light_grey"><color rgba="0.4 0.4 0.4 1.0" /></material>
+  <material name="yellow"><color rgba="0.8 0.8 0.0 1.0" /></material>
+  <material name="black"><color rgba="0.15 0.15 0.15 1.0" /></material>
+  <material name="blue"><color rgba="0 0 .8 1"/></material>
+
+  <!-- base_link -->
+  <!-- just using this as a very heavy and fixed ref. frame -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <!-- 20 cm side box -->
+        <!-- <box size="1e-1 1e-1 1e-1"/> -->
+        <!-- 5 cm radius sphere -->
+        <sphere radius="5e-2"/>
+      </geometry>      
+      <material name="blue" />
+    </visual>
+    <collision>
+      <geometry>
+        <!-- box -->
+        <!-- <box size="0 0 0"/> -->
+        <!-- 5 cm radius sphere -->
+        <sphere radius="5e-2"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <!-- set mass and inertia to zero: make it fixed  -->
+      <mass value="0"/>
+      <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+  </link>
+
+  <!-- from base to shovel: prismatic -->
+  <joint name="base_shovel_joint" type="prismatic">
+    <axis xyz="1 0 0"/> 
+    <origin xyz="5e-1 0 2.5e-2" rpy="0 0 0" />
+    <parent link="base_link"/>
+    <child link="shovel_link" />        
+    <limit lower="-10" upper="10" effort="1e2" velocity="0.2"/>
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+
+  <!-- shovel_link -->
+  <link name="shovel_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <!-- 10x20x10 cm box -->
+        <box size="5e-2 1e-1 5e-2"/>
+      </geometry>
+      <material name="yellow" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="5e-2 1e-1 5e-2"/>        
+      </geometry>
+    </collision>
+    <inertial>      
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <!-- 20 grams -->
+      <mass value="20e-3"/> 
+      <!-- ineetia (anisotropic): m*l^2 -->   
+      <inertia ixx="5e-7" ixy="0.0" ixz="0.0" iyy="2e-6" iyz="0.0" izz="5e-7"/>
+      </inertial>
+  </link>
+
+  <!-- from shovel to shadow: revolute -->
+  <joint name="shovel_shadow_joint" type="revolute">
+    <axis xyz="0 0 1"/> 
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <parent link="shovel_link"/>
+    <child link="shadow_link" />        
+    <limit lower="-3.1415" upper="3.1415" effort="1e2" velocity="3.1415"/>
+    <dynamics damping="0.0" friction="0.0"/>
+  </joint>
+
+  <!-- shadow_link -->
+  <link name="shadow_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>        
+        <box size="0 0 0"/>
+      </geometry>      
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/> 
+      <geometry>
+        <box size="0 0 0"/>        
+      </geometry>     
+    </collision>
+    <inertial>      
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <!-- 20 grams -->
+      <mass value="20e-3"/> 
+      <!-- ineetia (anisotropic): m*l^2 -->   
+      <inertia ixx="5e-7" ixy="0.0" ixz="0.0" iyy="2e-6" iyz="0.0" izz="5e-7"/>
+      </inertial>
+  </link>
+  
+</robot>
