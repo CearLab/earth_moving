@@ -72,36 +72,38 @@
   </link>
 
   <!-- from shovel to shadow: revolute -->
-  <!-- <joint name="shovel_shadow_joint" type="revolute">
+  <joint name="shovel_shadow_joint" type="revolute">
     <axis xyz="0 0 1"/> 
-    <origin xyz="0 0 0" rpy="0 0 0" />
+    <origin xyz="0.05 0 0" rpy="0 0 0" />
     <parent link="shovel_link"/>
     <child link="shadow_link" />        
-    <limit lower="-3.1415" upper="3.1415" effort="1e2" velocity="3.1415"/>
+    <limit lower="-3.1415/12" upper="3.1415/12" effort="1e2" velocity="3.1415"/>
     <dynamics damping="0.0" friction="0.0"/>
-  </joint> -->
+  </joint>
 
   <!-- shadow_link -->
-  <!-- <link name="shadow_link">
+  <link name="shadow_link">
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>        
-        <box size="0 0 0"/>
-      </geometry>      
+        <!-- 10x20x10 cm box -->
+        <box size="1e-2 1e-1 5e-2"/>
+      </geometry>   
+      <material name="blue" />   
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/> 
       <geometry>
-        <box size="0 0 0"/>        
+        <box size="1e-2 1e-1 5e-2"/>   
       </geometry>     
     </collision>
     <inertial>      
       <origin xyz="0 0 0" rpy="0 0 0"/>
-      20 grams
+      <!-- 20 grams -->
       <mass value="20e-3"/> 
-      ineetia (anisotropic): m*l^2   
+      <!-- ineetia (anisotropic): m*l^2    -->
       <inertia ixx="5e-7" ixy="0.0" ixz="0.0" iyy="2e-6" iyz="0.0" izz="5e-7"/>
       </inertial>
-  </link> -->
+  </link>
   
 </robot>
