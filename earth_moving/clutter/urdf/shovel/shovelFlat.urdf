@@ -13,18 +13,14 @@
   <link name="base_link">
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0"/>
-      <geometry>
-        <!-- 20 cm side box -->
-        <!-- <box size="1e-1 1e-1 1e-1"/> -->
+      <geometry>        
         <!-- 5 cm radius sphere -->
         <sphere radius="5e-2"/>
       </geometry>      
       <material name="blue" />
     </visual>
     <collision>
-      <geometry>
-        <!-- box -->
-        <!-- <box size="0 0 0"/> -->
+      <geometry>        
         <!-- 5 cm radius sphere -->
         <sphere radius="5e-2"/>
       </geometry>
@@ -64,20 +60,22 @@
     </collision>
     <inertial>      
       <origin xyz="0 0 0" rpy="0 0 0"/>
-      <!-- 20 grams -->
+      <!-- 20 grams - 0.02 kg -->
       <mass value="20e-3"/> 
-      <!-- ineetia (anisotropic): m*l^2 -->   
-      <inertia ixx="5e-7" ixy="0.0" ixz="0.0" iyy="2e-6" iyz="0.0" izz="5e-7"/>
+      <!-- inertia (anisotropic): m*l^2 [kg x m^2]-->   
+      <inertia ixx="5e-5" ixy="0.0" ixz="0.0" iyy="2e-4" iyz="0.0" izz="5e-5"/>
       </inertial>
   </link>
 
   <!-- from shovel to shadow: revolute -->
   <joint name="shovel_shadow_joint" type="revolute">
+    <!-- rotation along z-axis -->
     <axis xyz="0 0 1"/> 
+    <!-- 5cm shift along x-axis -->
     <origin xyz="0.05 0 0" rpy="0 0 0" />
     <parent link="shovel_link"/>
     <child link="shadow_link" />        
-    <limit lower="-3.1415/12" upper="3.1415/12" effort="1e2" velocity="3.1415"/>
+    <limit lower="-0.2" upper="0.2" effort="1e2" velocity="3.1415"/>
     <dynamics damping="0.0" friction="0.0"/>
   </joint>
 
@@ -99,10 +97,10 @@
     </collision>
     <inertial>      
       <origin xyz="0 0 0" rpy="0 0 0"/>
-      <!-- 20 grams -->
+      <!-- 20 grams - 0.02 kg-->
       <mass value="20e-3"/> 
-      <!-- ineetia (anisotropic): m*l^2    -->
-      <inertia ixx="5e-7" ixy="0.0" ixz="0.0" iyy="2e-6" iyz="0.0" izz="5e-7"/>
+      <!-- ineetia (anisotropic): m*l^2  [kg x m^2]  -->
+      <inertia ixx="5e-5" ixy="0.0" ixz="0.0" iyy="2e-4" iyz="0.0" izz="5e-5"/>
       </inertial>
   </link>
   
