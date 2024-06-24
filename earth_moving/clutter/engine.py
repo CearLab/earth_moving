@@ -78,6 +78,33 @@ class PyBulletEnvironment:
         Closes the PyBullet environment.
         """
         p.disconnect()
+        
+    # control a joint
+    def control_joint(self, joint_index ,joint_target, control_mode=p.VELOCITY_CONTROL, max_force=1000):
+        """
+        Controls a joint of the robot.
+
+        :param joint_index: Integer, the index of the joint.
+        :param joint_target: Float, the desired position or velocity of the joint.
+        :param control_mode: Integer, the control mode (p.POSITION_CONTROL or p.VELOCITY_CONTROL).
+        """
+        
+        if control_mode == p.POSITION_CONTROL:
+            p.setJointMotorControl2(self.ID[1], joint_index, control_mode, targetPosition=joint_target, force=max_force)
+        elif control_mode == p.VELOCITY_CONTROL:
+            p.setJointMotorControl2(self.ID[1], joint_index, control_mode, targetVelocity=joint_target, force=max_force)   
+            
+    # compute the error of the joint with respect to a target
+    def compute_joint_error(self, joint_index, target):
+        """
+        Computes the error of a joint with respect to a target.
+
+        :param joint_index: Integer, the index of the joint.
+        :param target: Float, the target value.
+        :return: Float, the error.
+        """
+        joint_state = p.getJointState(self.ID[1], joint_index)
+        return target - joint_state[0]
 
 # Example usage
 if __name__ == "__main__":
