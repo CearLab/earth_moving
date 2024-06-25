@@ -25,6 +25,26 @@ class PyBulletEnvironment:
         # ID list 
         self.ID = []
         
+        # pybullet options
+        self.URDF_MERGE_FIXED_LINKS = True
+        self.URDF_USE_INERTIA_FROM_FILE = True
+        self.URDF_USE_SELF_COLLISION = True
+        self.URDF_USE_SELF_COLLISION_INCLUDE_PARENT = True
+        self.URDF_USE_SELF_COLLISION_EXCLUDE_ALL_PARENTS = False
+        self.URDF_USE_IMPLICIT_CYLINDER = True
+        self.URDF_ENABLE_SLEEPING = False
+        self.URDF_INITIALIZE_SAT_FEATURES = False
+        self.URDF_USE_MATERIAL_COLORS_FROM_MTL = False
+        self.URDF_ENABLE_CACHED_GRAPHICS_SHAPES = False
+        self.URDF_MAINTAIN_LINK_ORDER = True
+        
+        # put in a bitwise OR the previous flags to combine them
+        self.flags =    self.URDF_MERGE_FIXED_LINKS | self.URDF_USE_INERTIA_FROM_FILE | self.URDF_USE_SELF_COLLISION | \
+                        self.URDF_USE_SELF_COLLISION_INCLUDE_PARENT | self.URDF_USE_SELF_COLLISION_EXCLUDE_ALL_PARENTS | \
+                        self.URDF_USE_IMPLICIT_CYLINDER | self.URDF_ENABLE_SLEEPING | self.URDF_INITIALIZE_SAT_FEATURES | \
+                        self.URDF_USE_MATERIAL_COLORS_FROM_MTL | self.URDF_ENABLE_CACHED_GRAPHICS_SHAPES | self.URDF_MAINTAIN_LINK_ORDER
+        
+        
         # set the gravity
         self.gravity = gravity
 
@@ -59,10 +79,10 @@ class PyBulletEnvironment:
         :param init_pos: Tuple, the initial position of the object.
         :param init_quat: Tuple, the initial quaternion of the object.
         """
-        self.ID.append(p.loadURDF(urdf_file, init_pos, init_quat))
+        self.ID.append(p.loadURDF(urdf_file, init_pos, init_quat, flags=self.flags))
         
     # simulate for a given time
-    def simulate(self, time, step=0.01):
+    def simulate(self, time, step=1/240):
         """
         Simulates the environment for a given time.
 
