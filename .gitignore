@@ -1,7 +1,8 @@
 
 # folders
 docker/
+earth_moving/clutter/__pycache__/
 
 # files
-*.pyc
 core.*
+
