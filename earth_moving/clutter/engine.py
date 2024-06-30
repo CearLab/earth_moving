@@ -5,6 +5,7 @@
 import pybullet as p
 import pybullet_data
 import time as t
+import numpy as np
 
 # class definition
 class PyBulletEnvironment:
@@ -20,7 +21,13 @@ class PyBulletEnvironment:
         
         # gui
         self.gui = gui
-        self.physicsClient = None  
+        self.physicsClient = None 
+        
+        # control accuracy threshold        
+        self.control_threshold = 5e-2 
+        
+        # iter limit
+        self.iter_limit = 1e2
         
         # ID list 
         self.ID = []
@@ -82,7 +89,7 @@ class PyBulletEnvironment:
         self.ID.append(p.loadURDF(urdf_file, init_pos, init_quat, flags=self.flags))
         
     # simulate for a given time
-    def simulate(self, time, step=1/240):
+    def simulate(self, time=0.1, step=1/240):
         """
         Simulates the environment for a given time.
 
@@ -125,6 +132,77 @@ class PyBulletEnvironment:
         """
         joint_state = p.getJointState(self.ID[1], joint_index)
         return target - joint_state[0]
+    
+    # control all the joints to a target position defined by an array
+    def control_all_joints(self, joint_targets, targetVel, control_mode=p.VELOCITY_CONTROL, max_force=1000):
+        """
+        Controls all the joints of the robot.
+
+        :param joint_targets: List, the desired positions or velocities of the joints.
+        :param control_mode: Integer, the control mode (p.POSITION_CONTROL or p.VELOCITY_CONTROL).
+        """
+        
+        # number of joints
+        Njoints = len(joint_targets)
+        
+        # error array
+        e = np.zeros(Njoints)        
+        
+        # error init
+        for i in range(Njoints):
+            
+            # error init    
+            e[i] = self.compute_joint_error(i,joint_targets[i])
+            
+        # reach flag array
+        reach = np.zeros(Njoints)
+        
+        # iter count
+        iter = 0
+        
+        # control loop
+        while np.any(reach == 0) and iter < self.iter_limit: 
+            
+            # iter update
+            iter = iter + 1
+            
+            # cycle joints
+            for i in range(Njoints):
+                
+                if np.abs(e[i]) > self.control_threshold and reach[i] == 0:
+                    targetVelCtrl = targetVel*np.sign(e[i])
+                    self.control_joint(i, targetVelCtrl, control_mode, max_force)
+                else:
+                    self.control_joint(i, 0, control_mode, max_force)
+                    reach[i] = 1
+                    
+                # error update
+                e[i] = self.compute_joint_error(i,joint_targets[i])
+            
+            # simulate
+            self.simulate()
+            
+            # warning on iterations
+            if iter >= self.iter_limit:
+                print("Warning: Iteration limit reached")                
+
+    # give a set of waypoints, control the robot to reach them
+    def control_waypoints(self, waypoints, targetVel, control_mode=p.VELOCITY_CONTROL, max_force=1000):
+        """
+        Controls the robot to reach a set of waypoints.
+
+        :param waypoints: List, the desired waypoints.
+        :param control_mode: Integer, the control mode (p.POSITION_CONTROL or p.VELOCITY_CONTROL).
+        """
+        
+        # number of waypoints
+        Nwaypoints = len(waypoints)
+        
+        # cycle waypoints
+        for i in range(Nwaypoints):
+            
+            # control the robot to reach the waypoint
+            self.control_all_joints(waypoints[i], targetVel, control_mode, max_force)
 
 # Example usage
 if __name__ == "__main__":

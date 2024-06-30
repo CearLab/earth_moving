@@ -2,6 +2,8 @@
     "cSpell.words": [
         "maxpos",
         "minpos",
+        "Njoints",
+        "Nwaypoints",
         "opengl",
         "pybullet",
         "urdf"
