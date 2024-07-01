@@ -170,7 +170,7 @@ class PyBulletEnvironment:
             for i in range(Njoints):
                 
                 if np.abs(e[i]) > self.control_threshold and reach[i] == 0:
-                    targetVelCtrl = targetVel*np.sign(e[i])
+                    targetVelCtrl = targetVel[i]*np.sign(e[i])
                     self.control_joint(i, targetVelCtrl, control_mode, max_force)
                 else:
                     self.control_joint(i, 0, control_mode, max_force)
