@@ -6,6 +6,7 @@ import pybullet as p
 import pybullet_data
 import time as t
 import numpy as np
+import math
 
 # class definition
 class PyBulletEnvironment:
@@ -24,10 +25,10 @@ class PyBulletEnvironment:
         self.physicsClient = None 
         
         # control accuracy threshold        
-        self.control_threshold = 5e-2 
+        self.control_threshold = 5e-3 
         
         # iter limit
-        self.iter_limit = 1e2
+        self.iter_limit = 5e2
         
         # ID list 
         self.ID = []
@@ -76,6 +77,9 @@ class PyBulletEnvironment:
         
         # add the robot
         self.ID.append(p.loadURDF(robot_urdf, init_pos, init_quat))
+        self.NumJoints = p.getNumJoints(self.ID[1])
+        self.NumLinks = self.NumJoints
+        
         
     # load additional URDF file to the environment
     def load_urdf(self, urdf_file, init_pos=(0, 0, 0), init_quat=(0, 0, 0, 1)):
@@ -107,7 +111,7 @@ class PyBulletEnvironment:
         p.disconnect()
         
     # control a joint
-    def control_joint(self, joint_index ,joint_target, control_mode=p.VELOCITY_CONTROL, max_force=1000):
+    def control_joint(self, joint_index ,joint_target, target_velocity=0.1, control_mode=p.VELOCITY_CONTROL, max_force=1000):
         """
         Controls a joint of the robot.
 
@@ -116,8 +120,9 @@ class PyBulletEnvironment:
         :param control_mode: Integer, the control mode (p.POSITION_CONTROL or p.VELOCITY_CONTROL).
         """
         
+        # control the joint
         if control_mode == p.POSITION_CONTROL:
-            p.setJointMotorControl2(self.ID[1], joint_index, control_mode, targetPosition=joint_target, force=max_force)
+            p.setJointMotorControl2(self.ID[1], joint_index, control_mode, targetPosition=joint_target, targetVelocity=target_velocity, force=max_force)
         elif control_mode == p.VELOCITY_CONTROL:
             p.setJointMotorControl2(self.ID[1], joint_index, control_mode, targetVelocity=joint_target, force=max_force)   
             
@@ -145,46 +150,60 @@ class PyBulletEnvironment:
         # number of joints
         Njoints = len(joint_targets)
         
-        # error array
-        e = np.zeros(Njoints)        
-        
-        # error init
-        for i in range(Njoints):
+        # if it is velocity controlled we have the error computation and the control loop
+        if control_mode == p.VELOCITY_CONTROL:
             
-            # error init    
-            e[i] = self.compute_joint_error(i,joint_targets[i])
+            # error array
+            e = np.zeros(Njoints)        
             
-        # reach flag array
-        reach = np.zeros(Njoints)
-        
-        # iter count
-        iter = 0
-        
-        # control loop
-        while np.any(reach == 0) and iter < self.iter_limit: 
-            
-            # iter update
-            iter = iter + 1
-            
-            # cycle joints
+            # error init
             for i in range(Njoints):
                 
-                if np.abs(e[i]) > self.control_threshold and reach[i] == 0:
-                    targetVelCtrl = targetVel[i]*np.sign(e[i])
-                    self.control_joint(i, targetVelCtrl, control_mode, max_force)
-                else:
-                    self.control_joint(i, 0, control_mode, max_force)
-                    reach[i] = 1
-                    
-                # error update
+                # error init    
                 e[i] = self.compute_joint_error(i,joint_targets[i])
+                
+            # reach flag array
+            reach = np.zeros(Njoints)
             
+            # iter count
+            iter = 0
+            
+            # control loop
+            while np.any(reach == 0) and iter < self.iter_limit: 
+                
+                # iter update
+                iter = iter + 1
+                
+                # cycle joints
+                for i in range(Njoints):
+                    
+                    if np.abs(e[i]) > self.control_threshold and reach[i] == 0:
+                        targetVelCtrl = targetVel[i]*np.sign(e[i])
+                        self.control_joint(i, targetVelCtrl, control_mode, max_force)
+                    else:
+                        self.control_joint(i, 0, control_mode, max_force)
+                        reach[i] = 1
+                        
+                    # simulate
+                    self.simulate()
+                        
+                    # error update
+                    e[i] = self.compute_joint_error(i,joint_targets[i])
+                    
+                    # warning on iterations
+                    if iter >= self.iter_limit:
+                        print("Warning: Iteration limit reached")
+                        
+        # if we are in position control, we just give the position
+        elif control_mode == p.POSITION_CONTROL:
+            for i in range(Njoints):
+                self.control_joint(i, joint_targets[i], targetVel[i], control_mode, max_force)
+                
             # simulate
             self.simulate()
-            
-            # warning on iterations
-            if iter >= self.iter_limit:
-                print("Warning: Iteration limit reached")                
+        # something went wrong
+        else:
+            print("Error: Control mode not recognized")
 
     # give a set of waypoints, control the robot to reach them
     def control_waypoints(self, waypoints, targetVel, control_mode=p.VELOCITY_CONTROL, max_force=1000):
@@ -201,8 +220,101 @@ class PyBulletEnvironment:
         # cycle waypoints
         for i in range(Nwaypoints):
             
+            # test to control the EE position
+            joint_pos = p.calculateInverseKinematics(self.ID[1], self.NumLinks-1, waypoints[i], maxNumIterations=500, residualThreshold=1e-2)
+            
             # control the robot to reach the waypoint
-            self.control_all_joints(waypoints[i], targetVel, control_mode, max_force)
+            self.control_all_joints(joint_pos, targetVel, control_mode, max_force)
+            
+            # debug printing with the end effector position            
+            link_state = p.getLinkState(self.ID[1], self.NumLinks-1)            
+            print("End Effector position: " + str(link_state[0]))
+            
+    # this function gets a path length and a curvature, and returns the waypoints
+    def get_waypoints(self, start_point, path_length, curvature, Nwaypoints):
+        """
+        Computes the waypoints of a path along an arc or a straight line given the path length, curvature (radius), and number of waypoints.
+
+        :param start_point: Tuple/List, the starting point (x, y, z).
+        :param path_length: Float, the length of the arc or straight path.
+        :param curvature: Float, the radius of the circle. A value of 0 indicates a straight path.
+        :param Nwaypoints: Integer, the number of waypoints.
+        :return: List, the waypoints.
+        """
+        
+        waypoints = []
+        z = start_point[2]  # Z-coordinate remains constant
+        
+        if curvature == 0:  # Straight path
+            dx = path_length / (Nwaypoints - 1)
+            for i in range(Nwaypoints):
+                x = start_point[0] + i * dx
+                y = start_point[1]
+                waypoints.append([x, y, z])
+        else:  # Arc path
+            cx = start_point[0]  # Center x of the circle remains the same as start x
+            cy = start_point[1] + curvature  # Center y is adjusted by curvature
+            
+            # Total central angle that the arc spans
+            theta = path_length / abs(curvature)
+            
+            # Angle increment for each waypoint
+            delta_theta = theta / (Nwaypoints - 1)
+            
+            # Initial angle for the arc
+            initial_angle = math.atan2(start_point[1] - cy, start_point[0] - cx)
+            
+            for i in range(Nwaypoints):
+                angle = initial_angle + delta_theta * i
+                x = cx + abs(curvature) * math.cos(angle)
+                y = cy + abs(curvature) * math.sin(angle)
+                waypoints.append([x, y, z])
+                
+        return waypoints
+    
+    # this function draws a point in the pybullet space
+    def draw_circle(self, position, radius, color=[1, 0, 0], num_segments=24):
+        """
+        Draws a circle in PyBullet around a specific dot in space.
+
+        :param position: Tuple/List, the (x, y, z) coordinates of the center of the circle.
+        :param radius: Float, the radius of the circle.
+        :param color: List, the RGB color of the circle.
+        :param num_segments: Integer, the number of segments to use for the circle.
+        """
+        # Calculate the angle between segments
+        angle_increment = 2 * math.pi / num_segments
+        
+        # Previous point, initialized to the first point of the circle
+        prev_point = (position[0] + radius * math.cos(0),
+                    position[1] + radius * math.sin(0),
+                    position[2])
+        
+        for i in range(1, num_segments + 1):
+            # Calculate the x and y coordinates of the next point
+            x = position[0] + radius * math.cos(i * angle_increment)
+            y = position[1] + radius * math.sin(i * angle_increment)
+            z = position[2]
+            
+            # Draw a line from the previous point to the current point
+            p.addUserDebugLine(prev_point, (x, y, z), lineColorRGB=color, lineWidth=2)
+            
+            # Update the previous point
+            prev_point = (x, y, z)
+            
+    # this function draws a set of points given as a list using the previous draw_circles
+    def draw_path(self, points, radius=0.01, color=[1, 0, 0], num_segments=24):
+        """
+        Draws a path in PyBullet using a set of points.
+
+        :param points: List, the list of points to draw.
+        :param radius: Float, the radius of the circle.
+        :param color: List, the RGB color of the circle.
+        :param num_segments: Integer, the number of segments to use for the circle.
+        """
+        for point in points:
+            self.draw_circle(point, radius, color, num_segments)
+            
 
 # Example usage
 if __name__ == "__main__":
