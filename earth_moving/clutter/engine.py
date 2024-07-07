@@ -111,7 +111,7 @@ class PyBulletEnvironment:
         p.disconnect()
         
     # control a joint
-    def control_joint(self, joint_index ,joint_target, control_mode=p.VELOCITY_CONTROL, max_force=1000, target_velocity=0.1):
+    def control_joint(self, joint_target, control_mode=p.VELOCITY_CONTROL, max_force=1000, target_velocity=0.1):
         """
         Controls a joint of the robot.
 
@@ -120,23 +120,26 @@ class PyBulletEnvironment:
         :param control_mode: Integer, the control mode (p.POSITION_CONTROL or p.VELOCITY_CONTROL).
         """
         
+        # Njoints
+        Njoints = p.getNumJoints(self.ID[1])
+        JointList = range(Njoints)
+        
         # control the joint
         if control_mode == p.POSITION_CONTROL:
-            p.setJointMotorControl2(self.ID[1], \
-            joint_index, \
+            p.setJointMotorControlMultiDofArray(self.ID[1], \
+            JointList, \
             control_mode, \
-            targetPosition=joint_target, \
-            targetVelocity=target_velocity, \
-            maxVelocity=100*target_velocity, \
-            force=max_force, \
-            positionGain=0.0001, \
-            velocityGain=0.0001)
+            targetPositions=joint_target, \
+            targetVelocities=target_velocity, \
+            forces=max_force, \
+            positionGains=[0.0001, 0.0001, 0.0001], \
+            velocityGains=[0.0001, 0.0001, 0.0001])
         elif control_mode == p.VELOCITY_CONTROL:
-            p.setJointMotorControl2(self.ID[1], \
-            joint_index, \
+            p.setJointMotorControlMultiDofArray(self.ID[1], \
+            JointList, \
             control_mode, \
-            targetVelocity=joint_target, \
-            force=max_force)   
+            targetVelocities=joint_target, \
+            forces=max_force)
             
     # compute the error of the joint with respect to a target
     def compute_joint_error(self, joint_index, target):
@@ -186,18 +189,22 @@ class PyBulletEnvironment:
                 # iter update
                 iter = iter + 1
                 
+                # init target velocities
+                targetVelCtrl = np.zeros(Njoints)
+                
                 # cycle joints
                 for i in range(Njoints):
                     
                     if np.abs(e[i]) > self.control_threshold and reach[i] == 0:
-                        targetVelCtrl = targetVel[i]*np.sign(e[i])
-                        self.control_joint(i, targetVelCtrl, control_mode, max_force, targetVelCtrl)
+                        targetVelCtrl[i] = targetVel[i]*np.sign(e[i])                        
                     else:
-                        self.control_joint(i, 0, control_mode, max_force, 0)
-                        reach[i] = 1
+                        targetVelCtrl[i] = 0.0
+                        reach[i] = 1                                            
                         
                     # error update
                     e[i] = self.compute_joint_error(i,joint_targets[i])
+                    
+                self.control_joint(targetVelCtrl, control_mode, max_force, targetVelCtrl)
                     
                 # simulate
                 self.simulate()
@@ -207,12 +214,14 @@ class PyBulletEnvironment:
                     print("Warning: Iteration limit reached")
                         
         # if we are in position control, we just give the position
-        elif control_mode == p.POSITION_CONTROL:
-            for i in range(Njoints):
-                self.control_joint(i, joint_targets[i], control_mode,max_force, targetVel[i])
+        elif control_mode == p.POSITION_CONTROL:            
+            
+            # control
+            self.control_joint(joint_targets, control_mode,max_force, targetVel)
                 
             # simulate
             self.simulate()
+            
         # something went wrong
         else:
             print("Error: Control mode not recognized")
