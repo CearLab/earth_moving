@@ -25,7 +25,7 @@ class PyBulletEnvironment:
         self.physicsClient = None 
         
         # control accuracy threshold        
-        self.control_threshold = 5e-3 
+        self.control_threshold = 1e-2 
         
         # iter limit
         self.iter_limit = 5e2
@@ -111,7 +111,7 @@ class PyBulletEnvironment:
         p.disconnect()
         
     # control a joint
-    def control_joint(self, joint_index ,joint_target, target_velocity=0.1, control_mode=p.VELOCITY_CONTROL, max_force=1000):
+    def control_joint(self, joint_index ,joint_target, control_mode=p.VELOCITY_CONTROL, max_force=1000, target_velocity=0.1):
         """
         Controls a joint of the robot.
 
@@ -122,7 +122,7 @@ class PyBulletEnvironment:
         
         # control the joint
         if control_mode == p.POSITION_CONTROL:
-            p.setJointMotorControl2(self.ID[1], joint_index, control_mode, targetPosition=joint_target, targetVelocity=target_velocity, force=max_force)
+            p.setJointMotorControl2(self.ID[1], joint_index, control_mode, targetPosition=joint_target, force=max_force)
         elif control_mode == p.VELOCITY_CONTROL:
             p.setJointMotorControl2(self.ID[1], joint_index, control_mode, targetVelocity=joint_target, force=max_force)   
             
@@ -179,25 +179,25 @@ class PyBulletEnvironment:
                     
                     if np.abs(e[i]) > self.control_threshold and reach[i] == 0:
                         targetVelCtrl = targetVel[i]*np.sign(e[i])
-                        self.control_joint(i, targetVelCtrl, control_mode, max_force)
+                        self.control_joint(i, targetVelCtrl, control_mode, max_force, targetVelCtrl)
                     else:
-                        self.control_joint(i, 0, control_mode, max_force)
+                        self.control_joint(i, 0, control_mode, max_force, 0)
                         reach[i] = 1
-                        
-                    # simulate
-                    self.simulate()
                         
                     # error update
                     e[i] = self.compute_joint_error(i,joint_targets[i])
                     
-                    # warning on iterations
-                    if iter >= self.iter_limit:
-                        print("Warning: Iteration limit reached")
+                # simulate
+                self.simulate()
+                    
+                # warning on iterations
+                if iter >= self.iter_limit:
+                    print("Warning: Iteration limit reached")
                         
         # if we are in position control, we just give the position
         elif control_mode == p.POSITION_CONTROL:
             for i in range(Njoints):
-                self.control_joint(i, joint_targets[i], targetVel[i], control_mode, max_force)
+                self.control_joint(i, joint_targets[i], control_mode,max_force, targetVel[i])
                 
             # simulate
             self.simulate()
@@ -225,8 +225,9 @@ class PyBulletEnvironment:
             
             # control the robot to reach the waypoint
             self.control_all_joints(joint_pos, targetVel, control_mode, max_force)
+            self.simulate()   
             
-            # debug printing with the end effector position            
+            # debug printing with the end effector position     
             link_state = p.getLinkState(self.ID[1], self.NumLinks-1)            
             print("End Effector position: " + str(link_state[0]))
             
@@ -273,7 +274,7 @@ class PyBulletEnvironment:
         return waypoints
     
     # this function draws a point in the pybullet space
-    def draw_circle(self, position, radius, color=[1, 0, 0], num_segments=24):
+    def draw_circle(self, position, radius, color=[1, 0, 0], num_segments=8):
         """
         Draws a circle in PyBullet around a specific dot in space.
 
