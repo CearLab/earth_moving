@@ -130,7 +130,7 @@ class PyBulletEnvironment:
             maxVelocity=100*target_velocity, \
             force=max_force, \
             positionGain=0.0001, \
-            velocityGain=0.0005)
+            velocityGain=0.0001)
         elif control_mode == p.VELOCITY_CONTROL:
             p.setJointMotorControl2(self.ID[1], \
             joint_index, \
