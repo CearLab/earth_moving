@@ -122,9 +122,21 @@ class PyBulletEnvironment:
         
         # control the joint
         if control_mode == p.POSITION_CONTROL:
-            p.setJointMotorControl2(self.ID[1], joint_index, control_mode, targetPosition=joint_target, force=max_force)
+            p.setJointMotorControl2(self.ID[1], \
+            joint_index, \
+            control_mode, \
+            targetPosition=joint_target, \
+            targetVelocity=target_velocity, \
+            maxVelocity=100*target_velocity, \
+            force=max_force, \
+            positionGain=0.0001, \
+            velocityGain=0.0005)
         elif control_mode == p.VELOCITY_CONTROL:
-            p.setJointMotorControl2(self.ID[1], joint_index, control_mode, targetVelocity=joint_target, force=max_force)   
+            p.setJointMotorControl2(self.ID[1], \
+            joint_index, \
+            control_mode, \
+            targetVelocity=joint_target, \
+            force=max_force)   
             
     # compute the error of the joint with respect to a target
     def compute_joint_error(self, joint_index, target):
