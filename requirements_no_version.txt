@@ -1,0 +1,47 @@
+arrow
+gym
+gym-notices
+ipykernel
+# ipynb
+ipython
+# ipython-genutils
+ipywidgets
+joblib
+jupyter
+# jupyter-console
+# jupyter-events
+jupyter_client
+jupyter_core
+jupyter_server
+jupyter_server_terminals
+# jupyterlab-pygments
+# jupyterlab-widgets
+keras
+matplotlib
+matplotlib-inline
+mistune
+nbclassic
+nbclient
+nbconvert
+nbformat
+notebook
+# notebook_shim
+numpy
+# opencv-python
+pandas
+PyBullet
+scipy
+shapely 
+tensorboard
+tensorboard-data-server
+tensorboard-plugin-wit
+tensorflow
+tensorflow-estimator
+# tensorflow-io-gcs-filesystem
+# torch
+# torchaudio
+torchvision
+tornado
+
+
+
