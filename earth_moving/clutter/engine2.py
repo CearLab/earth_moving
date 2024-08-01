@@ -7,10 +7,12 @@ import pybullet_data
 import time as t
 import numpy as np
 import math
+from shapely.geometry import Polygon
+
 
 # class definition
 class PyBulletEnvironment:
-    
+
     # constructor
     def __init__(self, gui=True, gravity=(0, 0, -10)):
         """
@@ -19,20 +21,20 @@ class PyBulletEnvironment:
         :param gui: Boolean, if True the environment will be opened with a GUI.
         :param gravity: Tuple, the gravity vector.
         """
-        
+
         # gui
         self.gui = gui
-        self.physicsClient = None 
-        
-        # control accuracy threshold        
-        self.control_threshold = 1e-2 
-        
+        self.physicsClient = None
+
+        # control accuracy threshold
+        self.control_threshold = 1e-2
+
         # iter limit
         self.iter_limit = 5e2
-        
-        # ID list 
+
+        # ID list
         self.ID = []
-        
+
         # pybullet options
         self.URDF_MERGE_FIXED_LINKS = True
         self.URDF_USE_INERTIA_FROM_FILE = True
@@ -45,14 +47,13 @@ class PyBulletEnvironment:
         self.URDF_USE_MATERIAL_COLORS_FROM_MTL = False
         self.URDF_ENABLE_CACHED_GRAPHICS_SHAPES = False
         self.URDF_MAINTAIN_LINK_ORDER = True
-        
+
         # put in a bitwise OR the previous flags to combine them
-        self.flags =    self.URDF_MERGE_FIXED_LINKS | self.URDF_USE_INERTIA_FROM_FILE | self.URDF_USE_SELF_COLLISION | \
-                        self.URDF_USE_SELF_COLLISION_INCLUDE_PARENT | self.URDF_USE_SELF_COLLISION_EXCLUDE_ALL_PARENTS | \
-                        self.URDF_USE_IMPLICIT_CYLINDER | self.URDF_ENABLE_SLEEPING | self.URDF_INITIALIZE_SAT_FEATURES | \
-                        self.URDF_USE_MATERIAL_COLORS_FROM_MTL | self.URDF_ENABLE_CACHED_GRAPHICS_SHAPES | self.URDF_MAINTAIN_LINK_ORDER
-        
-        
+        self.flags = self.URDF_MERGE_FIXED_LINKS | self.URDF_USE_INERTIA_FROM_FILE | self.URDF_USE_SELF_COLLISION | \
+                     self.URDF_USE_SELF_COLLISION_INCLUDE_PARENT | self.URDF_USE_SELF_COLLISION_EXCLUDE_ALL_PARENTS | \
+                     self.URDF_USE_IMPLICIT_CYLINDER | self.URDF_ENABLE_SLEEPING | self.URDF_INITIALIZE_SAT_FEATURES | \
+                     self.URDF_USE_MATERIAL_COLORS_FROM_MTL | self.URDF_ENABLE_CACHED_GRAPHICS_SHAPES | self.URDF_MAINTAIN_LINK_ORDER
+
         # set the gravity
         self.gravity = gravity
 
@@ -61,26 +62,25 @@ class PyBulletEnvironment:
         """
         Opens the PyBullet environment with or without GUI based on the initialization parameter.
         """
-        
+
         # set the gui mode
         if self.gui:
             self.physicsClient = p.connect(p.GUI)
         else:
             self.physicsClient = p.connect(p.DIRECT)  # Non-graphical version
         p.setAdditionalSearchPath(pybullet_data.getDataPath())  # Optionally set the search path
-        
+
         # gravity
         p.setGravity(self.gravity[0], self.gravity[1], self.gravity[2])
-        
-        # add the plane        
+
+        # add the plane
         self.ID.append(p.loadURDF("plane.urdf"))
-        
+
         # add the robot
         self.ID.append(p.loadURDF(robot_urdf, init_pos, init_quat))
         self.NumJoints = p.getNumJoints(self.ID[1])
         self.NumLinks = self.NumJoints
-        
-        
+
     # load additional URDF file to the environment
     def load_urdf(self, urdf_file, init_pos=(0, 0, 0), init_quat=(0, 0, 0, 1)):
         """
@@ -91,27 +91,29 @@ class PyBulletEnvironment:
         :param init_quat: Tuple, the initial quaternion of the object.
         """
         self.ID.append(p.loadURDF(urdf_file, init_pos, init_quat, flags=self.flags))
-        
+
     # simulate for a given time
-    def simulate(self, time=0.1, step=1/240):
+    def simulate(self, time=0.1, step=1 / 240):
         """
         Simulates the environment for a given time.
 
         :param time: Float, the simulation time.
         """
-        for _ in range(int(time/step)):
+        for _ in range(int(time / step)):
             p.stepSimulation()
-            t.sleep(step)    
+            t.sleep(step)
 
-    # close environment
+            # close environment
+
     def close_environment(self):
         """
         Closes the PyBullet environment.
         """
         p.disconnect()
-        
+
     # control a joint
-    def control_joint(self, joint_target, control_mode=p.VELOCITY_CONTROL, max_force=1000, target_velocity=0.1):
+    def control_joint(self, joint_index, joint_target, control_mode=p.VELOCITY_CONTROL, max_force=1000,
+                      target_velocity=0.1):
         """
         Controls a joint of the robot.
 
@@ -119,29 +121,27 @@ class PyBulletEnvironment:
         :param joint_target: Float, the desired position or velocity of the joint.
         :param control_mode: Integer, the control mode (p.POSITION_CONTROL or p.VELOCITY_CONTROL).
         """
-        
-        # Njoints
-        Njoints = p.getNumJoints(self.ID[1])
-        JointList = range(Njoints)
-        
+
         # control the joint
         if control_mode == p.POSITION_CONTROL:
-            p.setJointMotorControlMultiDofArray(self.ID[1], \
-            JointList, \
-            control_mode, \
-            targetPositions=joint_target, \
-            targetVelocities=target_velocity, \
-            forces=max_force, \
-            positionGains=[0.0001, 0.0001, 0.0001], \
-            velocityGains=[0.0001, 0.0001, 0.0001])
+            p.setJointMotorControl2(self.ID[1], \
+                                    joint_index, \
+                                    control_mode, \
+                                    targetPosition=joint_target, \
+                                    targetVelocity=target_velocity, \
+                                    maxVelocity=100 * target_velocity, \
+                                    force=max_force, \
+                                    positionGain=0.0001, \
+                                    velocityGain=0.0005)
         elif control_mode == p.VELOCITY_CONTROL:
-            p.setJointMotorControlMultiDofArray(self.ID[1], \
-            JointList, \
-            control_mode, \
-            targetVelocities=joint_target, \
-            forces=max_force)
-            
-    # compute the error of the joint with respect to a target
+            p.setJointMotorControl2(self.ID[1], \
+                                    joint_index, \
+                                    control_mode, \
+                                    targetVelocity=joint_target, \
+                                    force=max_force)
+
+            # compute the error of the joint with respect to a target
+
     def compute_joint_error(self, joint_index, target):
         """
         Computes the error of a joint with respect to a target.
@@ -152,7 +152,7 @@ class PyBulletEnvironment:
         """
         joint_state = p.getJointState(self.ID[1], joint_index)
         return target - joint_state[0]
-    
+
     # control all the joints to a target position defined by an array
     def control_all_joints(self, joint_targets, targetVel, control_mode=p.VELOCITY_CONTROL, max_force=1000):
         """
@@ -161,67 +161,60 @@ class PyBulletEnvironment:
         :param joint_targets: List, the desired positions or velocities of the joints.
         :param control_mode: Integer, the control mode (p.POSITION_CONTROL or p.VELOCITY_CONTROL).
         """
-        
+
         # number of joints
         Njoints = len(joint_targets)
-        
+
         # if it is velocity controlled we have the error computation and the control loop
         if control_mode == p.VELOCITY_CONTROL:
-            
+
             # error array
-            e = np.zeros(Njoints)        
-            
+            e = np.zeros(Njoints)
+
             # error init
             for i in range(Njoints):
-                
-                # error init    
-                e[i] = self.compute_joint_error(i,joint_targets[i])
-                
+                # error init
+                e[i] = self.compute_joint_error(i, joint_targets[i])
+
             # reach flag array
             reach = np.zeros(Njoints)
-            
+
             # iter count
             iter = 0
-            
+
             # control loop
-            while np.any(reach == 0) and iter < self.iter_limit: 
-                
+            while np.any(reach == 0) and iter < self.iter_limit:
+
                 # iter update
                 iter = iter + 1
-                
-                # init target velocities
-                targetVelCtrl = np.zeros(Njoints)
-                
+
                 # cycle joints
                 for i in range(Njoints):
-                    
+
                     if np.abs(e[i]) > self.control_threshold and reach[i] == 0:
-                        targetVelCtrl[i] = targetVel[i]*np.sign(e[i])                        
+                        targetVelCtrl = targetVel[i] * np.sign(e[i])
+                        self.control_joint(i, targetVelCtrl, control_mode, max_force, targetVelCtrl)
                     else:
-                        targetVelCtrl[i] = 0.0
-                        reach[i] = 1                                            
-                        
+                        self.control_joint(i, 0, control_mode, max_force, 0)
+                        reach[i] = 1
+
                     # error update
-                    e[i] = self.compute_joint_error(i,joint_targets[i])
-                    
-                self.control_joint(targetVelCtrl, control_mode, max_force, targetVelCtrl)
-                    
+                    e[i] = self.compute_joint_error(i, joint_targets[i])
+
                 # simulate
                 self.simulate()
-                    
+
                 # warning on iterations
                 if iter >= self.iter_limit:
                     print("Warning: Iteration limit reached")
-                        
+
         # if we are in position control, we just give the position
-        elif control_mode == p.POSITION_CONTROL:            
-            
-            # control
-            self.control_joint(joint_targets, control_mode,max_force, targetVel)
-                
+        elif control_mode == p.POSITION_CONTROL:
+            for i in range(Njoints):
+                self.control_joint(i, joint_targets[i], control_mode, max_force, targetVel[i])
+
             # simulate
             self.simulate()
-            
         # something went wrong
         else:
             print("Error: Control mode not recognized")
@@ -234,24 +227,24 @@ class PyBulletEnvironment:
         :param waypoints: List, the desired waypoints.
         :param control_mode: Integer, the control mode (p.POSITION_CONTROL or p.VELOCITY_CONTROL).
         """
-        
+
         # number of waypoints
         Nwaypoints = len(waypoints)
-        
+
         # cycle waypoints
         for i in range(Nwaypoints):
-            
             # test to control the EE position
-            joint_pos = p.calculateInverseKinematics(self.ID[1], self.NumLinks-1, waypoints[i], maxNumIterations=500, residualThreshold=1e-2)
-            
+            joint_pos = p.calculateInverseKinematics(self.ID[1], self.NumLinks - 1, waypoints[i], maxNumIterations=500,
+                                                     residualThreshold=1e-2)
+
             # control the robot to reach the waypoint
             self.control_all_joints(joint_pos, targetVel, control_mode, max_force)
-            self.simulate()   
-            
-            # debug printing with the end effector position     
-            link_state = p.getLinkState(self.ID[1], self.NumLinks-1)            
+            self.simulate()
+
+            # debug printing with the end effector position
+            link_state = p.getLinkState(self.ID[1], self.NumLinks - 1)
             print("End Effector position: " + str(link_state[0]))
-            
+
     # this function gets a path length and a curvature, and returns the waypoints
     def get_waypoints(self, start_point, path_length, curvature, Nwaypoints):
         """
@@ -263,10 +256,10 @@ class PyBulletEnvironment:
         :param Nwaypoints: Integer, the number of waypoints.
         :return: List, the waypoints.
         """
-        
+
         waypoints = []
         z = start_point[2]  # Z-coordinate remains constant
-        
+
         if curvature == 0:  # Straight path
             dx = path_length / (Nwaypoints - 1)
             for i in range(Nwaypoints):
@@ -276,24 +269,24 @@ class PyBulletEnvironment:
         else:  # Arc path
             cx = start_point[0]  # Center x of the circle remains the same as start x
             cy = start_point[1] + curvature  # Center y is adjusted by curvature
-            
+
             # Total central angle that the arc spans
             theta = path_length / abs(curvature)
-            
+
             # Angle increment for each waypoint
             delta_theta = theta / (Nwaypoints - 1)
-            
+
             # Initial angle for the arc
             initial_angle = math.atan2(start_point[1] - cy, start_point[0] - cx)
-            
+
             for i in range(Nwaypoints):
                 angle = initial_angle + delta_theta * i
                 x = cx + abs(curvature) * math.cos(angle)
                 y = cy + abs(curvature) * math.sin(angle)
                 waypoints.append([x, y, z])
-                
+
         return waypoints
-    
+
     # this function draws a point in the pybullet space
     def draw_circle(self, position, radius, color=[1, 0, 0], num_segments=8):
         """
@@ -306,24 +299,24 @@ class PyBulletEnvironment:
         """
         # Calculate the angle between segments
         angle_increment = 2 * math.pi / num_segments
-        
+
         # Previous point, initialized to the first point of the circle
         prev_point = (position[0] + radius * math.cos(0),
-                    position[1] + radius * math.sin(0),
-                    position[2])
-        
+                      position[1] + radius * math.sin(0),
+                      position[2])
+
         for i in range(1, num_segments + 1):
             # Calculate the x and y coordinates of the next point
             x = position[0] + radius * math.cos(i * angle_increment)
             y = position[1] + radius * math.sin(i * angle_increment)
             z = position[2]
-            
+
             # Draw a line from the previous point to the current point
             p.addUserDebugLine(prev_point, (x, y, z), lineColorRGB=color, lineWidth=2)
-            
+
             # Update the previous point
             prev_point = (x, y, z)
-            
+
     # this function draws a set of points given as a list using the previous draw_circles
     def draw_path(self, points, radius=0.01, color=[1, 0, 0], num_segments=24):
         """
@@ -336,11 +329,71 @@ class PyBulletEnvironment:
         """
         for point in points:
             self.draw_circle(point, radius, color, num_segments)
-            
+
+    # function to draw shapely shape in pybullet
+    def draw_shapely_shape(self, shape, height=0.1, color=[1, 0, 0]):
+        """
+        Draws a Shapely shape in PyBullet using addUserDebugLine.
+
+        :param shape: Shapely shape object.
+        :param height: Float, the height to extrude the shape.
+        :param color: List, the RGB color of the shape.
+        """
+        coords = list(shape.exterior.coords)
+
+        # Draw base shape
+        for i in range(len(coords) - 1):
+            p.addUserDebugLine(
+                lineFromXYZ=[coords[i][0], coords[i][1], 0],
+                lineToXYZ=[coords[i + 1][0], coords[i + 1][1], 0],
+                lineColorRGB=color,
+                lifeTime=0
+            )
+
+        # Draw extruded shape
+        for i in range(len(coords) - 1):
+            p.addUserDebugLine(
+                lineFromXYZ=[coords[i][0], coords[i][1], 0],
+                lineToXYZ=[coords[i][0], coords[i][1], height],
+                lineColorRGB=color,
+                lifeTime=0
+            )
+            p.addUserDebugLine(
+                lineFromXYZ=[coords[i][0], coords[i][1], height],
+                lineToXYZ=[coords[i + 1][0], coords[i + 1][1], height],
+                lineColorRGB=color,
+                lifeTime=0
+            )
+
+        # Draw vertical edges
+        for i in range(len(coords) - 1):
+            p.addUserDebugLine(
+                lineFromXYZ=[coords[i][0], coords[i][1], 0],
+                lineToXYZ=[coords[i + 1][0], coords[i + 1][1], 0],
+                lineColorRGB=color,
+                lifeTime=0
+            )
+            p.addUserDebugLine(
+                lineFromXYZ=[coords[i][0], coords[i][1], height],
+                lineToXYZ=[coords[i + 1][0], coords[i + 1][1], height],
+                lineColorRGB=color,
+                lifeTime=0
+            )
+
 
 # Example usage
 if __name__ == "__main__":
     env = PyBulletEnvironment(gui=True)
     env.open_environment()
+
+    # Create a Shapely shape (e.g., a square)
+    square = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+
+    # Draw the Shapely shape in PyBullet
+    env.draw_shapely_shape(square, height=0.1)
+
     # Perform simulation tasks here
+    env.simulate(5)
+
+    # Close the environment
     env.close_environment()
