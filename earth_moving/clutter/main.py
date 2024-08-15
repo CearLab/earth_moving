@@ -1,11 +1,12 @@
 import os
 import numpy as np
-from shapely.geometry import Point  # Corrected import statement
-from geometry import create_convex_hull, find_boundary_pebble_positions, closest_point_on_circle
-from drawing import draw_line, draw_shapely_shape, draw_smooth_curve_from_points
+from shapely.geometry import Point
+from geometry import create_convex_hull, closest_point_on_circle
+from drawing import draw_line, draw_smooth_curve_from_points, draw_shapely_shape
 from pebble import scatter_pebbles
 from engine_new import PyBulletEnvironment
 from movement import RobotMovement
+from grid import Grid  # Import the Grid class
 
 # Initialize parameters
 robot_urdf = os.path.abspath('./urdf/shovel/shovelFlat.urdf')
@@ -19,75 +20,68 @@ engine.open_environment(robot_urdf, startPos, startOrientation)
 
 # Get shovel link state and admissible init positions
 shovelLinkState = engine.get_link_state(engine.ID[1], 2)
-minpos = np.asarray(shovelLinkState[0]) - 5 * 1e-1
-maxpos = np.asarray(shovelLinkState[0]) + 5 * 1e-1
+minpos = np.asarray(shovelLinkState[0]) - 0.5
+maxpos = np.asarray(shovelLinkState[0]) + 0.5
 
 # Scatter pebbles and collect their positions
-pebble_positions = scatter_pebbles(engine, minpos+1, maxpos+1, 100, pebble_urdf)
+pebble_positions = scatter_pebbles(engine, minpos+0.5, maxpos+0.5, 100, pebble_urdf)
+
+# Collect shovel position
+shovel_position = np.asarray(shovelLinkState[0])[:2]
 
 # Define a circle position near the pebbles
-circle_center = np.mean(pebble_positions, axis=0) + np.array([0.75, 0.75])
+pebble_positions_array = np.array(pebble_positions)
+pebble_positions_mean = np.mean(pebble_positions_array, axis=0)
+circle_center = pebble_positions_mean + np.array([0.55, 0.55])
 circle_radius = 0.3
 circle = Point(circle_center).buffer(circle_radius)
 
 # Draw the circle in PyBullet
 draw_smooth_curve_from_points(engine, list(circle.exterior.coords), color=[1, 0, 0])
 
-# Collect circle boundary points
-circle_points = np.array(circle.exterior.coords[:-1])  # Exclude the repeated first/last point
+# Create a grid
+# Determine x_range and y_range based on pebble positions with some padding
+padding = 0.5
+min_x, min_y = np.min(pebble_positions_array, axis=0) - padding
+max_x, max_y = np.max(pebble_positions_array, axis=0) + padding
+
+cell_size = 0.1  # Adjust cell size as needed
+x_range = [min_x, max_x]
+y_range = [min_y, max_y]
+
+# Initialize the grid
+grid = Grid(cell_size, x_range, y_range)
+
+# Assign pebbles to grid cells
+grid.assign_pebbles_to_cells(pebble_positions)
+
+# Draw the grid
+grid.draw_grid()
 
 # Create a convex hull using Shapely
-convex_hull = create_convex_hull(pebble_positions, circle_points)
+convex_hull = create_convex_hull(pebble_positions, circle.exterior.coords[:-1])
 
 # Draw the convex hull in PyBullet
 draw_shapely_shape(engine, convex_hull, height=0.01)
 
-# Find boundary pebble positions
-boundary_pebble_positions = find_boundary_pebble_positions(pebble_positions, convex_hull, 0.05)
+# Find boundary cells and draw lines from these cells to the closest point on the circle
+from shapely.geometry import Point
 
-# Draw lines from boundary pebbles to the closest point on the circle
-for pebble_pos in boundary_pebble_positions:
-    closest_point = closest_point_on_circle(circle_center, circle_radius, pebble_pos)
-    draw_line(engine, pebble_pos, closest_point, color=[0, 1, 0], width=3)
+distance_threshold = 0.05  # Adjust as necessary
 
-# Get the current end effector position and orientation
-endEffectorPos = engine.get_link_state(engine.ID[1], 2)[0]
-endEffectorOrientation = engine.get_link_state(engine.ID[1], 2)[1]
+boundary_cells = []
 
-# Convert quaternion to Euler angles
-endEffectorOrientationEuler = engine.get_euler_from_quaternion(endEffectorOrientation)
+cells_with_pebbles = grid.get_cells_with_pebbles()
+for (x_index, y_index), pebbles_in_cell in cells_with_pebbles.items():
+    cell_center = grid.get_cell_center(x_index, y_index)
+    point = Point(cell_center)
+    if convex_hull.boundary.distance(point) <= distance_threshold:
+        boundary_cells.append(cell_center)
 
-# Create a RobotMovement instance for different movements
-movements = [
-    RobotMovement(movement_type="forward", length=1, curvature=0, Nwaypoints=10),
-    RobotMovement(movement_type="arc_right", length=1, curvature=0.5, Nwaypoints=10),
-    RobotMovement(movement_type="arc_left", length=1, curvature=0.5, Nwaypoints=10),
-    RobotMovement(movement_type="forward", length=1, curvature=0, Nwaypoints=10),
-    RobotMovement(movement_type="arc_right", length=1, curvature=0.5, Nwaypoints=10),
-    RobotMovement(movement_type="arc_left", length=1, curvature=0.5, Nwaypoints=10)
-    # RobotMovement(movement_type="backward", length=1, curvature=0, Nwaypoints=10),
-    # RobotMovement(movement_type="arc_backward_right", length=1, curvature=0.5, Nwaypoints=10),
-    # RobotMovement(movement_type="arc_backward_left", length=1, curvature=0.5, Nwaypoints=10)
-]
-
-# Generate waypoints for the specified movements
-all_waypoints = []
-current_position = endEffectorPos
-current_orientation = endEffectorOrientationEuler
-
-for movement in movements:
-    waypoints, new_orientation = movement.generate_waypoints(current_position, current_orientation)
-    all_waypoints.extend(waypoints)
-    current_position = waypoints[-1]
-    current_orientation = new_orientation
-
-# Draw the combined path
-draw_smooth_curve_from_points(engine, all_waypoints, color=[1, 0, 1])
-
-# Control the robot to follow the combined path
-mode = "POSITION"  # Adjusted to string "POSITION"
-target_velocities = [1e-3, 1e-2, 1e-2]
-engine.control_waypoints(all_waypoints, target_velocities, control_mode=mode)
+# Draw lines from boundary cell centers to the closest point on the circle
+for cell_center in boundary_cells:
+    closest_point = closest_point_on_circle(circle_center, circle_radius, cell_center)
+    draw_line(engine, cell_center, closest_point, color=[0, 1, 0], width=3)
 
 # Simulate and keep the environment running
 try:

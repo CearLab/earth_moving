@@ -14,21 +14,22 @@ def create_convex_hull(pebble_positions, circle_points):
     convex_hull = points.convex_hull
     return convex_hull
 
-def find_boundary_pebble_positions(pebble_positions, convex_hull, distance_threshold):
+def find_boundary_cells(grid, convex_hull, distance_threshold=0.05):
     """
-    Find pebbles on the boundary of the convex hull or close to it.
+    Find the grid cells that are on the boundary of the convex hull.
 
-    :param pebble_positions: List of pebble positions.
+    :param grid: Dictionary with cell centers and the pebbles they contain.
     :param convex_hull: Convex hull geometry.
-    :param distance_threshold: Distance threshold for considering pebbles as boundary pebbles.
-    :return: List of boundary pebble positions.
+    :param distance_threshold: Distance threshold for considering cells as boundary cells.
+    :return: List of cells that are on the boundary of the convex hull.
     """
-    boundary_pebble_positions = []
-    for pos in pebble_positions:
-        point = Point(pos)
-        if convex_hull.boundary.distance(point) <= distance_threshold:
-            boundary_pebble_positions.append(pos)
-    return boundary_pebble_positions
+    boundary_cells = []
+    for cell_center, pebbles in grid.items():
+        if pebbles:  # If the cell contains pebbles
+            point = Point(cell_center)
+            if convex_hull.boundary.distance(point) <= distance_threshold:
+                boundary_cells.append(cell_center)
+    return boundary_cells
 
 def closest_point_on_circle(circle_center, circle_radius, external_point):
     """
