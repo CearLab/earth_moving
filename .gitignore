@@ -2,6 +2,7 @@
 # folders
 docker/
 earth_moving/clutter/__pycache__/
+pyenv/
 
 # files
 core.*
