@@ -7,9 +7,11 @@ import pybullet_data
 import time as t
 import numpy as np
 import math
+from earth_moving.clutter.base_simulation_engine import BaseSimulationEngine
 
 # class definition2
-class PyBulletEnvironment:
+# class PyBulletEnvironment:
+class PyBulletEnvironment(BaseSimulationEngine):
     
     # constructor
     def __init__(self, gui=True, gravity=(0, 0, -10)):
@@ -116,6 +118,8 @@ class PyBulletEnvironment:
         
     # control a joint
     def control_joint(self, joint_target, control_mode=p.VELOCITY_CONTROL):
+        # if control_joint == ControlMode.VELOCITY_CONTROL:
+            # pybullet_velocty_control = p.
         """
         Controls a joint of the robot.
 
