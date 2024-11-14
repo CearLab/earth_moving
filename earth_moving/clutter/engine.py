@@ -125,11 +125,12 @@ class PyBulletEnvironment:
         JointList = range(Njoints)
         vel_target=[0.1,0.1,0.1]
         vel_gains =[0.0, 0.0, 0.0]
-        pos_gains =[1e-5, 1e-5, 1e-5]
+        pos_gains =[1e-4, 1e-2, 1e-4]
         
         # control the joint        
         p.setJointMotorControlArray(self.ID[1], JointList, p.POSITION_CONTROL, \
-                    targetPositions=joint_target)
+                    targetPositions=joint_target, targetVelocities=vel_target, \
+                    positionGains=pos_gains, velocityGains=vel_gains)
             
     # compute the error of the joint with respect to a target
     def compute_joint_error(self, joint_index, target):
