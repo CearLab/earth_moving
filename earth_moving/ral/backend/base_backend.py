@@ -1,18 +1,5 @@
 import numpy as np
-
-
-class BaseSensorBackend: # TODO: move to a separate file?
-    def __init__(self, **kwargs) -> None:
-        self._kwargs = kwargs
-        self._pose = ...
-    
-    def get(self) -> np.array: # TODO: what if numpy isn't installed?
-        raise NotImplementedError()
-    
-    def update_pose(self):
-        raise NotImplementedError()
-
-
+from sensor.sensor_backend import BaseSensorBackend
 class BaseBackend:
     def __init__(self) -> None:
         pass
