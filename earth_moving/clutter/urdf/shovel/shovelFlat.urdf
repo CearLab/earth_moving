@@ -17,7 +17,7 @@
         <!-- 5 cm radius sphere -->
         <sphere radius="5e-2"/>
       </geometry>      
-      <material name="blue" />
+      <material name="black" />
     </visual>
     <collision>
       <geometry>        
@@ -51,7 +51,7 @@
         <!-- 10x20x10 cm box -->
         <box size="1e-1 5e-2 5e-2"/>
       </geometry>
-      <material name="yellow" />
+      <material name="black" />
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -72,7 +72,7 @@
   <joint name="L1_L2_joint" type="revolute">
     <axis xyz="0 0 1"/> 
     <!-- offset on x-axis -->
-    <origin xyz="1e-1 0 0" rpy="0 0 0" />
+    <origin xyz="0 0 0" rpy="0 0 0" />
     <parent link="L1_link"/>
     <child link="L2_link" />        
     <limit lower="-3.1415" upper="3.1415" effort="1e2" velocity="0.2"/>
@@ -83,11 +83,11 @@
   <!-- L2_link -->
   <link name="L2_link">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <origin xyz="0 0 0.0" rpy="0 0 0"/>
       <geometry>        
-        <cylinder radius="1e-2" length="1e-1"/>
+        <cylinder radius="4e-2" length="5.1e-2"/>
       </geometry>
-      <material name="yellow" />
+      <material name="light_grey" />
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/>
@@ -107,7 +107,7 @@
     <!-- rotation along z-axis -->
     <axis xyz="0 0 1"/> 
     <!-- 5cm shift along x-axis -->
-    <origin xyz="1e-1 0 0" rpy="0 0 0" />
+    <origin xyz="2e-1 0 0" rpy="0 0 0" />
     <!-- rest of data -->
     <parent link="L2_link"/>
     <child link="EE_link" />        
@@ -137,7 +137,7 @@
       <!-- 20 grams - 0.02 kg-->
       <mass value="20e-3"/> 
       <!-- ineetia (anisotropic): m*l^2  [kg x m^2]  -->
-      <inertia ixx="5e-5" ixy="0.0" ixz="0.0" iyy="2e-4" iyz="0.0" izz="5e-5"/>
+      <inertia ixx="5e-5" ixy="0.0" ixz="0.0" iyy="2e-4" iyz="0.0" izz="5e-5"/>      
       </inertial>
   </link>
   

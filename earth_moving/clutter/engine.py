@@ -7,11 +7,9 @@ import pybullet_data
 import time as t
 import numpy as np
 import math
-from earth_moving.clutter.base_simulation_engine import BaseSimulationEngine
 
-# class definition2
-# class PyBulletEnvironment:
-class PyBulletEnvironment(BaseSimulationEngine):
+# class definition
+class PyBulletEnvironment:
     
     # constructor
     def __init__(self, gui=True, gravity=(0, 0, -10)):
@@ -27,11 +25,7 @@ class PyBulletEnvironment(BaseSimulationEngine):
         self.physicsClient = None 
         
         # control accuracy threshold        
-        self.control_threshold = 1e-3 
-        self.Pos_gains = [1e-3, 1e-3, 1e-3]
-        self.Vel_gains = [1e-3, 1e-3, 1e-3]
-        self.Target_velocities = [0.01, 0.2, 0.2]
-        self.maxForce = [1e3, 1e3, 1e3]
+        self.control_threshold = 1e-2 
         
         # iter limit
         self.iter_limit = 5e2
@@ -117,9 +111,7 @@ class PyBulletEnvironment(BaseSimulationEngine):
         p.disconnect()
         
     # control a joint
-    def control_joint(self, joint_target, control_mode=p.VELOCITY_CONTROL):
-        # if control_joint == ControlMode.VELOCITY_CONTROL:
-            # pybullet_velocty_control = p.
+    def control_joint(self, joint_target):
         """
         Controls a joint of the robot.
 
@@ -131,25 +123,13 @@ class PyBulletEnvironment(BaseSimulationEngine):
         # Njoints
         Njoints = p.getNumJoints(self.ID[1])
         JointList = range(Njoints)
+        vel_target=[0.1,0.1,0.1]
+        vel_gains =[0.0, 0.0, 0.0]
+        pos_gains =[1e-5, 1e-5, 1e-5]
         
-        # control the joint
-        if control_mode == p.POSITION_CONTROL:
-            p.setJointMotorControlArray(self.ID[1], \
-            JointList, \
-            control_mode, \
-            targetPositions=joint_target, \
-            targetVelocities=self.Target_velocities, \
-            forces=self.maxForce, \
-            # positionGains=self.Pos_gains, \
-            # velocityGains=self.Vel_gains
-            )
-            # if you want you can play also with 
-        elif control_mode == p.VELOCITY_CONTROL:
-            p.setJointMotorControlArray(self.ID[1], \
-            JointList, \
-            control_mode, \
-            targetVelocities=joint_target, \
-            forces=self.maxForce)
+        # control the joint        
+        p.setJointMotorControlArray(self.ID[1], JointList, p.POSITION_CONTROL, \
+                    targetPositions=joint_target)
             
     # compute the error of the joint with respect to a target
     def compute_joint_error(self, joint_index, target):
@@ -164,80 +144,23 @@ class PyBulletEnvironment(BaseSimulationEngine):
         return target - joint_state[0]
     
     # control all the joints to a target position defined by an array
-    def control_all_joints(self, joint_targets, control_mode=p.VELOCITY_CONTROL):
+    def control_all_joints(self, joint_targets):
         """
         Controls all the joints of the robot.
 
         :param joint_targets: List, the desired positions or velocities of the joints.
         :param control_mode: Integer, the control mode (p.POSITION_CONTROL or p.VELOCITY_CONTROL).
-        """
-        
-        # number of joints
-        Njoints = p.getNumJoints(self.ID[1])
+        """                
         
         # if it is velocity controlled we have the error computation and the control loop
-        if control_mode == p.VELOCITY_CONTROL:
-            
-            # error array
-            e = np.zeros(Njoints)        
-            
-            # error init
-            for i in range(Njoints):
+        
+        self.control_joint(joint_targets)
                 
-                # error init    
-                e[i] = self.compute_joint_error(i,joint_targets[i])
-                
-            # reach flag array
-            reach = np.zeros(Njoints)
-            
-            # iter count
-            iter = 0
-            
-            # control loop
-            while np.any(reach == 0) and iter < self.iter_limit: 
-                
-                # iter update
-                iter = iter + 1
-                
-                # init target velocities
-                targetVelCtrl = np.zeros(Njoints)
-                
-                # cycle joints
-                for i in range(Njoints):
-                    
-                    if np.abs(e[i]) > self.control_threshold and reach[i] == 0:
-                        targetVelCtrl[i] = self.Vel_gains[i]*np.sign(e[i])                        
-                    else:
-                        targetVelCtrl[i] = 0.0
-                        reach[i] = 1                                            
-                        
-                    # error update
-                    e[i] = self.compute_joint_error(i,joint_targets[i])
-                    
-                self.control_joint(targetVelCtrl, control_mode)
-                    
-                # simulate
-                self.simulate()
-                    
-                # warning on iterations
-                if iter >= self.iter_limit:
-                    print("Warning: Iteration limit reached")
-                        
-        # if we are in position control, we just give the position
-        elif control_mode == p.POSITION_CONTROL:            
-            
-            # control
-            self.control_joint(joint_targets, control_mode)
-                
-            # simulate
-            self.simulate()
-            
-        # something went wrong
-        else:
-            print("Error: Control mode not recognized")
+        # simulate
+        self.simulate()                    
 
     # give a set of waypoints, control the robot to reach them
-    def control_waypoints(self, waypoints, control_mode=p.VELOCITY_CONTROL):
+    def control_waypoints(self, waypoints):
         """
         Controls the robot to reach a set of waypoints.
 
@@ -252,10 +175,10 @@ class PyBulletEnvironment(BaseSimulationEngine):
         for i in range(Nwaypoints):
             
             # test to control the EE position
-            joint_pos = p.calculateInverseKinematics(self.ID[1], self.NumLinks-1, waypoints[i], maxNumIterations=1000, residualThreshold=1e-3)
+            joint_pos = p.calculateInverseKinematics(self.ID[1], self.NumLinks-1, waypoints[i], maxNumIterations=500, residualThreshold=1e-2)
             
             # control the robot to reach the waypoint
-            self.control_all_joints(joint_pos, control_mode)
+            self.control_all_joints(joint_pos)
             self.simulate()   
             
             # debug printing with the end effector position     
@@ -305,7 +228,7 @@ class PyBulletEnvironment(BaseSimulationEngine):
         return waypoints
     
     # this function draws a point in the pybullet space
-    def draw_circle(self, position, radius, color=[1, 0, 0], num_segments=8):
+    def draw_circle(self, position, radius, color=[1, 0, 0], num_segments=2):
         """
         Draws a circle in PyBullet around a specific dot in space.
 
