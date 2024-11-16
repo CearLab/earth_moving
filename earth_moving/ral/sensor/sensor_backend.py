@@ -10,8 +10,8 @@ class BaseSensorBackend(ABC):
         self._data = self._kwargs.get('data')
         self._pose = self._kwargs.get('pose')
         self._name = self._kwargs.get('name')
-        self._frame = self._name + '_link' # TODO: we should name the frames with this in later URDFs/publishers
-        self._type = self._kwargs.get('type') # ? Here I would use ABSOLUTE/RELATIVE, see self.read_sensor
+        self._frame_body = self._name + '_link' # TODO: we should name the frames with this in later URDFs/publishers
+        self._frame_read = self._kwargs.get('frame_read') # ? In general we might want the data in a specific reference frame?
         
     @abstractmethod # ! Is this correct? I want Pybullet/ROS to handle the actual data fetching
     def get_data(self) -> np.array: # TODO: what if numpy isn't installed?
@@ -23,12 +23,10 @@ class BaseSensorBackend(ABC):
     
     def read_sensor(self) -> np.array:
         tmp = self.get_data()
-        if self._type == 'RELATIVE':
+        if self._frame_body != self._frame_read:
             self._data = self.transform(tmp)
-        elif self._type == 'ABSOLUTE':
-            self._data = tmp
         else:
-            pass # ! is there a more elegant way for this? Maybe a boolean instead of a string sensor type?
+            self._data = tmp        
     
     def update_pose(self):
         raise NotImplementedError()
