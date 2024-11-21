@@ -7,5 +7,9 @@
         "opengl",
         "pybullet",
         "urdf"
+    ],
+    "python.analysis.extraPaths": [
+        "./earth_moving/ral/sensor",
+        "./earth_moving/ral"
     ]
 }

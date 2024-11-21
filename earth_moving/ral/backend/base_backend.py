@@ -1,6 +1,7 @@
 import numpy as np
+from abc import ABC, abstractmethod
 from sensor.sensor_backend import BaseSensorBackend
-class BaseBackend:
+class BaseBackend(ABC):
     def __init__(self) -> None:
         pass
     
