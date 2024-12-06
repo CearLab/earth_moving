@@ -10,3 +10,9 @@ class BaseBackend(ABC):
 
     def initiate_rgb_sensor(self) -> BaseSensorBackend:
         raise NotImplementedError()
+        
+    def initiate_imu_sensor(self) -> BaseSensorBackend:
+        raise NotImplementedError()
+    
+    def initiate_gyro_sensor(self) -> BaseSensorBackend:
+        raise NotImplementedError()
