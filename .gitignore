@@ -3,8 +3,8 @@
 docker/
 earth_moving/clutter/__pycache__/
 pyenv/
-__pycache__/
 .vscode/
+__pycache__/
 
 # files
 core.*
