@@ -269,7 +269,31 @@ class PyBulletEnvironment:
         """
         for point in points:
             self.draw_circle(point, radius, color, num_segments)
-            
+    
+
+    def get_top_view(self):
+        pixelWidth = 320
+        pixelHeight = 320
+        camTargetPos = [1, 0, 0]
+        camDistance = 1.3
+        yaw = 0
+        pitch = -90.0
+        roll = 0
+        upAxisIndex = 2
+
+        viewMatrix = p.computeViewMatrixFromYawPitchRoll(camTargetPos, camDistance, yaw, pitch, roll,
+                                                            upAxisIndex)
+        projectionMatrix = [
+            1.0825318098068237, 0.0, 0.0, 0.0, 0.0, 1.732050895690918, 0.0, 0.0, 0.0, 0.0,
+            -1.0002000331878662, -1.0, 0.0, 0.0, -0.020002000033855438, 0.0
+        ]
+        img_arr = p.getCameraImage(pixelWidth,
+                                    pixelHeight,
+                                    viewMatrix=viewMatrix,
+                                    projectionMatrix=projectionMatrix,
+                                    shadow=1,
+                                    lightDirection=[1, 1, 1])
+        return img_arr
 
 # Example usage
 if __name__ == "__main__":
