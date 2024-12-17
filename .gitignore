@@ -6,6 +6,7 @@ pyenv/
 .vscode/
 __pycache__/
 outputs/
+earth_moving/clutter/urd5/
 
 # files
 core.*
