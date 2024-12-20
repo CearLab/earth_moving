@@ -125,11 +125,12 @@ class PyBulletEnvironment:
         JointList = range(Njoints)
         vel_target=[0.1,0.1,0.1]
         vel_gains =[0.0, 0.0, 0.0]
-        pos_gains =[1e-5, 1e-5, 1e-5]
+        pos_gains =[1e-4, 1e-2, 1e-4]
         
         # control the joint        
         p.setJointMotorControlArray(self.ID[1], JointList, p.POSITION_CONTROL, \
-                    targetPositions=joint_target)
+                    targetPositions=joint_target, targetVelocities=vel_target, \
+                    positionGains=pos_gains, velocityGains=vel_gains)
             
     # compute the error of the joint with respect to a target
     def compute_joint_error(self, joint_index, target):
@@ -274,8 +275,8 @@ class PyBulletEnvironment:
     def get_top_view(self):
         pixelWidth = 320
         pixelHeight = 320
-        camTargetPos = [1, 0, 0]
-        camDistance = 1.3
+        camTargetPos = [0.25, 0, 0]
+        camDistance = 1.5
         yaw = 0
         pitch = -90.0
         roll = 0
@@ -283,14 +284,18 @@ class PyBulletEnvironment:
 
         viewMatrix = p.computeViewMatrixFromYawPitchRoll(camTargetPos, camDistance, yaw, pitch, roll,
                                                             upAxisIndex)
-        projectionMatrix = [
-            1.0825318098068237, 0.0, 0.0, 0.0, 0.0, 1.732050895690918, 0.0, 0.0, 0.0, 0.0,
-            -1.0002000331878662, -1.0, 0.0, 0.0, -0.020002000033855438, 0.0
-        ]
+        
+        fov = 60  # Field of view in degrees
+        aspect = 1.0  # Aspect ratio (width/height)
+        near = 0.1  # Near clipping plane
+        far = 20.0  # Far clipping plane
+
+        projection_matrix = p.computeProjectionMatrixFOV(fov, aspect, near, far)
+
         img_arr = p.getCameraImage(pixelWidth,
                                     pixelHeight,
                                     viewMatrix=viewMatrix,
-                                    projectionMatrix=projectionMatrix,
+                                    projectionMatrix=projection_matrix,
                                     shadow=1,
                                     lightDirection=[1, 1, 1])
         return img_arr
