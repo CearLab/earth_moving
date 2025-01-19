@@ -1,0 +1,6 @@
+[submodule "muzero-general"]
+	path = muzero-general
+	url = https://github.com/werner-duvaud/muzero-general.git
+[submodule "earth_moving/algorithms/muzero-general"]
+	path = earth_moving/algorithms/muzero-general
+	url = https://github.com/werner-duvaud/muzero-general.git
