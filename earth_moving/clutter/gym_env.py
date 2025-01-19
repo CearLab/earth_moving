@@ -1,7 +1,10 @@
-import gymnasium as gym
-from gymnasium import spaces
+# import gymnasium as gym
+# from gymnasium import spaces
 import numpy as np
-from gymnasium.envs.registration import register
+import gym
+from gym import spaces
+from gym.envs.registration import register
+# from gymnasium.envs.registration import register
 from engine_rover import PyBulletEnvironment
 from glob import glob
 import pybullet as p
@@ -28,10 +31,10 @@ class RoverEnvVacuum(gym.Env):
         self.num_aggregates = self.engine.get_num_aggregates()
         self.engine.set_robot_dim()
 
-    def reset(self, seed=None, options = None):
+    def reset(self):
         """Resets the environment to the initial state."""
 
-        super().reset(seed=seed)
+        # super().reset()
         p.resetSimulation()
         random_env_ind = np.random.randint(0, len(self.envs_list))
         self.engine = PyBulletEnvironment(gui=False, vacuum_cleaner=True, real_time=False)
@@ -61,7 +64,7 @@ class RoverEnvVacuum(gym.Env):
 # Register the custom environment
 register(
     id='RoverEnvVacuum-v0',  # Unique identifier
-    entry_point='__main__:RoverEnvVacuum',  # Path to the class
+    entry_point='gym_env:RoverEnvVacuum',  # Path to the class
 )
 
 # Test the environment
