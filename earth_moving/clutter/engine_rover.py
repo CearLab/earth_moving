@@ -66,9 +66,9 @@ class PyBulletEnvironment:
         # Set Real Time competabilty
         self.real_time = real_time
         # Set velocity control coefficents
-        self.Kp = 0.01 
-        self.Kphi = 0.0001
-        self.Kd_phi = 0.005
+        self.Kp = 0.0001 
+        self.Kphi = 0.00001
+        self.Kd_phi = 0
         self.control_dt = 1/240
 
     # open environment
@@ -242,21 +242,24 @@ class PyBulletEnvironment:
 
     def control_rover(self, left_wheel_vel, right_wheel_vel, time = 1/240):
         rover_id = self.ID[1]
-        left_wheel_joint = 0
-        right_wheel_joint = 1
+        left_wheel_joint = 1
+        right_wheel_joint = 2
         right_wheel_joint_back = 3
         left_wheel_joint_back = 2
 
         p.changeDynamics(rover_id, right_wheel_joint, lateralFriction=10.0)
         p.changeDynamics(rover_id, left_wheel_joint, lateralFriction=10.0)
-        p.changeDynamics(rover_id, right_wheel_joint_back, lateralFriction=10.0)
-        p.changeDynamics(rover_id, left_wheel_joint_back, lateralFriction=10.0)
+        # p.changeDynamics(rover_id, right_wheel_joint_back, lateralFriction=10.0)
+        # p.changeDynamics(rover_id, left_wheel_joint_back, lateralFriction=10.0)
+        p.changeDynamics(1, 0, lateralFriction=0.0)
 
         # Set velocity of front and back wheels
-        p.setJointMotorControl2(rover_id, left_wheel_joint, p.VELOCITY_CONTROL, targetVelocity=left_wheel_vel, force=50)
-        p.setJointMotorControl2(rover_id, right_wheel_joint, p.VELOCITY_CONTROL, targetVelocity=right_wheel_vel, force=50)
-        p.setJointMotorControl2(rover_id, left_wheel_joint_back, p.VELOCITY_CONTROL, targetVelocity=left_wheel_vel, force=50)
-        p.setJointMotorControl2(rover_id, right_wheel_joint_back, p.VELOCITY_CONTROL, targetVelocity=right_wheel_vel, force=50)
+        p.setJointMotorControl2(rover_id, left_wheel_joint, p.VELOCITY_CONTROL, 
+                                targetVelocity=left_wheel_vel, force=10)
+        p.setJointMotorControl2(rover_id, right_wheel_joint, p.VELOCITY_CONTROL,
+                                 targetVelocity=right_wheel_vel, force=10)
+        # p.setJointMotorControl2(rover_id, left_wheel_joint_back, p.VELOCITY_CONTROL, targetVelocity=left_wheel_vel, force=50)
+        # p.setJointMotorControl2(rover_id, right_wheel_joint_back, p.VELOCITY_CONTROL, targetVelocity=right_wheel_vel, force=50)
 
         self.simulate(time)
 
