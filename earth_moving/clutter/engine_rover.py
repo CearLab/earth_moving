@@ -73,9 +73,9 @@ class PyBulletEnvironment:
         # Set Real Time competabilty
         self.real_time = real_time
         # Set velocity control coefficents
-        self.Kp = 0.01 
-        self.Kphi = 0.0001
-        self.Kd_phi = 0.005
+        self.Kp = 0.0001 
+        self.Kphi = 0.00001
+        self.Kd_phi = 0
         self.control_dt = 1/240
 
     # open environment
@@ -249,21 +249,24 @@ class PyBulletEnvironment:
 
     def control_rover(self, left_wheel_vel, right_wheel_vel, time = 1/240):
         rover_id = self.ID[1]
-        left_wheel_joint = 0
-        right_wheel_joint = 1
+        left_wheel_joint = 1
+        right_wheel_joint = 2
         right_wheel_joint_back = 3
         left_wheel_joint_back = 2
 
         p.changeDynamics(rover_id, right_wheel_joint, lateralFriction=10.0)
         p.changeDynamics(rover_id, left_wheel_joint, lateralFriction=10.0)
-        p.changeDynamics(rover_id, right_wheel_joint_back, lateralFriction=10.0)
-        p.changeDynamics(rover_id, left_wheel_joint_back, lateralFriction=10.0)
+        # p.changeDynamics(rover_id, right_wheel_joint_back, lateralFriction=10.0)
+        # p.changeDynamics(rover_id, left_wheel_joint_back, lateralFriction=10.0)
+        p.changeDynamics(1, 0, lateralFriction=0.0)
 
         # Set velocity of front and back wheels
-        p.setJointMotorControl2(rover_id, left_wheel_joint, p.VELOCITY_CONTROL, targetVelocity=left_wheel_vel, force=50)
-        p.setJointMotorControl2(rover_id, right_wheel_joint, p.VELOCITY_CONTROL, targetVelocity=right_wheel_vel, force=50)
-        p.setJointMotorControl2(rover_id, left_wheel_joint_back, p.VELOCITY_CONTROL, targetVelocity=left_wheel_vel, force=50)
-        p.setJointMotorControl2(rover_id, right_wheel_joint_back, p.VELOCITY_CONTROL, targetVelocity=right_wheel_vel, force=50)
+        p.setJointMotorControl2(rover_id, left_wheel_joint, p.VELOCITY_CONTROL, 
+                                targetVelocity=left_wheel_vel, force=10)
+        p.setJointMotorControl2(rover_id, right_wheel_joint, p.VELOCITY_CONTROL,
+                                 targetVelocity=right_wheel_vel, force=10)
+        # p.setJointMotorControl2(rover_id, left_wheel_joint_back, p.VELOCITY_CONTROL, targetVelocity=left_wheel_vel, force=50)
+        # p.setJointMotorControl2(rover_id, right_wheel_joint_back, p.VELOCITY_CONTROL, targetVelocity=right_wheel_vel, force=50)
 
         self.simulate(time)
 
@@ -389,6 +392,29 @@ class PyBulletEnvironment:
             p.loadURDF(aggregates_urdf, env_state["aggreagets_object_positions"][ind],
                        env_state["aggreagets_object_orientations"][ind])
         self.simulate(0.5)
+
+    def execute_and_record(self, commands, video_path):
+        """
+        Executes a list of (target_v, target_phi, time) commands, records a top-view video, 
+        and saves it to the specified path.
+        
+        :param commands: List of tuples (target_v, target_phi, time) to execute.
+        :param video_path: Path to save the recorded video.
+        """
+        width, height = 320, 320  # Adjust based on your simulation window size
+        fps = 30
+        time_step = 1/fps
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+
+        for target_v, target_phi, duration in commands:
+            for i in np.arange(0,duration,time_step):
+                self.set_velocities(target_v, target_phi, time_step)
+                top_view = self.get_top_view( pixel_width = 320, pixel_height= 320)  # Assuming a function returning the top view
+                if top_view is not None:
+                    out.write(cv2.cvtColor(top_view, cv2.COLOR_RGB2BGR))
+        
+        out.release()
 
 
 # Example usage
