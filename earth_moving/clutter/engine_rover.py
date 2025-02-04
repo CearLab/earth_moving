@@ -3,8 +3,15 @@
 
 # general imports
 import pickle
+import contextlib
+
+# with contextlib.redirect_stdout(None):
+
+
 import pybullet as p
 import pybullet_data
+
+
 import time as t
 import numpy as np
 import math

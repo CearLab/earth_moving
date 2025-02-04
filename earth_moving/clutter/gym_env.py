@@ -5,16 +5,23 @@ import gym
 from gym import spaces
 from gym.envs.registration import register
 # from gymnasium.envs.registration import register
+import contextlib
+
+
+# with contextlib.redirect_stdout(None):
 from engine_rover import PyBulletEnvironment
-from glob import glob
 import pybullet as p
 
-ROBOT_URDF = '/home/yaronedri/Thesis/earth_moving/earth_moving/clutter/urdf/shovel/rover_with_shovel.urdf'
-AGGREGATE_URDF = '/home/yaronedri/Thesis/earth_moving/earth_moving/clutter/urdf/pebbles/pebbles.urdf'
+from glob import glob
+
+# import pybullet as p
+
+ROBOT_URDF = '/home/yaron/Projects/earth_moving/earth_moving/earth_moving/clutter/urdf/shovel/rover_with_shovel.urdf'
+AGGREGATE_URDF = '/home/yaron/Projects/earth_moving/earth_moving/earth_moving/clutter/urdf/pebbles/pebbles.urdf'
 
 class RoverEnvVacuum(gym.Env):
     metadata = {'render.modes': ['rgb_array']}  # Supported render modes
-    envs_list = glob("/home/yaronedri/Thesis/earth_moving/earth_moving/clutter/environments/*.pickle")
+    envs_list = glob("/home/yaron/Projects/earth_moving/earth_moving/earth_moving/clutter/environments/*.pickle")
     action_mapping = {0 : [0,0], 1: [0.05, 0], 2: [0.05, 0.1], 3: [0.05, 0.3],
                       4: [0.2, 0], 5: [0.2, 0.1], 6: [0.2, 0.3], 7: [0, 0.1], 8: [0, 0.3]}
     dt = 3
