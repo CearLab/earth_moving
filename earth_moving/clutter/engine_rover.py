@@ -386,6 +386,29 @@ class PyBulletEnvironment:
                        env_state["aggreagets_object_orientations"][ind])
         self.simulate(0.5)
 
+    def execute_and_record(self, commands, video_path):
+        """
+        Executes a list of (target_v, target_phi, time) commands, records a top-view video, 
+        and saves it to the specified path.
+        
+        :param commands: List of tuples (target_v, target_phi, time) to execute.
+        :param video_path: Path to save the recorded video.
+        """
+        width, height = 320, 320  # Adjust based on your simulation window size
+        fps = 30
+        time_step = 1/fps
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        out = cv2.VideoWriter(video_path, fourcc, fps, (width, height))
+
+        for target_v, target_phi, duration in commands:
+            for i in np.arange(0,duration,time_step):
+                self.set_velocities(target_v, target_phi, time_step)
+                top_view = self.get_top_view( pixel_width = 320, pixel_height= 320)  # Assuming a function returning the top view
+                if top_view is not None:
+                    out.write(cv2.cvtColor(top_view, cv2.COLOR_RGB2BGR))
+        
+        out.release()
+
 
 # Example usage
 if __name__ == "__main__":
