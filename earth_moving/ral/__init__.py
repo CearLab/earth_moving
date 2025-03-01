@@ -1,3 +1,5 @@
+from ral.backend.pybullet_backend import PybulletBackend
+
 def get_backend(**backend_kwargs):
     backend_type = backend_kwargs.get('backend_type')
     timedelta = backend_kwargs.get('timedelta')
