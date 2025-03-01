@@ -1,7 +1,3 @@
-import sys
-PATH = '/home/fedeoli/Documents/Work/earth_moving/earth_moving/'
-sys.path.append(PATH)
-
 from scenarios.basic_test_scenario import basic_test_scenario
 
 pybullet_running_camera_config = {
@@ -16,7 +12,7 @@ pybullet_running_camera_config = {
          'fov': 30,
          'near': 0.0,
          'far': 10,
-         'save_path': 'earth_moving/outputs/fig/',
+         'save_path': './outputs/fig/',
          'camera_pose_method': lambda t: 5*t + 2 # TODO: still need to think about `t`
         },
     'robot':
