@@ -1,10 +1,10 @@
 
 # folders
 docker/
-earth_moving/clutter/__pycache__/
 pyenv/
 .vscode/
 __pycache__/
+outputs/
 
 # files
 core.*
