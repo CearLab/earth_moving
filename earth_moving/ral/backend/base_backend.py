@@ -8,7 +8,10 @@ class BaseBackend(ABC):
         self._backend_type = kwargs.get('backend_type')
         if self._backend_type == 'pybullet':
             from ral.backend.pybullet_backend import PybulletBackend
-            return PybulletBackend(simulation=_simulation)
+            return PybulletBackend(simulation=_simulation)            
             
     def step(self):
+        raise NotImplementedError()
+    
+    def load_aggregates(self,aggregate_positions, aggregate_urdf):
         raise NotImplementedError()
