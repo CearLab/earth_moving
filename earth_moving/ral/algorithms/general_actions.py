@@ -19,7 +19,7 @@ class GeneralActions:
         """
         
         aggregate_positions = []
-        z_fix = 0.5
+        z_fix = 0.1
                 
         cluster_centers = []
         for _ in range(num_clusters):
