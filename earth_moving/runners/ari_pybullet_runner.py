@@ -1,4 +1,5 @@
 from scenarios.ari_scenario import ari_scenario
+import numpy as np
 
 pybullet_running_config = {
     'backend_type': 'pybullet',
@@ -7,11 +8,11 @@ pybullet_running_config = {
           'name': 'earth_moving',  
           'aggregates':
               {
-                'min_pos': (-2, -2),
-                'max_pos': (+2, +2),
-                'num_clusters': 5,
+                'min_pos': (0.00, -0.05),
+                'max_pos': (0.13, +0.05),
+                'num_clusters': 1,
                 'max_per_cluster': 50,
-                'max_radius': 0.5,
+                'max_radius': 0.1,
                 'aggregate_urdf': 'clutter/urdf/pebbles/pebbles.urdf'
               }
         },        
@@ -23,6 +24,7 @@ pybullet_running_config = {
         },
     'sensor':
         {
+         'name': 'rgb_camera',
          'imgW': 320,   # :param imgW: Integer, the width of the rendered image in pixels.
          'imgH': 320,   # :param imgH: Integer, the height of the rendered image in pixels. 
          'camera_target_pose': [1.0, 0.0, 0.0], # :param camera_target_pos: List, the [x, y, z] coordinates of the target position the camera focuses on.
@@ -37,6 +39,17 @@ pybullet_running_config = {
          'far': 20,     # :param far: Float, the distance to the far clipping plane.
          'save_path': '/home/fedeoli/Documents/Work/earth_moving/outputs/fig/',         
         },
+    'robot':
+        {
+         'name': 'shovel',
+         'width': 0.13,
+         'height': 0.05,
+         'start_pos': [0.0, 0.0, 0.0],
+         'start_orientation': [0.0, 0.0, 0], # :param start_orientation: RPy orientation
+         'trajectory_length': 2*0.13,
+         'trajectory_curvature': 0,
+         'trajectory_points': 5
+        }                                
     }
 
 
