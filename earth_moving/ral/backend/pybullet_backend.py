@@ -7,6 +7,9 @@ import numpy as np
 
 from ral.backend.base_backend import BaseBackend
 from ral.sensor.sensor_backend import BaseSensorBackend
+from ral.robot.robot_backend import BaseRobotBackend
+from ral.algorithms.probabilistic_simulator import ProbabilisticSimulator
+
 
 class PybulletBackend(BaseBackend):
     
@@ -91,3 +94,48 @@ class PybulletBackend(BaseBackend):
                 
         sensor_backend = PybulletSensorRGBBackend(**kwargs)
         return sensor_backend
+    
+    def initiate_robot(self,**kwargs):
+        
+        class PybulletShovelBackend(BaseRobotBackend,ProbabilisticSimulator):
+            
+            def __init__(self,**kwargs) -> None:
+                super().__init__(**kwargs)
+                super().initiate_robot(**kwargs)
+                super().define_shovel(**self._robot)
+                super().define_trajectory(**self._robot) 
+                super().define_probabilities()
+                self._probabilities = self.compute_probabilities()                           
+            
+            def draw_shovel(self, corners) -> None:  
+                                                               
+                for i in range(len(corners)):
+                    next_i = (i + 1) % len(corners)                    
+                    p.addUserDebugLine(corners[i], corners[next_i], [0, 0, 0], 4)
+            
+            def draw_trajectory(self, corners) -> None:
+                
+                grouped_corners = [corners[i:i + 4] for i in range(0, len(corners), 4)] # TODO: this is not general. If the shovel has 5 corners it changes
+                for group in grouped_corners:                    
+                    self.draw_shovel(group)                
+                    
+            def draw_prediction_area(self, corners) -> None:                                                
+                                
+                # sequence of colors every 4 corners = [red, green, blue, yellow]                
+                for i in range(len(corners)):                    
+                    color = [1, 0, 0] if i % 4 == 0 else [0, 1, 0] if i % 4 == 1 else [0, 0, 1] if i % 4 == 2 else [1, 1, 0]                
+                    for j in range(len(corners[i])):
+                        next_j = (j + 1) % len(corners[i])
+                        p.addUserDebugLine(corners[i][j], corners[i][next_j], color, 8)                        
+                
+            def draw_probabilities(self,corners) -> None:
+                
+                for i in range(len(self._probabilities)):
+                    color = [1, 0, 0] if i % 4 == 0 else [0, 1, 0] if i % 4 == 1 else [0, 0, 1] if i % 4 == 2 else [1, 1, 0]
+                    base_corners = corners[i]                                                                                                            
+                    barycenter = np.mean(base_corners, axis=0)
+                    p.addUserDebugText(f'{self._probabilities[i]:.2f}', barycenter, color, textSize=2)
+                    
+                
+        shovel_backend = PybulletShovelBackend(**kwargs)
+        return shovel_backend

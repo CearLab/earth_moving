@@ -9,7 +9,7 @@ class BaseSensorBackend(ABC):
     def initiate_sensor(self, **kwargs) -> None:
         self._kwargs = kwargs        
         self._sensor = self._kwargs.get('sensor')
-        self._name = self._kwargs.get('name')        
+        self._name = self._sensor.get('name')        
     
     @abstractmethod
     def get_data(self) -> np.array: # TODO: what if numpy isn't installed?
