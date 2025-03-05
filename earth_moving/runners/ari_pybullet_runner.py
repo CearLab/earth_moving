@@ -47,7 +47,7 @@ pybullet_running_config = {
          'start_pos': [0.0, 0.0, 0.0],
          'start_orientation': [0.0, 0.0, 0], # :param start_orientation: RPy orientation
          'trajectory_length': 2*0.13,
-         'trajectory_curvature': 0,
+         'trajectory_curvature': 0.7,
          'trajectory_points': 5
         }                                
     }
