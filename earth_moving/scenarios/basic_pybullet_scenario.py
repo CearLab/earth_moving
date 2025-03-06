@@ -1,5 +1,5 @@
 from ral.backend.base_backend import BaseBackend
-from ral.environment.environment_backend import BaseEnvironmentBackend
+from ral.environment.environment_site_preparation_backend import SitePreparationEnvironmentBackend
 from ral.sensor.sensor_backend import BaseSensorBackend
 
 def basic_pybullet_scenario(config):
@@ -9,7 +9,7 @@ def basic_pybullet_scenario(config):
     Backend = Basebackend.initiate_backend(**config)
     
     # load aggregates
-    BaseEnvironment = BaseEnvironmentBackend()
+    BaseEnvironment = SitePreparationEnvironmentBackend()
     Environment = BaseEnvironment.initiate_environment(**config)
     Environment.generate_aggregates()        
     Backend.load_aggregates(Environment._aggregates_positions, Environment._aggregate_urdf)

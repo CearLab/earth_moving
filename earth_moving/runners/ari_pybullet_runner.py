@@ -37,7 +37,7 @@ pybullet_running_config = {
          'aspect_ratio': 1.0, # :param aspect_ratio: Float, the aspect ratio of the camera view (width/height).
          'near': 0.1,   # :param near: Float, the distance to the near clipping plane. 
          'far': 20,     # :param far: Float, the distance to the far clipping plane.
-         'save_path': '/home/fedeoli/Documents/Work/earth_moving/outputs/fig/',         
+         'save_path': 'outputs/fig/',         
         },
     'robot':
         {
