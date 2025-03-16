@@ -1,12 +1,12 @@
-import numpy as np
-from abc import ABC, abstractmethod
-class BaseBackend(ABC):
+class BaseBackend():
     def __init__(self,**kwargs) -> None:
         pass
         
     def initiate_backend(self,**kwargs) -> None:
-        _simulation = kwargs.get('simulation')
-        self._backend_type = kwargs.get('backend_type')
+        self._kwargs = kwargs
+        self._seed = self._kwargs.get('seed')
+        _simulation = self._kwargs.get('simulation')
+        self._backend_type = self._kwargs.get('backend_type')
         if self._backend_type == 'pybullet':
             from ral.backend.pybullet_backend import PybulletBackend
             return PybulletBackend(simulation=_simulation)

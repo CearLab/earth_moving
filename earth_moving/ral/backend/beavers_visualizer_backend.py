@@ -10,9 +10,14 @@ from ral.backend.base_backend import BaseBackend
 from ral.robot.robot_beavers_backend import BeaversRobotBackend
 
 from ral.backend.modules.modules import ColorMaps
+
+import random
 class BeaversVisualizerBackend(BaseBackend,Model):
     
-    def __init__(self, **kwargs) -> None:                        
+    def __init__(self, **kwargs) -> None:    
+        # set seed
+        random.seed(self._seed)
+                            
         # attributes from simulation
         self._kwargs = kwargs
         simulation = self._kwargs.get('simulation')
@@ -114,6 +119,9 @@ class BeaversVisualizerBackend(BaseBackend,Model):
 class BeaversVisualizerAgent(BeaversRobotBackend, Agent):
     
     def __init__(self, unique_id, model, **kwargs) -> None:
+        # set seed
+        random.seed(self._seed)
+        
         BeaversRobotBackend.__init__(self, **kwargs)
         Agent.__init__(self, unique_id, model)
         self.initiate_robot(**kwargs)  

@@ -1,11 +1,13 @@
 import numpy as np
-from abc import ABC, abstractmethod
 from ral.robot.robot_backend import BaseRobotBackend
 
+import random
 class BeaversRobotBackend(BaseRobotBackend):
     
     def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)        
+        super().__init__(**kwargs)      
+        # set seed
+        random.seed(self._seed)  
         
     def initiate_robot(self, **kwargs):
         
@@ -23,7 +25,7 @@ class BeaversRobotBackend(BaseRobotBackend):
             self._position = position
         else:
             raise ValueError('Invalid position value: {}'.format(position))
-        self._vegetation_quality = self._robot.get('vegetation_quality')
+        self._vegetation_quality = self._robot.get('vegetation_quality')        
         
         # custom attributes
         self._current_action = None

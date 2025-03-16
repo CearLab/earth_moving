@@ -1,12 +1,14 @@
 import numpy as np
-import random
 from scipy.stats import norm
 from ral.environment.environment_backend import BaseEnvironmentBackend
 
+import random
 class BeaversEnvironmentBackend(BaseEnvironmentBackend): 
     
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
+        # set seed
+        random.seed(self._seed)
         
     def initiate_environment(self, **kwargs):
         
