@@ -1,13 +1,9 @@
 import numpy as np
 from ral.environment.environment_backend import BaseEnvironmentBackend
-
-import random
 class SitePreparationEnvironmentBackend(BaseEnvironmentBackend): 
     
     def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        # set seed
-        random.seed(self._seed)
+        super().__init__(**kwargs)        
         
     def generate_aggregates(self, **kwargs) -> None:
         

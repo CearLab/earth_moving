@@ -9,13 +9,9 @@ from ral.backend.base_backend import BaseBackend
 from ral.sensor.sensor_backend import BaseSensorBackend
 from ral.robot.robot_backend import BaseRobotBackend
 from ral.algorithms.probabilistic_simulator import ProbabilisticSimulator
-
-import random
 class PybulletBackend(BaseBackend):
     
-    def __init__(self, **kwargs) -> None:
-        # set seed
-        random.seed(self._seed)
+    def __init__(self, **kwargs) -> None:        
         
         self._kwargs = kwargs
         simulation = self._kwargs.get('simulation')

@@ -1,17 +1,13 @@
 import numpy as np
 from ral.robot.robot_backend import BaseRobotBackend
-
-import random
 class BeaversRobotBackend(BaseRobotBackend):
     
     def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)      
-        # set seed
-        random.seed(self._seed)  
+        super().__init__(**kwargs)              
         
     def initiate_robot(self, **kwargs):
         
-        super().initiate_robot(**kwargs)
+        super().initiate_robot(**kwargs)                
         
         # parse _robot
         position = self._robot.get('position')
@@ -28,11 +24,13 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._vegetation_quality = self._robot.get('vegetation_quality')        
         
         # custom attributes
+        self._current_time = 0.0
         self._current_action = None
         
         return self
     
     def step_beaver(self) -> None:
+        self._current_time += 1
         self._current_action = self.decide_action()        
         if self._current_action == 'move':
             self.move()

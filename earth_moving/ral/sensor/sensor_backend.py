@@ -7,8 +7,7 @@ class BaseSensorBackend():
     
     def initiate_sensor(self, **kwargs) -> None:
         self._kwargs = kwargs        
-        self._sensor = self._kwargs.get('sensor')
-        self._seed = self._kwargs.get('seed')
+        self._sensor = self._kwargs.get('sensor')        
         self._name = self._sensor.get('name')        
     
     def get_data(self) -> np.array: # TODO: what if numpy isn't installed?
