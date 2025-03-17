@@ -12,9 +12,11 @@ def fedeoli_beavers_scenario(config):
     Backend.generate_agents(**config)        
     
     # cycle
-    for i in range(20):
+    for i in range(1):
     # while True:
         Backend.plot_environment_with_heatmap()
         Backend.step()
         clear_output(wait=True)
+        
+    Backend.plot_environment_with_heatmap()
         
