@@ -9,9 +9,19 @@ import numpy as np
 flag_marker = Path(
     np.array([
         (0, 0), (0, 1), (0.8, 1), (0.5, 0.7), (0.8, 0.4), (0, 0.4), (0, 0)
-    ]) - 0.5,
+    ]) - (0.4, 0.5),
     [
         Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.MOVETO, Path.CLOSEPOLY
+    ]
+)
+
+# define a battery-shaped marker
+battery_marker = Path(
+    np.array([
+        (0, 0), (0, 0.9), (0.2, 0.9), (0.2, 1), (0.4, 1), (0.4, 0.9), (0.6, 0.9), (0.6, 0), (0, 0)
+    ]) - (0.1, 0.5),
+    [
+        Path.MOVETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY
     ]
 )
 
@@ -40,7 +50,7 @@ class ColorMaps():
         self._agent_markerfacecolor_night = '#f8f9fa' # light grey
         self._agent_markeredgecolor_night = '#465362' # dark grey
         self._agent_markeredgewidth_night = 2
-        self._agent_markeralpha_night = 1.0
+        self._agent_markeralpha_night = 1.0                
         
         # greens - daylight
         lightgreen = '#cfe1b9'
@@ -58,8 +68,7 @@ class ColorMaps():
         darkgreen_night = '#001845'
         alpha_green_night = 1.0
         
-        # orange - quality
-        white = '#FFFFFF'
+        # orange - quality        
         lightorange = '#f2dc96'
         mediumorange = '#efcd5d'
         orange = '#d3b44e'
@@ -73,6 +82,17 @@ class ColorMaps():
         self._vegetation_markeredgecolor = '#465362' # dark grey
         self._vegetation_markeredgewidth = 2
         self._vegetation_markeralpha = 1.0
+        
+        # battery markers
+        self._battery_marker = battery_marker
+        self._battery_markersize = 20
+        self._battery_markeredgecolor = '#465362' # dark grey
+        self._battery_markeredgewidth = 2
+        self._battery_markeralpha = 1.0
+        
+        # general clolors
+        white = '#FFFFFF'
+        black = '#000000'        
         
         # reds
         lightred = [1, 0.5, 0.5, 1]
@@ -94,7 +114,7 @@ class ColorMaps():
         self._green_colormap = cc.LinearSegmentedColormap.from_list("green_colormap",self._green_colors_list)
         self._green_colormap_alpha = alpha_green
         
-        # green colormap - night
+        # green colormap - sleepnight
         self._green_colors_list_night = [(0, self._background_color_night),
                                          (0.2, lightgreen_night),
                                          (0.4, mediumgreen_night),
@@ -113,6 +133,16 @@ class ColorMaps():
                                     (1, darkorange)]
         self._orange_colormap = cc.LinearSegmentedColormap.from_list("orange_colormap",self._orange_colors_list)
         self._orange_colormap_alpha = alpha_orange
+        
+        # red-green colormap
+        self._redgreen_colors_list = [  (0, red),
+                                        (0.2, lightorange),
+                                        (0.4, orange),
+                                        (0.6, lightgreen),
+                                        (0.8, mediumgreen),
+                                        (1, green)]
+        self._redgreen_colormap = cc.LinearSegmentedColormap.from_list("redgreen_colormap",self._redgreen_colors_list)
+        self._redgreen_colormap_alpha = alpha_orange
         
         # red colormap
         self._red_colors_list = [(0, self._background_color),

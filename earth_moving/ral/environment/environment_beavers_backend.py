@@ -21,12 +21,10 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         if self._number_vegetation_clusters_init > self._number_vegetation_clusters_max:
             raise ValueError("Initial number of vegetation clusters cannot be greater than the maximum number of vegetation clusters.")
         
-        self._vegetation_cluster_sigma = self._environment.get('vegetation_cluster_sigma')
+        self._vegetation_cluster_sigma = self._environment.get('vegetation_cluster_sigma') #! This is an initial sigma, it will be scaled when growing the clusters
         self._vegetation_cluster_radius = self._environment.get('vegetation_cluster_radius')
         self._vegetation_cluster_radius_range = self._environment.get('vegetation_cluster_radius_range')
-        self._minimum_vegetation = self._environment.get('minimum_vegetation')
-        self._maximum_vegetation = self._environment.get('maximum_vegetation')
-        self._vegetation_growth_rate = self._environment.get('vegetation_growth_rate')
+        self._vegetation_quality_range = self._environment.get('vegetation_quality_range')        
         self._vegetation_growth_frequency = self._environment.get('vegetation_growth_frequency')        
         self._print = self._environment.get('print')
         
@@ -39,7 +37,7 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         self._trail_usage_map = np.zeros((self._width, self._height))
         self._canal_usage_map = np.zeros((self._width, self._height))
         self._number_vegetation_clusters = 0
-        self._vegetation_map = np.ones((self._width, self._height)) * self._minimum_vegetation
+        self._vegetation_map = np.ones((self._width, self._height)) * self._vegetation_quality_range[0]
         self._vegetation_clusters_store = []
         
         # call init methods
@@ -96,9 +94,9 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
                 if 0 <= nx < self._width and 0 <= ny < self._height:
                     distance = np.sqrt(dx**2 + dy**2)
                     #! remark: base_map is increased because vegetation can overlap when generated
-                    self._vegetation_map[nx, ny] += self._maximum_vegetation * np.sqrt(2 * np.pi * sigma**2) \
+                    self._vegetation_map[nx, ny] += self._vegetation_quality_range[1] * np.sqrt(2 * np.pi * sigma**2) \
                                         * norm.pdf(distance, 0.0, sigma)
-                    self._vegetation_map = np.clip(self._vegetation_map, self._minimum_vegetation, self._maximum_vegetation)
+                    self._vegetation_map = np.clip(self._vegetation_map, self._vegetation_quality_range[0], self._vegetation_quality_range[1])
         
         # store clusters
         found = False
@@ -120,9 +118,9 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
                 nx, ny = cx + dx, cy + dy
                 if 0 <= nx < self._width and 0 <= ny < self._height:
                     distance = np.sqrt(dx**2 + dy**2)
-                    self._vegetation_map[nx, ny] -= self._maximum_vegetation * np.sqrt(2 * np.pi * sigma**2) \
+                    self._vegetation_map[nx, ny] -= self._vegetation_quality_range[1] * np.sqrt(2 * np.pi * sigma**2) \
                                         * norm.pdf(distance, 0.0, sigma)
-                    self._vegetation_map = np.clip(self._vegetation_map, self._minimum_vegetation, self._maximum_vegetation)
+                    self._vegetation_map = np.clip(self._vegetation_map, self._vegetation_quality_range[0], self._vegetation_quality_range[1])
         
         # increase radius 
         cluster_radius += 1
