@@ -1,15 +1,15 @@
-import time as t
+# general imports
 import matplotlib.pyplot as plt
-import numpy as np
-
 from mesa import Agent, Model
 from mesa.time import RandomActivation
 from mesa.space import MultiGrid
 
+# backend imports
 from ral.backend.base_backend import BaseBackend
 from ral.robot.robot_beavers_backend import BeaversRobotBackend
 from ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
 
+# module imports
 from ral.backend.modules.modules import ColorMaps
 class BeaversVisualizerBackend(BaseBackend,Model):
     
@@ -19,12 +19,13 @@ class BeaversVisualizerBackend(BaseBackend,Model):
         self._kwargs = kwargs
         simulation = self._kwargs.get('simulation')
         self._timedelta = simulation.get('timedelta')
+        self._schedule_policy = simulation.get('schedule_policy')
         self._gui = simulation.get('gui')
         self._N_agents = simulation.get('number_of_agents')
         self._print = simulation.get('print')
                 
         # mesa init
-        self._schedule = RandomActivation(self)        
+        self._schedule = RandomActivation(self)  # Alternative: StagedActivation, SimultaneousActivation, or BaseScheduler
         
         # other attributes
         self._current_time = 0
@@ -48,14 +49,30 @@ class BeaversVisualizerBackend(BaseBackend,Model):
         
     def step(self) -> None:
         self._current_time += self._timedelta #!! the agents step synchronously (_current_time wait for all agents to step)
+        
+        # always step the environment first
         self._environment.step()
-        self._schedule.step()                    
-        # t.sleep(self._timedelta)
+        
+        if self._schedule_policy == 'sequential':
+            # Sort agents by their unique_id
+            sorted_agents = sorted(self._schedule.agents, key=lambda agent: agent.unique_id)
+            for agent in sorted_agents:                
+                agent.step()
+        elif self._schedule_policy == 'random':
+            self._schedule.step()
+        else:
+            raise ValueError("Invalid schedule policy.")
         
     # Plot the environment with trails and canals overlaid.
     def plot_environment_with_heatmap(self) -> None:
         
+        # misc
         fontname = 'monospace'
+        
+        # map max and min
+        vmin = self._environment._vegetation_quality_range[0]
+        vmax = self._environment._vegetation_quality_range[1]
+        v_normalizer = vmax - vmin
         
         # check if GUI is set
         if not self._gui:
@@ -72,8 +89,8 @@ class BeaversVisualizerBackend(BaseBackend,Model):
             agent_markeralpha =     self._color_maps._agent_markeralpha
             
             # vegetation
-            vegetation_colormap = self._color_maps._green_colormap
-            alpha_vegetation = self._color_maps._green_colormap_alpha                        
+            vegetation_colormap = self._color_maps._browngreen_colormap
+            alpha_vegetation = self._color_maps._browngreen_colormap_alpha
         else:
             # agents
             agent_marker =          self._color_maps._agent_marker_night
@@ -84,8 +101,8 @@ class BeaversVisualizerBackend(BaseBackend,Model):
             agent_markeralpha =     self._color_maps._agent_markeralpha_night
             
             # vegetation
-            vegetation_colormap = self._color_maps._green_colormap_night
-            alpha_vegetation = self._color_maps._green_colormap_alpha_night
+            vegetation_colormap = self._color_maps._browngreen_colormap_night
+            alpha_vegetation = self._color_maps._browngreen_colormap_alpha_night
             
         # vegetation marker
         vegetation_marker = self._color_maps._vegetation_marker
@@ -112,9 +129,11 @@ class BeaversVisualizerBackend(BaseBackend,Model):
         ax1.add_patch(box)
 
         # Normalize vegetation map
-        vegetation_map_normalized = self._environment._vegetation_map / (self._environment._vegetation_quality_range[1] - self._environment._vegetation_quality_range[0])
+        vegetation_map_normalized = self._environment._vegetation_map / v_normalizer
         # Plot vegetation
-        ax1.imshow(vegetation_map_normalized.transpose(), origin='lower', cmap=vegetation_colormap, alpha=alpha_vegetation)        
+        ax1.imshow(vegetation_map_normalized.transpose(), origin='lower', 
+                   cmap=vegetation_colormap, alpha=alpha_vegetation,
+                   vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)    
 
         # Overlay agent positions
         for agent in self._schedule.agents:
@@ -128,7 +147,11 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                     alpha=           agent_markeralpha)
                 
                 #! note here that we're linking the agent to the environment to get the vegetation quality. This is why we need an engine
-                vegetation_normalized = agent._vegetation_quality/(self._environment._vegetation_quality_range[1] - self._environment._vegetation_quality_range[0])
+                try:
+                    vegetation_normalized = agent._vegetation_quality / (vmax - vmin)
+                except:
+                    vegetation_normalized = self.np.nan
+                    
                 ax1.plot(agent._position[0] + 4, agent._position[1], 
                     marker =         vegetation_marker.vertices, 
                     markersize=      vegetation_markersize, 
@@ -196,23 +219,36 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                 
                 # Normalize vegetation map
                 try:
-                    vegetation_map_normalized = agent._local_map_vegetation / (self._environment._vegetation_quality_range[1] - self._environment._vegetation_quality_range[0])
+                    vegetation_map_normalized = agent._local_vegetation_map / v_normalizer  
                     # Pad the vegetation map with zeros to match the environment dimensions
-                    padded_vegetation_map = np.ones((self._width, self._height)) * np.nan
+                    padded_vegetation_map = self.np.ones((self._width, self._height)) * self.np.nan
                     padded_vegetation_map[:vegetation_map_normalized.shape[0], :vegetation_map_normalized.shape[1]] = vegetation_map_normalized
                     # Plot vegetation
-                    ax.imshow(padded_vegetation_map.transpose(), origin='lower', cmap=vegetation_colormap, alpha=alpha_vegetation)
+                    ax.imshow(padded_vegetation_map.transpose(), origin='lower', 
+                              cmap=vegetation_colormap, alpha=alpha_vegetation,
+                              vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
+                    vegetation_map_print = agent._vegetation_quality
                 except:
-                    ax.imshow(np.nan * np.ones((self._width, self._height)).transpose(), origin='lower', cmap=vegetation_colormap, alpha=alpha_vegetation)
+                    ax.imshow(self.np.nan * self.np.ones((self._width, self._height)).transpose(), origin='lower', 
+                              cmap=vegetation_colormap, alpha=alpha_vegetation,
+                              vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
+                    vegetation_map_print = self.np.nan
                     
                 # Plot agent's position
                 ax.plot(agent._position[0], agent._position[1], 
                     agent_marker, 
-                    markersize= 1 * agent_markersize, 
+                    markersize= 0.25 * agent_markersize, 
                     markeredgecolor=agent_markeredgecolor,
                     markerfacecolor=agent_markerfacecolor,
                     markeredgewidth=agent_markeredgewidth,
-                    alpha=agent_markeralpha)                
+                    alpha=agent_markeralpha)      
+                
+                # Draw an arrow from the agent's position to its destination
+                if agent._motion_destination is not None:
+                    ax.arrow(agent._position[0], agent._position[1],
+                                agent._motion_destination[0] - agent._position[0],
+                                agent._motion_destination[1] - agent._position[1],
+                                head_width=0.5, head_length=0.7, fc=self._color_maps._black, ec=self._color_maps._black, alpha=1.0)
                                     
                 ax.set_aspect('equal')
                 ax.grid(False)
@@ -233,11 +269,11 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                 panel.text(0.05, 0.9, f"AGENT {agent.unique_id}:", 
                     fontsize=14, color='black', verticalalignment='top', font=fontname)                        
                 panel.text(0.1, 0.8, 
-                    f"Time: {agent._current_time} Energy: {agent._energy:.1f}\n"
-                    f"Vegetation: {agent._vegetation_quality:.1f} Load: {agent._load:.1f} \n"
-                    f"POS: {np.array(agent._position)} DST: {np.array(agent._motion_destination)} CTRL: {agent._status_motion}\n"
-                    f"TASK: {agent._current_task} ST: {agent._status_task} \n"
-                    f"ACTION: {agent._current_action} STATUS: {agent._status_robot}", 
+                    f"TIME: {agent._current_time} ENERGY: {agent._energy:.1f}\n"
+                    f"VEGETATION: {vegetation_map_print:.1f} LOAD: {agent._load:.1f} \n"
+                    f"POS: {self.np.array(agent._position)} DST: {self.np.array(agent._motion_destination)} CTRL: {agent._status_motion}\n"
+                    f"TASK: {agent._current_task} STATUS: {agent._status_task} \n"
+                    f"ROBOT STATUS: {agent._status_robot} ACTION: {agent._current_action}", 
                     fontsize=14, color='black', verticalalignment='top', font=fontname)                                                                                   
         
         if self._gui:
@@ -258,13 +294,17 @@ class BeaversVisualizerAgent(BeaversRobotBackend, Agent):
         dt = self._timedelta
         time_of_day = self.model._environment._time_of_day
         vegetation_quality = self.model._environment._vegetation_map[self._position[0], self._position[1]]
-        limits = np.array([[0, self.model._environment._width-1], [0, self.model._environment._height-1]])
+        limits = self.np.array([[0, self.model._environment._width-1], [0, self.model._environment._height-1]])
         
         # step the agent
         self.step_beaver(dt, 
                          time_of_day,
                          vegetation_quality, 
-                         limits)        
+                         limits)
+        
+        #! here we update the environment with the agent's actions
+        if self._vegetation_quality_update == True:        
+            self.model._environment._vegetation_map[self._position[0], self._position[1]] = self._vegetation_quality
         
 class EnvironmentVisualizerAgent(BeaversEnvironmentBackend, Agent):
     

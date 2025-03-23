@@ -1,95 +1,147 @@
-import numpy as np
+# general imports
 
+# backend imports
 from ral.robot.robot_backend import BaseRobotBackend
 
-from ral.robot.modules.robot_beavers_module import Controller
-from ral.robot.modules.robot_beavers_module import Dynamics
+# module imports
+from ral.robot.modules.module_control import Controller
+from ral.robot.modules.module_control import Dynamics
+import ral.robot.modules.module_misc as module_misc
+import ral.robot.modules.module_beaver as module_beaver
 class BeaversRobotBackend(BaseRobotBackend):
     
     def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)              
+        super().__init__(**kwargs) 
+        
+        #TODO store total trail lenght
+        #TODO store total canal lenght
+        #TODO store total vegetation of high quality
+        #TODO if not already done, initialize a trail
+        
+        # TASK RECAP
+        # Exploring: decide a (set) of destination(s) to explore
+        #   - move(destination)
+        #   - read(vegetation_quality)
+        # Harvesting: harvest vegetation where you are
+        #   - remove_vegetation()
+
+        # ACTION RECAP
+        # Idle: do nothing                          -> constant energy, constant load
+        # Sleep: recover energy                     -> increase energy, constant load
+        # Move: move to a destination               -> consume energy, constant load
+        # Remove_vegetation: harvest vegetation     -> consume energy, increase load
+        
+        # STATE RECAP
+        # status_robot: #! changed in do_action
+        #   IDLE: the agent is not doing anything (action: idle)
+        #   ACTING: the agent is doing an action        
+        #   TIRED: the agent is tired (action: idle because it does not have enough energy)
+        # status_task: #! changed in decide_task, do_task
+        #   IDLE: waiting for a task -> STARTING
+        #   STARTING: starting a task -> INPROGRESS
+        #   INPROGRESS: doing a task -> FINISHED
+        #   FINISHED: just finished a task -> IDLE
+        # status_motion: #! changed in move
+        #   IDLE: the agent is not moving
+        #   ACTIVE: the agent is moving
+        #   FINISHED: the agent has reached the destination
+        
+        # OBSERVATION RECAP
+        # time_of_day: day or night (provided by the environment)
+        # vegetation_quality: quality of the vegetation at the current position (provided by the environment)
+        # limits: limits of the environment (provided by the environment)
+        
+        # ACTUATION RECAP
+        # update_vegetation_quality: update the vegetation quality at the current position (actuate the environment)
         
     def initiate_robot(self, **kwargs):
         
         super().initiate_robot(**kwargs)                
         
         # parse _robot
-        self._maximum_load = self._robot.get('maximum_load')     
+        self._maximum_load = self._robot.get('maximum_load') 
+        if self._maximum_load is None:
+            self._maximum_load = self.np.inf   
         self._print = self._robot.get('print')
         
         # custom attributes        
         self._range_x = self._robot.get('range_x')
         self._range_y = self._robot.get('range_y')        
+        self._exploration_mode = self._robot.get('exploration_mode')
         self._motion_consumption = self._robot.get('motion_consumption')
         self._load_consumption = self._robot.get('load_consumption')
+        self._harvest_consumption = self._robot.get('harvest_consumption')
+        self._harvest_threshold = self._robot.get('harvest_threshold')
         self._sleep_recovery = self._robot.get('sleep_recovery')
-        self._exploration_mode = self._robot.get('exploration_mode')
+        self._vegetation_removal = self._robot.get('vegetation_removal')
         
         # other attributes
-        self._current_time = 0 #! this is a counter. Agent does not compute the hour/time of the day. It will be provided by the environment        
-        self._vegetation_quality = 0 #! could have set to None but don't want to deal with it in printing
-        self._required_energy = 0
+        self._current_time = 0 #! this is a counter. Agent does not compute the hour/time of the day. It will be provided by the environment         
+        self._vegetation_quality = None
+        self._vegetation_quality_measure = None
+        self._vegetation_quality_update = False #! this is a flag to update the vegetation quality in the environment
         self._motion_destination = None
         self._neighbourhood = None        
         self._neighbourhood_reached_flag = None
         self._neighbourhood_current_index = None
-        self._local_map_vegetation = None
+        self._local_vegetation_map = None
         
         # physical attributes
         # position
         position = self._robot.get('position')
         if position is 'random':
-            self._position = [np.random.randint(self._range_x[0], self._range_x[1]), 
-                              np.random.randint(self._range_y[0], self._range_y[1])]
+            self._position = [self.random.randint(self._range_x[0], self._range_x[1]), 
+                              self.random.randint(self._range_y[0], self._range_y[1])]
         elif position is None:
             self._position = [0,0]
         elif isinstance(position,list):
             self._position = position
-            self._position[0] = np.clip(self._position[0], self._range_x[0], self._range_x[1])
-            self._position[1] = np.clip(self._position[1], self._range_y[0], self._range_y[1])
+            self._position[0] = self.np.clip(self._position[0], self._range_x[0], self._range_x[1])
+            self._position[1] = self.np.clip(self._position[1], self._range_y[0], self._range_y[1])
         else:
             raise ValueError('Invalid position value: {}'.format(position))
         
         # energy
         initial_energy = self._robot.get('initial_energy')
         if initial_energy is 'random':
-            self._energy = np.random.randint(0,100)
+            self._energy = self.random.randint(0,100)
         elif initial_energy is None:
             self._energy = 100
         elif isinstance(initial_energy,int):
-            self._energy = np.clip(initial_energy, 0, 100)
+            self._energy = self.np.clip(initial_energy, 0, 100)
         else:
             raise ValueError('Invalid initial_energy value: {}'.format(initial_energy))
         
         # load
         initial_load = self._robot.get('initial_load')
         if initial_load is 'random':
-            self._load = np.random.randint(0,self._maximum_load)
+            self._load = self.random.randint(0,self._maximum_load)
         elif initial_load is None:
             self._load = 0
         elif isinstance(initial_load,int):
-            self._load = np.clip(initial_load, 0, self._maximum_load)
+            self._load = self.np.clip(initial_load, 0, self._maximum_load)
         else:
             raise ValueError('Invalid initial_load value: {}'.format(initial_load))                                
         
         # motion policy                        
         self._controller = Controller(**self._robot)
-        initial_state = np.array([self._position, np.zeros(self._controller._dimension)])
-        self._dynamics = Dynamics(initial_state, **self._robot)                     
-            
-        # state machine
-        # idle: the agent is not doing anything             -> constant energy, constant load
-        # sleeping: the agent is sleeping                   -> energy recovery, constant load
-        # exploring: the agent is exploring the environment -> energy consumption, constant load
+        initial_state = self.np.array([self._position, self.np.zeros(self._controller._dimension)])
+        self._dynamics = Dynamics(initial_state, **self._robot)
         
-        # returning: the agent is returning to the lodge    -> energy consumption, constant load                
-        # building: the agent is building something         -> energy consumption, load consumption
-        # harvesting: the agent is harvesting vegetation    -> energy consumption, load recovery
         self._status_robot = 'IDLE'      
         self._status_task = 'IDLE'  
         self._status_motion = 'IDLE'
         self._current_task = None
         self._current_action = None
+        
+        # storage
+        self._destination_store = []
+        self._action_store = []
+        self._position_store = []
+        self._energy_store = []
+        self._load_store = []
+        self._task_store = []
+        self._time_store = []
         
         return self
     
@@ -99,101 +151,120 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._current_time += dt #! I wamt to pass the timedelta from the simulation, the agent is not aware of the time flow        
         # set integration time
         self._controller._dt = dt                
-        self._dynamics._dt = dt                     
+        self._dynamics._dt = dt     
+                        
         # gather information (OBSERVATIONS)
         #! time_of_day is provided, no need to store it
-        self.update_vegetation_quality(vegetation_quality, time_of_day)        
-        
-        #TODO store carrying load            
-        #TODO get total vegetation
-        #TODO store total vegetation
-        #TODO store total trail lenght
-        #TODO store total canal lenght
-        #TODO store total vegetation of high quality
-        #TODO store total energy
-        
-        #TODO if not already done, initialize a trail
-        
-        # Exploring
-        # - look around and set the quality of the vegetation. It's a local map, each agent has one        
+        self._vegetation_quality_measure = vegetation_quality #? Do I read the measurements also at night? It doesn't hurt
+        self._vegetation_quality_update = False #! reset the flag
         
         # decide the goal (TASK POLICY)
         self.decide_task(time_of_day, limits)        
         # do the task (TASK IMPLEMENTATION)
-        self.do_task(time_of_day, limits)        
-        # decide what to do (ACTION POLICY)
-        self.decide_action(time_of_day, limits)                                  
-        # do the action (ACTION IMPLEMENTATION)
-        self.do_action(time_of_day, limits)        
+        self.do_task(time_of_day, limits)
         # update energy
-        self.update_energy()                                        
+        self.update_energy()                        
+        
+        #! this is where we change/actuate the environment
+        if self._current_task == 'harvest' and self._status_task == 'FINISHED':               
+            self._vegetation_quality_update = True
+        else:                        
+            self._vegetation_quality_update = False
+            
+        # update the local_map according to the action 
+        self._vegetation_quality = self._vegetation_quality_measure
+        self.update_local_map(self._vegetation_quality)
+        
+        # store the data
+        self._destination_store.append(self._motion_destination)
+        self._action_store.append(self._current_action)
+        self._position_store.append(self._position)
+        self._energy_store.append(self._energy)
+        self._load_store.append(self._load)
+        self._task_store.append(self._current_task)
+        self._time_store.append(time_of_day)
         
         # prints
         if self._print:
             print('t= {}: Agent {} is doing {}'.format(self._current_time, self.unique_id, self._current_action))
             
+    ############################################################
+    # POLICIES and IMPLEMENTATIONS
+    ############################################################
+    
     # this is the task policy
-    def decide_task(self, time_of_day, limits) -> None:
-        if self._status_robot is not 'IDLE':
-            self._status_task = 'INPROGRESS'
-            return
-        
-        # choice policy
-        self._current_task = 'explore' 
-        self._status_task = 'IDLE'       
-        
+    def decide_task(self, time_of_day, limits) -> None:                
+                    
+        # close the FSM loop
+        if self._status_task is 'FINISHED':
+            self._status_task = 'IDLE'            
+                
+        # task policy
+        if self._status_task is 'IDLE':
+            if self._vegetation_quality_measure > self._harvest_threshold and self._load < self._maximum_load:
+                self._current_task = 'harvest'
+            else:
+                self._current_task = 'explore' 
+                            
+            # set the task status
+            self._status_task = 'STARTING'
+            
+        # if you get here you're INPROGRESS
+       
+    # this is the task implementation
     def do_task(self, time_of_day=None, limits=None) -> None:
         if self._current_task == 'explore':
-            self.explore(limits)
+            # first time you get the neighbors and set the status to INPROGRESS
+            if self._status_task is 'STARTING':
+                self.get_neighbourhood()
+                self._status_task = 'INPROGRESS'
+            self.explore(time_of_day, limits)
+        elif self._current_task == 'harvest':
+            # first time you set the status to INPROGRESS
+            if self._status_task is 'STARTING':
+                self._status_task = 'INPROGRESS'
+            self.harvest(time_of_day, limits)
+        elif self._current_task == 'sleep':
+            # first time you set the status to INPROGRESS
+            if self._status_task is 'STARTING':
+                self._status_task = 'INPROGRESS'
+            self.sleep(time_of_day, limits)
         else:
             raise ValueError('Invalid task: {}'.format(self._current_task))
         
-    # this is the policy
-    def decide_action(self, time_of_day=None, limits=None) -> None:                
+    # this is the action implementation
+    def do_action(self, time_of_day=None, limits=None) -> bool:
         
-        if self._status_task is not 'INPROGRESS':
+        requested_action = self._current_action
+        
+        # required energy
+        required_energy = self.get_required_energy_to_action()
+        
+        if self._energy < required_energy:
             self._current_action = 'idle'
-            self._status_robot = 'IDLE'
-            return
+            self._status_robot = 'TIRED'
+            return False
         
-        # choice policy
-        if time_of_day == 'day':            
-            self._current_action = 'move'
-            self._status_robot = 'MOVING'            
-        elif time_of_day == 'night':
+        if time_of_day is 'night':
             self._current_action = 'sleep'
-            self._status_robot = 'SLEEP'
+            self._status_robot = 'ACTING'
+            self.sleep(time_of_day, limits)
+        elif time_of_day is 'day':
+            if self._current_action == 'move':
+                self._status_robot = 'ACTING'
+                self.move(time_of_day, limits)
+            elif self._current_action == 'remove_vegetation':
+                self._status_robot = 'ACTING'
+                self.remove_vegetation(time_of_day, limits)
         else:
-            self._current_action = 'idle'
-            self._status_robot = 'IDLE'
-            raise ValueError('Invalid time_of_day: {}'.format(time_of_day))            
-        
-        # check if I have enough energy to do the action
-        self.get_required_energy_to_action()
-        if self._energy < self._required_energy:
-            self._current_action = 'idle'
-            self._status_robot = 'TIRED'                    
-        
-    # this is the energy policy
-    def get_required_energy_to_action(self) -> None:
-        if self._current_action == 'move':
-            self._required_energy =  self._motion_consumption + self._load_consumption*self._load
-        elif self._current_action == 'sleep':
-            self._required_energy = 0
-        else:
-            self._required_energy = 0
-            
-    # this is the action implementation   
-    def do_action(self, time_of_day=None, limits=None) -> None:
-        if self._current_action == 'move':
-            self.move(limits)
-        elif self._current_action == 'sleep':
-            self.sleep()
-        elif self._current_action == 'idle':
+            raise ValueError('Invalid time_of_day: {}'.format(time_of_day))
             pass
+        
+        if requested_action == self._current_action:
+            return True
         else:
-            raise ValueError('Invalid action: {}'.format(self._current_action))
-            
+            return False
+        
     # this is the energy update policy
     def update_energy(self) -> None:
         if self._current_action == 'move':
@@ -201,42 +272,37 @@ class BeaversRobotBackend(BaseRobotBackend):
                 self._energy -= (self._motion_consumption + self._load_consumption*self._load)
             else:
                 pass
+        elif self._current_action == 'remove_vegetation':
+            self._energy -= self._harvest_consumption
         elif self._current_action == 'sleep':
             self._energy += self._sleep_recovery
         else:
             pass  
         
-        self._energy = np.clip(self._energy, 0, 100)                    
+        self._energy = self.np.clip(self._energy, 0, 100)
         
-    # action: sleep
-    def sleep(self) -> None:
-        pass                        
-             
-    # action: move
-    def move(self, limits) -> None:                
-                     
-        self._controller.step(self._motion_destination, self._position)
-        self._dynamics.step(self._controller._output)
-        self._position = list([int(coord) for coord in self._dynamics._output[0]])  
+    ############################################################
+    # TASKS
+    ############################################################
+    
+    # TASK: harvest
+    def harvest(self, time_of_day=None, limits=None) -> None:
+        # decide the action
+        # nothing to do here, the action is already decided
         
-        # clip the position
-        self._position[0] = np.clip(self._position[0], limits[0][0], limits[0][1])
-        self._position[1] = np.clip(self._position[1], limits[1][0], limits[1][1])
-                    
-        # update status            
-        self._status_motion = self._controller._status
+        # do the action
+        self._current_action = 'remove_vegetation'
+        success = self.do_action(time_of_day, limits)
+        
+        # close the task
+        if success:
+            self._status_task = 'FINISHED'
         
     # TASK: explore
-    def explore(self, limits=None) -> None:
-        
-        # it's the first time you enter the explore state
-        if self._status_task is not 'INPROGRESS':
-            # define the neighborhood
-            self.get_neighbourhood()        
-        
+    def explore(self, time_of_day=None, limits=None) -> None:
+        # decide the action
         # if you're not moving, find a new destination
         if self._status_motion is 'IDLE':
-            # find first unexplored cell
             try:
                 self._neighbourhood_current_index = self._neighbourhood_reached_flag.index(False) #! explore the next first unexplored cell
             except ValueError:
@@ -244,95 +310,139 @@ class BeaversRobotBackend(BaseRobotBackend):
                     
             if self._neighbourhood_current_index is not None:
                 self._motion_destination = [self._neighbourhood[self._neighbourhood_current_index][0], 
-                                            self._neighbourhood[self._neighbourhood_current_index][1]]
-                if limits is not None:
-                    self._motion_destination[0] = np.clip(self._motion_destination[0], limits[0][0], limits[0][1])
-                    self._motion_destination[1] = np.clip(self._motion_destination[1], limits[1][0], limits[1][1])
-                self._status_task = 'INPROGRESS'
+                                            self._neighbourhood[self._neighbourhood_current_index][1]] #! set the destination
+                if limits is not None: #! clip the destination
+                    self._motion_destination[0] = self.np.clip(self._motion_destination[0], limits[0][0], limits[0][1])
+                    self._motion_destination[1] = self.np.clip(self._motion_destination[1], limits[1][0], limits[1][1])
+                    
+                # set the action and update task status
+                self._current_action = 'move'
+                self._status_task = 'INPROGRESS'           
             else:
-                self._motion_destination = None                
-                self._status_task = 'IDLE'
+                self._motion_destination = None   
+                
+                # set the action and update task status  
+                self._current_action = 'idle'           
+                self._status_task = 'FINISHED'
+        elif self._status_motion is 'ACTIVE':
+            # set the action and update task status  
+            self._current_action = 'move'           
+            self._status_task = 'INPROGRESS'
         elif self._status_motion is 'FINISHED':
-            self._neighbourhood_reached_flag[self._neighbourhood_current_index] = True
+            self._neighbourhood_reached_flag[self._neighbourhood_current_index] = True #! mark the cell as explored
+            
+            # set the action and update task status  
+            self._current_action = 'move'           
+            self._status_task = 'INPROGRESS'        
         else:
-            pass
+            raise ValueError('Invalid status_motion: {}'.format(self._status_motion))
+            
+        # do the action
+        success = self.do_action(time_of_day, limits)
+        
+    ############################################################
+    # ACTIONS
+    ############################################################
+    
+    # action: sleep
+    def sleep(self, time_of_day=None, limits=None) -> None:
+        pass                        
+             
+    # action: move
+    def move(self, time_of_day=None, limits=None) -> None:
+                     
+        self._controller.step(self._motion_destination, self._position)
+        self._dynamics.step(self._controller._output)
+        self._position = list([int(coord) for coord in self._dynamics._output[0]])  
+        
+        # clip the position
+        self._position[0] = self.np.clip(self._position[0], limits[0][0], limits[0][1])
+        self._position[1] = self.np.clip(self._position[1], limits[1][0], limits[1][1])
+                    
+        # update status            
+        self._status_motion = self._controller._status
+        
+    # action: remove_vegetation
+    def remove_vegetation(self, time_of_day=None, limits=None) -> None:
+        if self._load < self._maximum_load - self._vegetation_removal:
+            self._vegetation_quality_measure  -= self._vegetation_removal
+            self._load += self._vegetation_removal
+        
+    ############################################################
+    # UTILS
+    ############################################################
+    
+    # this is the energy policy
+    def get_required_energy_to_action(self) -> float:
+        if self._current_action == 'move':
+            required_energy =  self._motion_consumption + self._load_consumption*self._load
+        elif self._current_action == 'remove_vegetation':
+            required_energy = self._harvest_consumption
+        elif self._current_action == 'sleep':
+            required_energy = 0
+        else:
+            required_energy = 0
+            
+        return required_energy
         
     # get the neighbourhood
     def get_neighbourhood(self) -> None:
         
-        step = 3
+        #! step to be used in the neighbourhood, it makes sense to have 
+        #! it = 1 as long as the current cell is the only one observed by the beaver    
         
-        D4_neighbourhood = [[self._position[0] + step, self._position[1]],
-                                [self._position[0] - step, self._position[1]],
-                                [self._position[0], self._position[1] + step],
-                                [self._position[0], self._position[1] - step]]
-        
-        D8_neighbourhood = [[self._position[0] + step, self._position[1]],
-                                [self._position[0] - step, self._position[1]],
-                                [self._position[0], self._position[1] + step],
-                                [self._position[0], self._position[1] - step],
-                                [self._position[0] + step, self._position[1] + step],
-                                [self._position[0] + step, self._position[1] - step],
-                                [self._position[0] - step, self._position[1] + step],
-                                [self._position[0] - step, self._position[1] - step]]
+        position = self._position   
+        local_vegetation_map = self._local_vegetation_map
+        position_store = self._position_store
+        if self._local_vegetation_map is not None:
+            limits = [[0,0], [self._local_vegetation_map.shape[0] - 1, self._local_vegetation_map.shape[1] - 1]]
+        else:
+            limits = [[self._position[0], self._position[1]], [self._position[0], self._position[1]]]                        
         
         # This is the D4 exploration
         if self._exploration_mode == 'D4':            
-            self._neighbourhood = D4_neighbourhood
-            self._neighbourhood_reached_flag = [False, False, False, False]
-            self._neighbourhood_current_index = 0
+           N , NF, NI = module_beaver.exploration_D4(position, limits)
             
         # This is the D8 exploration
         elif self._exploration_mode == 'D8':            
-            self._neighbourhood = D8_neighbourhood
-            self._neighbourhood_reached_flag = [False, False, False, False, False, False, False, False]
-            self._neighbourhood_current_index = 0
-        
-        # This is the random exploration
+            N , NF, NI = module_beaver.exploration_D8(position, limits)
+                
         # Generate a single random position in the D4 neighborhood
-        elif self._exploration_mode == 'random_D4':            
-            direction = np.random.randint(0, len(D4_neighbourhood))
-            self._neighbourhood = [D4_neighbourhood[direction]]            
-            self._neighbourhood_reached_flag = [False]
-            self._neighbourhood_current_index = 0
+        elif self._exploration_mode == 'random_D4':
+            N , NF, NI = module_beaver.exploration_D4_random(position, limits)
             
         # Generate a single random position in the D8 neighborhood
-        elif self._exploration_mode == 'random_D8':            
-            direction = np.random.randint(0, len(D8_neighbourhood))
-            self._neighbourhood = [D8_neighbourhood[direction]]            
-            self._neighbourhood_reached_flag = [False]
-            self._neighbourhood_current_index = 0
+        elif self._exploration_mode == 'random_D8':  
+            N , NF, NI = module_beaver.exploration_D8_random(position, limits)
+               
+        elif self._exploration_mode == 'gradient_D4':
+            N , NF, NI = module_beaver.exploration_gradient_D4(position, limits, local_vegetation_map, position_store)
+            
+        elif self._exploration_mode == 'gradient_D8':
+            N , NF, NI = module_beaver.exploration_gradient_D8(position, limits, local_vegetation_map, position_store)
         
         else:
             raise ValueError('Invalid exploration mode: {}'.format(self._exploration_mode))
         
+        self._neighbourhood = N
+        self._neighbourhood_reached_flag = NF
+        self._neighbourhood_current_index = NI
         
-    def update_vegetation_quality(self,vegetation_quality,time_of_day) -> None:
         
-        if time_of_day == 'day':
-            # read the vegetation quality
-            self.set_vegetation_quality(vegetation_quality) #! this is stored 
-            
-            # Ensure the local map is initialized
-            if self._local_map_vegetation is None:
-                self._local_map_vegetation = np.ones((1, 1)) * np.nan
+    def update_local_map(self,vegetation_quality) -> None:
+        
+        # Ensure the local map is initialized
+        if self._local_vegetation_map is None:
+            self._local_vegetation_map = self.np.ones((1, 1)) * self.np.nan
 
-            # Expand the matrix if the position is out of bounds
-            x, y = self._position
-            if x >= self._local_map_vegetation.shape[0]:
-                self._local_map_vegetation = np.pad(self._local_map_vegetation, ((0, x - self._local_map_vegetation.shape[0] + 1), (0, 0)), 
-                                                    mode='constant', constant_values=np.nan)
-            if y >= self._local_map_vegetation.shape[1]:
-                self._local_map_vegetation = np.pad(self._local_map_vegetation, ((0, 0), (0, y - self._local_map_vegetation.shape[1] + 1)), 
-                                                    mode='constant', constant_values=np.nan)
+        # Expand the matrix if the position is out of bounds
+        x, y = self._position
+        if x >= self._local_vegetation_map.shape[0]:
+            self._local_vegetation_map = self.np.pad(self._local_vegetation_map, ((0, x - self._local_vegetation_map.shape[0] + 1), (0, 0)), 
+                                                mode='constant', constant_values=self.np.nan)
+        if y >= self._local_vegetation_map.shape[1]:
+            self._local_vegetation_map = self.np.pad(self._local_vegetation_map, ((0, 0), (0, y - self._local_vegetation_map.shape[1] + 1)), 
+                                                mode='constant', constant_values=self.np.nan)
 
-            # Update the vegetation quality at the current position
-            self._local_map_vegetation[x, y] = vegetation_quality
-    
-    # this is the observation
-    def set_vegetation_quality(self,quality=None) -> None:
-        if quality is None:
-            quality = self._vegetation_quality
-        self._vegetation_quality = quality        
-        
-                    
+        # Update the vegetation quality at the current position
+        self._local_vegetation_map[x, y] = vegetation_quality

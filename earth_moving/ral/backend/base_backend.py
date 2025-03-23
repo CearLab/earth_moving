@@ -1,5 +1,9 @@
-import random
 class BaseBackend():
+    
+    # imports
+    import numpy as np
+    import random
+
     def __init__(self,**kwargs) -> None:
         pass
         
@@ -9,7 +13,7 @@ class BaseBackend():
         
         # set seed
         self._seed = _simulation.get('seed')
-        random.seed(self._seed)
+        self.random.seed(self._seed)
         
         # set backend
         self._backend_type = self._kwargs.get('backend_type')

@@ -1,6 +1,8 @@
-import numpy as np
-
 class BaseSensorBackend(): 
+    
+    # imports
+    import numpy as np
+    import random
     
     def __init__(self, **kwargs) -> None:
         pass
@@ -8,7 +10,7 @@ class BaseSensorBackend():
     def initiate_sensor(self, **kwargs) -> None:
         self._kwargs = kwargs        
         self._sensor = self._kwargs.get('sensor')        
-        self._name = self._sensor.get('name')        
+        self._name = self._sensor.get('name')   
     
     def get_data(self) -> np.array: # TODO: what if numpy isn't installed?
         raise NotImplementedError()
