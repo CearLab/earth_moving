@@ -22,15 +22,35 @@ def ari_scenario(config):
     BaseRobot = BaseRobotBackend()    
     Shovel = Backend.initiate_robot(**config)
     _shovel_corners = Shovel.define_shovel_area([Shovel._start_pos], [Shovel._start_orientation])    
+    
+    # shovel visualization
     Shovel.draw_shovel(_shovel_corners)    
+    
+    # trajectory visualization
     _trajectory_pos, _trajectory_orientation = Shovel.generate_trajectory()    
     _trajectory_corners = Shovel.define_shovel_area(_trajectory_pos, _trajectory_orientation)        
     Shovel.draw_trajectory(_trajectory_corners)
-    _prediction_corners = Shovel.define_prediction_area()    
-    Shovel.draw_prediction_area(_prediction_corners)
-    Shovel.draw_probabilities(_prediction_corners)
     
+    # prediction area visualization
+    _prediction_corners = Shovel.define_prediction_area()       
+        
     while True:
         Backend.step()
+        
+        # update the environment        
+        positions = Backend.get_aggregates_positions()
+        Environment.update_aggregates_positions(positions)
+        
+        # cluster the aggregates    
+        Shovel.cluster_positions(Environment._aggregates_positions)              
+        
+        # draw stuff
+        if abs(Backend._current_time - Backend._update_period) <= 1e-2:
+            Backend.color_aggregates_in_clusters(Shovel._cluster_labels)
+            Shovel.draw_prediction_area(_prediction_corners)
+            Shovel.draw_probabilities(_prediction_corners)
+            point_list = Shovel.compute_gaussians()
+            Backend.draw_gaussians(point_list)  
+        
     #     _data = Camera.get_data()
     #     Camera.save_data(data=_data,path=Camera._save_path, name='cam_image')

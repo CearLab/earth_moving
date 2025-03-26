@@ -17,6 +17,7 @@ class PybulletBackend(BaseBackend):
         self._kwargs = kwargs
         simulation = self._kwargs.get('simulation')
         self._timedelta = simulation.get('timedelta')
+        self._update_period = simulation.get('update_period')
         self._gui = simulation.get('gui')  
         if self._gui:
             self._physicsClient = p.connect(p.GUI)
@@ -25,16 +26,49 @@ class PybulletBackend(BaseBackend):
         self._gravity = simulation.get('gravity')
         p.setGravity(self._gravity[0], self._gravity[1], self._gravity[2])
         p.setAdditionalSearchPath(pybullet_data.getDataPath())  #  PyBullet_data package (see doc)       
-        self._ID = []
+        self._ID = []        
         self._ID.append(p.loadURDF("plane.urdf"))        
         
+        self._ID_aggregates = []
+        self._current_time = 0
+        
     def step(self):
-        p.stepSimulation()
+        p.stepSimulation()        
+        self._current_time += self._timedelta
         t.sleep(self._timedelta)
         
     def load_aggregates(self, aggregate_positions, aggregate_urdf):        
         for pos in aggregate_positions:                          
-            self._ID.append(p.loadURDF(aggregate_urdf, basePosition=pos))            
+            self._ID.append(p.loadURDF(aggregate_urdf, basePosition=pos)) 
+            self._ID_aggregates.append(self._ID[-1])       
+            
+    def get_aggregates_positions(self):
+        positions = []
+        for ID in self._ID_aggregates:
+            positions.append(p.getBasePositionAndOrientation(ID)[0])
+        return positions
+    
+    def color_aggregates_in_clusters(self, labels):
+        
+        n_clusters = len(np.unique(labels))
+        colors = plt.cm.get_cmap('tab10', n_clusters)  # Generate a colormap with `n_clusters` distinct colors
+        
+        for i, aggregate_id in enumerate(self._ID_aggregates):
+            color = colors(labels[i])[:3]  # Get the RGB values for the label
+            p.changeVisualShape(aggregate_id, -1, rgbaColor=list(color) + [1])
+                
+    def draw_gaussians(self, points_list):
+
+        n_clusters = len(points_list)
+        colors = plt.cm.get_cmap('tab10', n_clusters)  # Generate a colormap with `n_clusters` distinct colors       
+                    
+        for  i in range(n_clusters):
+            color = [colors(i)[:3]] * len(points_list[0])
+            points = points_list[i]
+            points = np.asarray(points)
+            points[:, 2] /= 1*np.max(points[:, 2])
+            points = points.tolist()
+            p.addUserDebugPoints(points, list(color), 2)
             
     def initiate_rgb_sensor(self,**kwargs) -> BaseSensorBackend: # TODO: unlike ROS, this needs to happen for all sensors that we want at the beginning of the run
         
@@ -104,6 +138,7 @@ class PybulletBackend(BaseBackend):
                 super().initiate_robot(**kwargs)
                 super().define_shovel(**self._robot)
                 super().define_trajectory(**self._robot) 
+                super().define_clusters(**self._robot)
                 super().define_probabilities()
                 self._probabilities = self.compute_probabilities()                           
             
@@ -134,8 +169,22 @@ class PybulletBackend(BaseBackend):
                     color = [1, 0, 0] if i % 4 == 0 else [0, 1, 0] if i % 4 == 1 else [0, 0, 1] if i % 4 == 2 else [1, 1, 0]
                     base_corners = corners[i]                                                                                                            
                     barycenter = np.mean(base_corners, axis=0)
+                    
+                    x_points = np.linspace(min(base_corners)[0], max(base_corners)[0], num=20)
+                    y_points = np.linspace(min(base_corners)[1], max(base_corners)[1], num=20)
+                    grid_points = np.array(np.meshgrid(x_points, y_points)).T.reshape(-1, 2)
+                    
+                    points_cluster = []
+                    for point in grid_points:
+                        points_cluster.append([point[0], point[1], self._probabilities[i]])
+                    
                     p.addUserDebugText(f'{self._probabilities[i]:.2f}', barycenter, color, textSize=2)
+                    color_list = [color] * len(points_cluster)
+                    p.addUserDebugPoints(points_cluster, color_list, 2)
+                    
+                    
+                                                                     
                     
                 
         shovel_backend = PybulletShovelBackend(**kwargs)
-        return shovel_backend
+        return shovel_backend        

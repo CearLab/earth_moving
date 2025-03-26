@@ -5,14 +5,11 @@ class BaseBackend(ABC):
         pass
         
     def initiate_backend(self,**kwargs) -> None:
-        _simulation = kwargs.get('simulation')
+        _simulation = kwargs.get('simulation')        
         self._backend_type = kwargs.get('backend_type')
         if self._backend_type == 'pybullet':
             from ral.backend.pybullet_backend import PybulletBackend
-            return PybulletBackend(simulation=_simulation)
-        elif self._backend_type == 'beavers_visualizer':
-            from ral.backend.beavers_visualizer_backend import BeaversVisualizerBackend
-            return BeaversVisualizerBackend(simulation=_simulation)          
+            return PybulletBackend(simulation=_simulation)        
             
     def step(self):
         raise NotImplementedError()

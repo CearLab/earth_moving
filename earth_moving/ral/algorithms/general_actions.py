@@ -6,7 +6,7 @@ class GeneralActions:
     def __init__(self,**kwargs) -> None:
         pass
     
-    def generate_aggregates_in_clusters(self, min_pos, max_pos, num_clusters, max_per_cluster, max_radius):
+    def generate_aggregates_in_clusters(self, min_pos, max_pos, num_clusters, max_per_cluster, min_per_cluster, max_radius):
         
         """
         Loads a specified number of aggregate objects into clusters within a given position range.
@@ -30,7 +30,7 @@ class GeneralActions:
         for center in cluster_centers:            
             
             # Randomly determine the number of aggregates to place in the cluster
-            num_cluster_aggregates = np.random.randint(1, max_per_cluster)
+            num_cluster_aggregates = np.random.randint(min_per_cluster, max_per_cluster)
             
             # Spread the aggregates around the cluster center
             for _ in range(num_cluster_aggregates):                

@@ -2,6 +2,9 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 from abc import ABC, abstractmethod
 from scipy.interpolate import interp1d, interp2d
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+
 
 class ProbabilisticSimulator(ABC):
     
@@ -11,7 +14,7 @@ class ProbabilisticSimulator(ABC):
     def define_shovel(self, **kwargs) -> None:        
         self._shovel_name = kwargs.get('name')
         self._shovel_width = kwargs.get('width')
-        self._shovel_height = kwargs.get('height')
+        self._shovel_height = kwargs.get('height')                
         
     def define_trajectory(self, **kwargs) -> None:        
         self._trajectory_length = kwargs.get('trajectory_length')
@@ -19,6 +22,17 @@ class ProbabilisticSimulator(ABC):
         self._trajectory_points = kwargs.get('trajectory_points')
         self._start_pos = kwargs.get('start_pos')
         self._start_orientation = R.from_euler('xyz', kwargs.get('start_orientation'), degrees=False).as_quat()        
+        
+    def define_clusters(self, **kwargs) -> None:
+        self._n_clusters_range = kwargs.get('n_clusters_range')
+        
+        # other attributes
+        self._cluster_labels = None        
+        self._cluster_centers = None
+        self._cluster_means = None
+        self._cluster_sigmas = None
+        self._silhouette_avg = None
+        self._inertia = None
         
     def generate_trajectory(self):
         trajectory_pos = []        
@@ -245,4 +259,93 @@ class ProbabilisticSimulator(ABC):
         probabilities = np.array((self.interp_left_region(x), self.interp_center_region(x), self.interp_right_region(x), self.interp_top_region(x)))
         
         return probabilities
+    
+    # from a set of positions, cluster them
+    def cluster_positions(self, positions):
+        
+        # init
+        inertia = []
+        silhouette_scores = []
+        
+        if self._n_clusters_range[1] == 1:
+            self._cluster_labels = np.zeros(len(positions))
+            self._silhouette_avg = -1
+            self._cluster_means = [np.mean(positions, axis=0)]
+            self._cluster_sigmas = [np.cov(positions, rowvar=False)]
+            return self._cluster_labels, self._silhouette_avg
+        
+        k_values = range(self._n_clusters_range[0], self._n_clusters_range[1])
+        
+        for k in k_values:
+            kmeans = KMeans(n_clusters=k, random_state=0)
+            kmeans.fit(positions)
+            inertia.append(kmeans.inertia_)  # Sum of squared distances to cluster centers
+            try:
+                silhouette_scores.append(silhouette_score(positions, kmeans.labels_))
+            except:
+                silhouette_scores.append(-1)
+            
+        # find the best k
+        best_k = k_values[np.argmin(inertia)]
+        kmeans = KMeans(n_clusters=best_k, random_state=0)
+        kmeans.fit(positions)
+                
+        # Get the cluster centers and labels
+        self._cluster_centers = kmeans.cluster_centers_
+        self._cluster_labels = kmeans.labels_
+        self._silhouette_avg = silhouette_score(positions, kmeans.labels_)
+        self._inertia = kmeans.inertia_
+        
+        # get the std of the clusters
+        cluster_sigmas = []    
+        cluster_means = []    
+        for i in range(best_k):
+            cluster_indices = np.where(kmeans.labels_ == i)[0]
+            
+            positions_tmp = []
+            for i in cluster_indices:
+                positions_tmp.append(positions[i])
+            cluster_positions = np.array(positions_tmp)
+            cluster_means.append(np.mean(cluster_positions, axis=0))
+            covariance_matrix = np.cov(cluster_positions, rowvar=False)
+            cluster_sigmas.append(covariance_matrix)
+        self._cluster_sigmas = cluster_sigmas
+        self._cluster_means = cluster_means
+        
+        return kmeans.labels_, self._silhouette_avg    
+    
+    def compute_gaussians(self) -> list:
+        
+        means = self._cluster_means
+        covs = self._cluster_sigmas
+        n_clusters = len(means)        
+                
+        points_list = []
+        for mean, cov, i in zip(means, covs, range(n_clusters)):
+                            
+            # Compute the 2-sigma range for the Gaussian
+            COV = cov[0:-1,0:-1]
+            # COV += np.eye(COV.shape[0]) * 1e-6 
+            x_min, x_max = mean[0] - 3*np.sqrt(COV[0,0]), mean[0] + 3*np.sqrt(COV[0,0])
+            y_min, y_max = mean[1] - 3*np.sqrt(COV[1,1]), mean[1] + 3*np.sqrt(COV[1,1])
+
+            # Define the grid cell size
+            number_of_points = 50            
+
+            # Generate points within the 2-sigma box
+            x_points = np.linspace(x_min, x_max, number_of_points)
+            y_points = np.linspace(y_min, y_max, number_of_points)
+            grid_points = np.array(np.meshgrid(x_points, y_points)).T.reshape(-1, 2)
+
+            # Filter points that fall within the 2-sigma ellipse
+            inv_cov = np.linalg.inv(COV)            
+            points_cluster = []
+            for point in grid_points:
+                diff = point - mean[0:-1]                    
+                z_value = np.exp(-0.5 * (diff.T @ inv_cov @ diff)) / (2 * np.pi * np.sqrt(np.linalg.det(COV)))                    
+                points_cluster.append([point[0], point[1], z_value])
+            points_list.append(points_cluster)
+            
+        return points_list
+    
     
