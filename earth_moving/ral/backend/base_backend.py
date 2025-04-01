@@ -18,8 +18,7 @@ class BaseBackend():
         # set backend
         self._backend_type = self._kwargs.get('backend_type')
         if self._backend_type == 'pybullet':
-            from ral.backend.pybullet_backend import PybulletBackend
-            return PybulletBackend(simulation=_simulation)
+            pass
         elif self._backend_type == 'beavers_visualizer':
             from ral.backend.beavers_visualizer_backend import BeaversVisualizerBackend            
             return BeaversVisualizerBackend(simulation=_simulation)
