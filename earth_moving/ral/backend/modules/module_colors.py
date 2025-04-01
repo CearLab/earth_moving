@@ -63,11 +63,11 @@ class ColorMaps():
         alpha_green = 1.0
         
         # greens - night
-        lightgreen_night = '#001845'
-        mediumgreen_night = '#002855'
-        green_night = '#023e7d'
-        tangreen_night = '#0353a4'
-        darkgreen_night = '#0466c8'
+        lightgreen_night = '#066839'
+        mediumgreen_night = '#0a5c36'
+        green_night = '#0f5132'
+        tangreen_night = '#14452f'
+        darkgreen_night = '#18392b'                
         alpha_green_night = 1.0
         
         # brown - daylight
@@ -79,12 +79,28 @@ class ColorMaps():
         alpha_brown = 0.6
         
         # brown - night
-        lightbrown_night = '#979dac'
-        mediumbrown_night = '#7d8597'
-        brown_night = '#5c677d'
-        tanbrown_night = '#33415c'
-        darkbrown_night = '#001233'
+        lightbrown_night = '#4a2419'
+        mediumbrown_night = '#411d13'
+        brown_night = '#38160d'
+        tanbrown_night = '#2f0e07'
+        darkbrown_night = '#260701'
         alpha_brown_night = 0.6
+        
+        # blues - daylight
+        lightblue = '#a9d6e5'
+        mediumblue = '#89c2d9'
+        blue = '#61a5c2'
+        tanblue = '#468faf'
+        darkblue = '#2c7da0'
+        alpha_blue = 1.0
+        
+        # blues - night
+        lightblue_night = '#00607a'
+        mediumblue_night = '#005066'
+        blue_night = '#004052'
+        tanblue_night = '#00303d'
+        darkblue_night = '#002029'
+        alpha_blue_night = 1.0
         
         # orange - quality        
         lightorange = '#f2dc96'
@@ -180,6 +196,44 @@ class ColorMaps():
                                               (1, darkgreen_night)]
         self._browngreen_colormap_night = cc.LinearSegmentedColormap.from_list("browngreen_colormap_night",self._browngreen_colors_list_night)
         self._browngreen_colormap_alpha_night = alpha_brown_night
+        
+        # blue to brown to green colormap - daylight
+        self._bluebrowngreen_colors_list = [(0.00, darkblue),
+                                            (0.10, tanblue),
+                                            (0.15, blue),
+                                            (0.20, mediumblue),
+                                            (0.30, lightblue),
+                                            (0.40, darkbrown),
+                                            (0.50, tanbrown),
+                                            (0.55, brown),
+                                            (0.60, mediumbrown),
+                                            (0.70, lightbrown),
+                                            (0.80, lightgreen),
+                                            (0.85, mediumgreen),
+                                            (0.90, green),
+                                            (0.95, tangreen),
+                                            (1.00, darkgreen)]        
+        self._bluebrowngreen_colormap = cc.LinearSegmentedColormap.from_list("bluebrowngreen_colormap",self._bluebrowngreen_colors_list)
+        self._bluebrowngreen_colormap_alpha = alpha_brown
+        
+        # blue to brown to green colormap - sleepnight
+        self._bluebrowngreen_colors_list_night = [(0.00, darkblue_night),
+                                                  (0.10, tanblue_night),
+                                                  (0.15, blue_night),
+                                                  (0.20, mediumblue_night),
+                                                  (0.30, lightblue_night),
+                                                  (0.40, darkbrown_night),
+                                                  (0.50, tanbrown_night),
+                                                  (0.55, brown_night),
+                                                  (0.60, mediumbrown_night),
+                                                  (0.70, lightbrown_night),
+                                                  (0.80, lightgreen_night),
+                                                  (0.85, mediumgreen_night),
+                                                  (0.90, green_night),
+                                                  (0.95, tangreen_night),
+                                                  (1.00, darkgreen_night)]
+        self._bluebrowngreen_colormap_night = cc.LinearSegmentedColormap.from_list("bluebrowngreen_colormap_night",self._bluebrowngreen_colors_list_night)
+        self._bluebrowngreen_colormap_alpha_night = alpha_brown_night
         
         # orange colormap
         self._orange_colors_list = [(0, self._white),

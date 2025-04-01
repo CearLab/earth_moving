@@ -10,7 +10,8 @@ from ral.robot.robot_beavers_backend import BeaversRobotBackend
 from ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
 
 # module imports
-from ral.backend.modules.modules import ColorMaps
+from ral.backend.modules.module_colors import ColorMaps
+import ral.backend.modules.module_misc as module_misc
 class BeaversVisualizerBackend(BaseBackend,Model):
     
     def __init__(self, **kwargs) -> None:            
@@ -70,7 +71,7 @@ class BeaversVisualizerBackend(BaseBackend,Model):
         fontname = 'monospace'
         
         # map max and min
-        vmin = self._environment._vegetation_quality_range[0]
+        vmin = -self._environment._streams_width
         vmax = self._environment._vegetation_quality_range[1]
         v_normalizer = vmax - vmin
         
@@ -88,9 +89,9 @@ class BeaversVisualizerBackend(BaseBackend,Model):
             agent_markeredgewidth = self._color_maps._agent_markeredgewidth
             agent_markeralpha =     self._color_maps._agent_markeralpha
             
-            # vegetation
-            vegetation_colormap = self._color_maps._browngreen_colormap
-            alpha_vegetation = self._color_maps._browngreen_colormap_alpha
+            # map
+            map_colormap = self._color_maps._bluebrowngreen_colormap
+            alpha_map = self._color_maps._bluebrowngreen_colormap_alpha
         else:
             # agents
             agent_marker =          self._color_maps._agent_marker_night
@@ -100,9 +101,9 @@ class BeaversVisualizerBackend(BaseBackend,Model):
             agent_markeredgewidth = self._color_maps._agent_markeredgewidth_night
             agent_markeralpha =     self._color_maps._agent_markeralpha_night
             
-            # vegetation
-            vegetation_colormap = self._color_maps._browngreen_colormap_night
-            alpha_vegetation = self._color_maps._browngreen_colormap_alpha_night
+            # map
+            map_colormap = self._color_maps._bluebrowngreen_colormap_night
+            alpha_map = self._color_maps._bluebrowngreen_colormap_alpha_night
             
         # vegetation marker
         vegetation_marker = self._color_maps._vegetation_marker
@@ -125,14 +126,14 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                 
         # box around the environment        
         box_margin = 0.5
-        box = plt.Rectangle((0, 0), self._width, self._height, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
+        box = plt.Rectangle((0, 0), self._width-1, self._height-1, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
         ax1.add_patch(box)
 
-        # Normalize vegetation map
-        vegetation_map_normalized = self._environment._vegetation_map / v_normalizer
-        # Plot vegetation
-        ax1.imshow(vegetation_map_normalized.transpose(), origin='lower', 
-                   cmap=vegetation_colormap, alpha=alpha_vegetation,
+        # Normalize map
+        map_normalized = self._environment._map / v_normalizer
+        # Plot map
+        ax1.imshow(map_normalized.transpose(), origin='lower', 
+                   cmap=map_colormap, alpha=alpha_map,
                    vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)    
 
         # Overlay agent positions
@@ -146,17 +147,17 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                     markeredgewidth= agent_markeredgewidth,
                     alpha=           agent_markeralpha)
                 
-                #! note here that we're linking the agent to the environment to get the vegetation quality. This is why we need an engine
+                #! note here that we're linking the agent to the environment to get the map quality. This is why we need an engine
                 try:
-                    vegetation_normalized = agent._vegetation_quality / (vmax - vmin)
+                    map_normalized = agent._map_quality / (vmax - vmin)
                 except:
-                    vegetation_normalized = self.np.nan
+                    map_normalized = self.np.nan
                     
                 ax1.plot(agent._position[0] + 4, agent._position[1], 
                     marker =         vegetation_marker.vertices, 
                     markersize=      vegetation_markersize, 
                     markeredgecolor= vegetation_markeredgecolor,
-                    markerfacecolor= self._color_maps._orange_colormap(vegetation_normalized),
+                    markerfacecolor= self._color_maps._orange_colormap(map_normalized),
                     markeredgewidth= vegetation_markeredgewidth,
                     alpha=           vegetation_markeralpha)
                 
@@ -214,25 +215,25 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                 
                 # box around the environment        
                 box_margin = 0.5
-                box = plt.Rectangle((0, 0), self._width, self._height, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
+                box = plt.Rectangle((0, 0), self._width-1, self._height-1, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
                 ax.add_patch(box)                
                 
-                # Normalize vegetation map
+                # Normalize map
                 try:
-                    vegetation_map_normalized = agent._local_vegetation_map / v_normalizer  
-                    # Pad the vegetation map with zeros to match the environment dimensions
-                    padded_vegetation_map = self.np.ones((self._width, self._height)) * self.np.nan
-                    padded_vegetation_map[:vegetation_map_normalized.shape[0], :vegetation_map_normalized.shape[1]] = vegetation_map_normalized
-                    # Plot vegetation
-                    ax.imshow(padded_vegetation_map.transpose(), origin='lower', 
-                              cmap=vegetation_colormap, alpha=alpha_vegetation,
+                    map_normalized = agent._local_map / v_normalizer  
+                    # Pad the map with zeros to match the environment dimensions
+                    padded_map = self.np.ones((self._width, self._height)) * self.np.nan
+                    padded_map[:map_normalized.shape[0], :map_normalized.shape[1]] = map_normalized
+                    # Plot map
+                    ax.imshow(padded_map.transpose(), origin='lower', 
+                              cmap=map_colormap, alpha=alpha_map,
                               vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
-                    vegetation_map_print = agent._vegetation_quality
+                    map_print = agent._map_quality
                 except:
                     ax.imshow(self.np.nan * self.np.ones((self._width, self._height)).transpose(), origin='lower', 
-                              cmap=vegetation_colormap, alpha=alpha_vegetation,
+                              cmap=map_colormap, alpha=alpha_map,
                               vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
-                    vegetation_map_print = self.np.nan
+                    map_print = self.np.nan
                     
                 # Plot agent's position
                 ax.plot(agent._position[0], agent._position[1], 
@@ -255,7 +256,7 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                 ax.set_axis_off()                
                 ax.set_xlim(0 - box_margin, self._width + box_margin)
                 ax.set_ylim(0 - box_margin, self._height + box_margin)
-                ax.set_title(f"Agent {agent.unique_id}: local vegetation map")
+                ax.set_title(f"Agent {agent.unique_id}: local map")
                 
                 # Add a second axis with different size/shape
                 panel = fig.add_axes([1, -0.14 - (0.45 * agent.unique_id), 0.6, 0.4])  # [left, bottom, width, height]
@@ -270,7 +271,7 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                     fontsize=14, color='black', verticalalignment='top', font=fontname)                        
                 panel.text(0.1, 0.8, 
                     f"TIME: {agent._current_time} ENERGY: {agent._energy:.1f}\n"
-                    f"VEGETATION: {vegetation_map_print:.1f} LOAD: {agent._load:.1f} \n"
+                    f"VEGETATION: {map_print:.1f} LOAD: {agent._load:.1f} \n"
                     f"POS: {self.np.array(agent._position)} DST: {self.np.array(agent._motion_destination)} CTRL: {agent._status_motion}\n"
                     f"TASK: {agent._current_task} STATUS: {agent._status_task} \n"
                     f"ROBOT STATUS: {agent._status_robot} ACTION: {agent._current_action}", 
@@ -293,18 +294,20 @@ class BeaversVisualizerAgent(BeaversRobotBackend, Agent):
         # get data from engine/environment (can't pass input to _schedule.step() method)
         dt = self._timedelta
         time_of_day = self.model._environment._time_of_day
-        vegetation_quality = self.model._environment._vegetation_map[self._position[0], self._position[1]]
-        limits = self.np.array([[0, self.model._environment._width-1], [0, self.model._environment._height-1]])
+        measure_positions, measure_values = module_misc.measure(self.model._environment._map, self._position, self._measurement_mode)
+        map_quality = [measure_positions, measure_values]
+        limits = module_misc.get_map_limits(self.model._environment._map)
         
         # step the agent
         self.step_beaver(dt, 
                          time_of_day,
-                         vegetation_quality, 
+                         map_quality, 
                          limits)
         
-        #! here we update the environment with the agent's actions
-        if self._vegetation_quality_update == True:        
-            self.model._environment._vegetation_map[self._position[0], self._position[1]] = self._vegetation_quality
+        #! here we update the environment with the agent's actions 
+        #! note that we only update the current position because it's the only the beaver can actually change
+        if self._map_quality_update == True:        
+            self.model._environment._map[self._position[0], self._position[1]] = self._map_quality
         
 class EnvironmentVisualizerAgent(BeaversEnvironmentBackend, Agent):
     

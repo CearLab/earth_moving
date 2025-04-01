@@ -30,7 +30,13 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         self._vegetation_quality_range = self._environment.get('vegetation_quality_range')        
         self._vegetation_quality_init = self._environment.get('vegetation_quality_init')
         self._vegetation_growth_frequency = self._environment.get('vegetation_growth_frequency')        
+        if self._vegetation_growth_frequency == 'inf':
+            self._vegetation_growth_frequency = self.np.inf
         self._print = self._environment.get('print')
+        
+        # streams
+        self._streams_number = self._environment.get('streams_number')
+        self._streams_width = self._environment.get('streams_width')        
         
         # init class attributes        
         self._current_time = 0
@@ -41,11 +47,11 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         self._trail_usage_map = self.np.zeros((self._width, self._height))
         self._canal_usage_map = self.np.zeros((self._width, self._height))
         self._number_vegetation_clusters = 0
-        self._vegetation_map = self.np.ones((self._width, self._height)) * self._vegetation_quality_init
+        self._map = self.np.ones((self._width, self._height)) * self._vegetation_quality_init
         self._vegetation_clusters_store = []
         
         # call init methods
-        self.generate_vegetation_map()        
+        self.generate_map()        
         
         return self   
     
@@ -68,8 +74,12 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
             print("Vegetation Clusters:")
             for cluster in self._vegetation_clusters_store:
                 print(f"Cluster ID: {cluster[0]}, X: {cluster[1]}, Y: {cluster[2]}, Radius: {cluster[3]}")
+                
+    def generate_map(self) -> None:        
+        self.generate_streams()
+        self.generate_vegetation()        
             
-    def generate_vegetation_map(self) -> None:
+    def generate_vegetation(self) -> None:
         for _ in range(self._number_vegetation_clusters_init):
             cx, cy = self.random.randint(0, self._width - 1), self.random.randint(0, self._height - 1)            
             self.generate_cluster(cx, cy)
@@ -95,9 +105,10 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
                 if 0 <= nx < self._width and 0 <= ny < self._height:
                     distance = self.np.sqrt(dx**2 + dy**2)
                     #! remark: base_map is increased because vegetation can overlap when generated
-                    self._vegetation_map[nx, ny] += self._vegetation_quality_range[1] * self.np.sqrt(2 * self.np.pi * sigma**2) \
-                                        * norm.pdf(distance, 0.0, sigma)
-                    self._vegetation_map = self.np.clip(self._vegetation_map, self._vegetation_quality_range[0], self._vegetation_quality_range[1])
+                    if self._map[nx, ny] >= 0:
+                        self._map[nx, ny] += self._vegetation_quality_range[1] * self.np.sqrt(2 * self.np.pi * sigma**2) \
+                                            * norm.pdf(distance, 0.0, sigma)
+                        self._map = self.np.clip(self._map, -self._streams_width, self._vegetation_quality_range[1])
         
         # store clusters
         found = False
@@ -119,9 +130,10 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
                 nx, ny = cx + dx, cy + dy
                 if 0 <= nx < self._width and 0 <= ny < self._height:
                     distance = self.np.sqrt(dx**2 + dy**2)
-                    self._vegetation_map[nx, ny] -= self._vegetation_quality_range[1] * self.np.sqrt(2 * self.np.pi * sigma**2) \
-                                        * norm.pdf(distance, 0.0, sigma)
-                    self._vegetation_map = self.np.clip(self._vegetation_map, self._vegetation_quality_range[0], self._vegetation_quality_range[1])
+                    if self._map[nx, ny] > 0:                        
+                        self._map[nx, ny] -= self._vegetation_quality_range[1] * self.np.sqrt(2 * self.np.pi * sigma**2) \
+                                            * norm.pdf(distance, 0.0, sigma)
+                        self._map[nx, ny] = self.np.clip(self._map[nx, ny], 0.05, self._vegetation_quality_range[1])
         
         # increase radius 
         cluster_radius += 1
@@ -140,4 +152,46 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         # generate new cluster   
         if self._number_vegetation_clusters < self._number_vegetation_clusters_max:
             cx, cy = self.random.randint(0, self._width - 1), self.random.randint(0, self._height - 1)            
-            self.generate_cluster(cx, cy, cluster_radius=self._vegetation_cluster_radius_range[0])            
+            self.generate_cluster(cx, cy, cluster_radius=self._vegetation_cluster_radius_range[0])
+            
+    def generate_streams(self) -> None:
+        for _ in range(self._streams_number):
+            perimeter = 2*self._width + 2*self._height
+            
+            # start from the bottom
+            position_start = self.random.randint(0, self._width -1)
+            start = module_misc.get_coordinates_from_perimeter(self._width-1, self._height-1, position_start)
+            
+            # middle
+            middle_1 = [self.random.randint(0, self._width - 1), self.random.randint(0, self._height - 1)]
+            middle_2 = [self.random.randint(0, self._width - 1), self.random.randint(0, self._height - 1)]            
+            
+            # end in another side
+            position_end = self.random.randint(self._width, perimeter)
+            end = module_misc.get_coordinates_from_perimeter(self._width-1, self._height-1, position_end)
+            
+            # generate stream
+            points = [start, middle_1, middle_2, end]
+            self.generate_stream(points)
+
+    def generate_stream(self, points) -> None:        
+        sigma = 3
+        path = module_misc.generate_path_from_points(points, self._width-1, self._height-1)        
+        for position in path:
+            self._map[position[0], position[1]] = -(self._streams_width + 1)
+            
+        extended_path = []
+        for position in path:
+            x, y = position
+            for width in range(2, self._streams_width + 1):
+                neighbours = module_misc.D4_neighbourhood(position, [self._width-1, self._height-1], step=width-1)
+                for neighbour in neighbours:                    
+                    if not any((neighbour == self.np.array(points)).all() for points in path) and \
+                       not any((neighbour == self.np.array(points)).all() for points in extended_path) and \
+                       module_misc.is_within_limits(neighbour, self._width-1, self._height-1):  
+                            
+                            extended_path.append(neighbour)                         
+                            distance = self.np.sqrt((neighbour[0] - x)**2 + (neighbour[1] - y)**2)
+                            self._map[neighbour[0], neighbour[1]] = -self._streams_width * self.np.sqrt(2 * self.np.pi * sigma**2) \
+                                        * norm.pdf(distance, 0.0, sigma)
+                            self._map[neighbour[0], neighbour[1]] = self.np.clip(self._map[neighbour[0], neighbour[1]], -self._streams_width, -0.05)    

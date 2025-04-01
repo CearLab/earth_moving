@@ -21,7 +21,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         # TASK RECAP
         # Exploring: decide a (set) of destination(s) to explore
         #   - move(destination)
-        #   - read(vegetation_quality)
+        #   - read(map_quality)
         # Harvesting: harvest vegetation where you are
         #   - remove_vegetation()
 
@@ -48,11 +48,11 @@ class BeaversRobotBackend(BaseRobotBackend):
         
         # OBSERVATION RECAP
         # time_of_day: day or night (provided by the environment)
-        # vegetation_quality: quality of the vegetation at the current position (provided by the environment)
+        # map_quality: quality of the vegetation at the current position (provided by the environment)
         # limits: limits of the environment (provided by the environment)
         
         # ACTUATION RECAP
-        # update_vegetation_quality: update the vegetation quality at the current position (actuate the environment)
+        # update_map_quality: update the vegetation quality at the current position (actuate the environment)
         
     def initiate_robot(self, **kwargs):
         
@@ -74,17 +74,19 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._harvest_threshold = self._robot.get('harvest_threshold')
         self._sleep_recovery = self._robot.get('sleep_recovery')
         self._vegetation_removal = self._robot.get('vegetation_removal')
+        self._measurement_mode = self._robot.get('measurement_mode')
         
         # other attributes
         self._current_time = 0 #! this is a counter. Agent does not compute the hour/time of the day. It will be provided by the environment         
-        self._vegetation_quality = None
-        self._vegetation_quality_measure = None
-        self._vegetation_quality_update = False #! this is a flag to update the vegetation quality in the environment
+        self._map_quality = None
+        self._map_quality_measure = None
+        self._map_quality_measure_position = None
+        self._map_quality_update = False #! this is a flag to update the vegetation quality in the environment
         self._motion_destination = None
         self._neighbourhood = None        
         self._neighbourhood_reached_flag = None
         self._neighbourhood_current_index = None
-        self._local_vegetation_map = None
+        self._local_map = None
         
         # physical attributes
         # position
@@ -146,7 +148,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         return self
     
     #! remark: the vegetation quality and the time_of_day are OBSERVATIONS
-    def step_beaver(self, dt, time_of_day, vegetation_quality, limits) -> None:
+    def step_beaver(self, dt, time_of_day, map_quality, limits) -> None:
         # update your internal clock
         self._current_time += dt #! I wamt to pass the timedelta from the simulation, the agent is not aware of the time flow        
         # set integration time
@@ -155,8 +157,9 @@ class BeaversRobotBackend(BaseRobotBackend):
                         
         # gather information (OBSERVATIONS)
         #! time_of_day is provided, no need to store it
-        self._vegetation_quality_measure = vegetation_quality #? Do I read the measurements also at night? It doesn't hurt
-        self._vegetation_quality_update = False #! reset the flag
+        self._map_quality_measure = map_quality #? Do I read the measurements also at night? It doesn't hurt
+        self._map_quality_measure_position = self._map_quality_measure[1][0] #! this is the quality at the current position (see module_misc in the visualizer)
+        self._map_quality_update = False #! reset the flag
         
         # decide the goal (TASK POLICY)
         self.decide_task(time_of_day, limits)        
@@ -167,13 +170,13 @@ class BeaversRobotBackend(BaseRobotBackend):
         
         #! this is where we change/actuate the environment
         if self._current_task == 'harvest' and self._status_task == 'FINISHED':               
-            self._vegetation_quality_update = True
+            self._map_quality_update = True
         else:                        
-            self._vegetation_quality_update = False
+            self._map_quality_update = False
             
         # update the local_map according to the action 
-        self._vegetation_quality = self._vegetation_quality_measure
-        self.update_local_map(self._vegetation_quality)
+        self._map_quality = self._map_quality_measure_position
+        self.update_local_map(self._map_quality_measure)
         
         # store the data
         self._destination_store.append(self._motion_destination)
@@ -201,7 +204,7 @@ class BeaversRobotBackend(BaseRobotBackend):
                 
         # task policy
         if self._status_task is 'IDLE':
-            if self._vegetation_quality_measure > self._harvest_threshold and self._load < self._maximum_load:
+            if self._map_quality_measure_position > self._harvest_threshold and self._load < self._maximum_load:
                 self._current_task = 'harvest'
             else:
                 self._current_task = 'explore' 
@@ -365,7 +368,7 @@ class BeaversRobotBackend(BaseRobotBackend):
     # action: remove_vegetation
     def remove_vegetation(self, time_of_day=None, limits=None) -> None:
         if self._load < self._maximum_load - self._vegetation_removal:
-            self._vegetation_quality_measure  -= self._vegetation_removal
+            self._map_quality_measure_position  -= self._vegetation_removal
             self._load += self._vegetation_removal
         
     ############################################################
@@ -392,10 +395,10 @@ class BeaversRobotBackend(BaseRobotBackend):
         #! it = 1 as long as the current cell is the only one observed by the beaver    
         
         position = self._position   
-        local_vegetation_map = self._local_vegetation_map
+        local_map = self._local_map
         position_store = self._position_store
-        if self._local_vegetation_map is not None:
-            limits = [[0,0], [self._local_vegetation_map.shape[0] - 1, self._local_vegetation_map.shape[1] - 1]]
+        if self._local_map is not None:
+            limits = [[0,0], [self._local_map.shape[0] - 1, self._local_map.shape[1] - 1]]
         else:
             limits = [[self._position[0], self._position[1]], [self._position[0], self._position[1]]]                        
         
@@ -416,10 +419,10 @@ class BeaversRobotBackend(BaseRobotBackend):
             N , NF, NI = module_beaver.exploration_D8_random(position, limits)
                
         elif self._exploration_mode == 'gradient_D4':
-            N , NF, NI = module_beaver.exploration_gradient_D4(position, limits, local_vegetation_map, position_store)
+            N , NF, NI = module_beaver.exploration_gradient_D4(position, limits, local_map, position_store)
             
         elif self._exploration_mode == 'gradient_D8':
-            N , NF, NI = module_beaver.exploration_gradient_D8(position, limits, local_vegetation_map, position_store)
+            N , NF, NI = module_beaver.exploration_gradient_D8(position, limits, local_map, position_store)
         
         else:
             raise ValueError('Invalid exploration mode: {}'.format(self._exploration_mode))
@@ -429,20 +432,26 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._neighbourhood_current_index = NI
         
         
-    def update_local_map(self,vegetation_quality) -> None:
+    def update_local_map(self,map_quality) -> None:
         
         # Ensure the local map is initialized
-        if self._local_vegetation_map is None:
-            self._local_vegetation_map = self.np.ones((1, 1)) * self.np.nan
+        if self._local_map is None:
+            self._local_map = self.np.ones((1, 1)) * self.np.nan
+            
+        # positions
+        measure_positions = map_quality[0]
+        measure_values = map_quality[1]
 
         # Expand the matrix if the position is out of bounds
-        x, y = self._position
-        if x >= self._local_vegetation_map.shape[0]:
-            self._local_vegetation_map = self.np.pad(self._local_vegetation_map, ((0, x - self._local_vegetation_map.shape[0] + 1), (0, 0)), 
+        x = self.np.max([pos[0] for pos in measure_positions])
+        y = self.np.max([pos[1] for pos in measure_positions])
+        if x >= self._local_map.shape[0]:
+            self._local_map = self.np.pad(self._local_map, ((0, x - self._local_map.shape[0] + 1), (0, 0)), 
                                                 mode='constant', constant_values=self.np.nan)
-        if y >= self._local_vegetation_map.shape[1]:
-            self._local_vegetation_map = self.np.pad(self._local_vegetation_map, ((0, 0), (0, y - self._local_vegetation_map.shape[1] + 1)), 
+        if y >= self._local_map.shape[1]:
+            self._local_map = self.np.pad(self._local_map, ((0, 0), (0, y - self._local_map.shape[1] + 1)), 
                                                 mode='constant', constant_values=self.np.nan)
 
         # Update the vegetation quality at the current position
-        self._local_vegetation_map[x, y] = vegetation_quality
+        for pos, val in zip(measure_positions, measure_values):
+            self._local_map[pos[0], pos[1]] = val
