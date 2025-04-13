@@ -5,4 +5,4 @@ earth_moving/clutter/__pycache__/
 
 # files
 core.*
-
+*.pyc
