@@ -112,38 +112,29 @@ class SimulationEnv:
                 agents.append({"id": i, "position": (x, y), "orientation": orientation, "size": 3})
         return agents
 
-    def get_cell(self, x, y):
+    def calculate_potential_field(self, use_spillage_model=False, visualize=False):
         """
-        Retrieve a cell at a specific (x, y) location from the grid.
-        Returns the cell if found, otherwise None.
-        """
-        for cell in self.all_cells:
-            if cell.x == x and cell.y == y:
-                return cell
-        return None
-
-    def calculate_potential_field(self, use_spillage_model=True, visualize=True, affected_cells=None):
-        """
-        Calculate potential field using A* search.
-        Can update the entire environment or only a subset of affected cells.
+        Calculate potential field for all cells using A* search.
+        Supports two modes:
+        1. **Without spillage model**: Maximizes collected objects.
+        2. **With spillage model**: Accounts for estimated object spillage.
 
         :param use_spillage_model: If True, selects paths based on estimated spillage.
+                                   If False, selects paths purely based on maximizing objects.
         :param visualize: If True, generates a spillage visualization plot.
-        :param affected_cells: If provided, only these cells will be updated; otherwise, update all.
         """
         print(f"Calculating potential field... (Spillage Model: {use_spillage_model})")
 
-        # If no specific affected cells, use all object-containing cells
-        if affected_cells is None:
-            affected_cells = self.cells_with_objects
-
         # Sort cells by distance to target (closest first)
-        sorted_cells = sorted(affected_cells, key=lambda c: c.distance_to_target)
+        sorted_cells = sorted(self.cells_with_objects, key=lambda c: c.distance_to_target)
 
         for cell in sorted_cells:
-            best_paths = a_star_search_target(cell)
-            if cell.x==17 and cell.y==23:
+            # Perform A* search and get multiple best paths
+            if cell.x==22 and cell.y==24:
                 print("test")
+
+            best_paths = a_star_search_target(cell)
+
             if not best_paths:
                 print(f"Warning: No valid paths found for cell ({cell.x}, {cell.y})")
                 continue
@@ -152,7 +143,6 @@ class SimulationEnv:
             best_path = None
             max_objects = 0
             best_distance = float("inf")
-            best_impacted_cells = {}  # Store impacted cells
 
             for path_info in best_paths:
                 path = path_info["path"]
@@ -168,9 +158,10 @@ class SimulationEnv:
                         spillage_factor=self.spillage_factor,
                         min_spillage_threshold=self.min_spillage_threshold
                     )
+
                 else:
+                    # Use raw total objects (no spillage)
                     estimated_objects = total_objects
-                    impacted_cells = {}  # No spillage impact
 
                 # Select the best path
                 if estimated_objects > max_objects or (
@@ -179,13 +170,11 @@ class SimulationEnv:
                     max_objects = estimated_objects
                     best_distance = total_distance
                     best_path = path
-                    best_impacted_cells = impacted_cells  # Store impacted cells
 
-            # ✅ Store path and estimated results
+            # Update cell attributes
             cell.best_path_target = best_path
             cell.total_objects_target = max_objects
             cell.total_distance_target = best_distance
-            cell.impacted_cells_target = best_impacted_cells  # ✅ Store impacted cells!
 
         print("Potential field calculation complete.")
 
@@ -291,21 +280,16 @@ class SimulationEnv:
         plt.grid()
         plt.show()
 
-    def calculate_velocity_field(self, context="target", affected_cells=None):
+    def calculate_velocity_field(self, context="target"):
         """
         Calculate velocity field for all cells based on potential gradients.
-        Can update all cells or only a subset.
+        Cells with objects will calculate their velocity using _calculate_velocity.
+        For cells without objects, find their closest target or neighbor.
 
         :param context: Specify whether the calculation is for "target" or "highway".
-        :param affected_cells: If provided, only these cells will be updated; otherwise, update all.
         """
         print(f"Calculating velocity field for {context}...")
-
-        # If no specific affected cells, use all object-containing cells
-        if affected_cells is None:
-            affected_cells = self.cells_with_objects
-
-        for cell in affected_cells:
+        for cell in self.cells_with_objects:
             if cell.num_objects > 0:  # Cells with objects
                 if context == "target":
                     cell.velocity_target = self._calculate_velocity(cell, context)
@@ -316,6 +300,13 @@ class SimulationEnv:
                     cell.velocity_target = (0, 0)  # Default velocity for empty cells
                 elif context == "highway":
                     cell.velocity_highway = (0, 0)  # Default velocity for empty cells
+
+        for cell in self.all_cells:
+            if cell not in self.cells_with_objects:  # Cells without objects
+                if context == "target":
+                    cell.velocity_target = self._calculate_velocity(cell, context)
+                elif context == "highway":
+                    cell.velocity_highway = self._calculate_velocity(cell, context)
 
         print(f"Velocity field for {context} calculated.")
 
@@ -438,6 +429,7 @@ class SimulationEnv:
         2. **With spillage model**: Accounts for estimated object spillage.
 
         :param use_spillage_model: If True, selects paths based on estimated spillage.
+                                   If False, selects paths purely based on maximizing objects.
         """
         print(f"🚀 Calculating paths to highway... (Spillage Model: {use_spillage_model})")
 
@@ -470,8 +462,7 @@ class SimulationEnv:
 
             # ✅ Dynamically calculate visibility for this candidate
             cell.visible_cells_highway, cell.distance_to_children_highway = self.calculate_visibility_simple(
-                cell, angle_tolerance=90, target_cell=best_target
-            )  # 🔹 Increased angle for better paths
+                cell, angle_tolerance=90, target_cell=best_target)  # 🔹 Increased angle for better paths
 
             # ✅ Find the best path to the highway using A*
             best_paths = a_star_search_highway(cell)
@@ -486,7 +477,6 @@ class SimulationEnv:
             best_path = None
             max_objects = 0
             best_distance = float("inf")
-            best_impacted_cells = {}
 
             for path_info in best_paths:
                 path = path_info["path"]
@@ -503,8 +493,8 @@ class SimulationEnv:
                         min_spillage_threshold=self.min_spillage_threshold
                     )
                 else:
+                    # ✅ Use raw total objects (no spillage)
                     estimated_objects = total_objects
-                    impacted_cells = {}
 
                 # ✅ Choose the best path considering estimated objects & distance
                 if estimated_objects > max_objects or (
@@ -512,13 +502,11 @@ class SimulationEnv:
                     max_objects = estimated_objects
                     best_distance = total_distance
                     best_path = path
-                    best_impacted_cells = impacted_cells  # Store impacted cells!
 
             # ✅ Assign the best found path
             cell.best_path_highway = best_path
             cell.total_objects_highway = max_objects
             cell.total_distance_highway = best_distance
-            cell.impacted_cells_highway = best_impacted_cells  # ✅ Store impacted cells!
 
             # ✅ Compute velocity direction for the agent
             if len(best_path) > 1:
@@ -569,159 +557,70 @@ class SimulationEnv:
             print(f"⚠️ No valid path found for cell ({start_cell.x}, {start_cell.y}) with path type '{path_type}'.")
             return
 
-        # ✅ Track affected cells (for backward propagation later)
-        affected_cells = set()
-        
-        # ✅ Track objects for conservation verification
-        initial_objects = sum(cell.num_objects for cell in best_path)
-        
-        # Print information about the path
-        print(f"Path from ({start_cell.x}, {start_cell.y}) to ({best_path[-1].x}, {best_path[-1].y}):")
-        print(f"Initial objects in all path cells: {initial_objects}")
-        if use_spillage and impacted_cells:
-            print(f"Total impacted cells: {len(impacted_cells)}")
-            print(f"Sum of objects in impacted cells: {sum(impacted_cells.values())}")
-            
-            # Check for conservation
-            if abs(initial_objects - sum(impacted_cells.values())) > 0.01:
-                print(f"⚠️ Conservation issue detected! Difference: {initial_objects - sum(impacted_cells.values())}")
-
         # ✅ Apply execution logic based on spillage mode
         if use_spillage and impacted_cells:
             # ✅ **Distribute objects based on precomputed spillage**
-            print("Distributing objects according to spillage model:")
             for (cell_x, cell_y), spilled_objects in impacted_cells.items():
-                print(f"  Cell ({cell_x}, {cell_y}): {spilled_objects} objects")
                 cell = self.get_cell(cell_x, cell_y)
                 if cell:
                     cell.num_objects += spilled_objects
                     cell.current_objects += spilled_objects
-                    affected_cells.add(cell)
-
-                    # ✅ Ensure this cell is tracked properly
-                    if cell not in self.cells_with_objects and cell.num_objects > 0:
+                    if cell not in self.cells_with_objects:
                         self.cells_with_objects.append(cell)
 
-            # ✅ Clear objects from all path cells since they've been redistributed
-            for cell in best_path:
-                original_objects = cell.num_objects
-                cell.num_objects = 0
-                cell.current_objects = 0
-                affected_cells.add(cell)
-                if cell in self.cells_with_objects and cell.num_objects == 0:
-                    self.cells_with_objects.remove(cell)
-
-        else:
-            # ✅ **Move all objects to the last cell, clearing intermediate ones**
+            # ✅ Ensure final cell receives the transported objects
             final_cell = best_path[-1]
             final_cell.num_objects += total_objects
             final_cell.current_objects += total_objects
-            affected_cells.add(final_cell)
+
+        else:
+            # ✅ **Old method: Move everything to the last cell, clearing intermediate ones**
+            final_cell = best_path[-1]
+            final_cell.num_objects += total_objects
+            final_cell.current_objects += total_objects
 
             # ✅ Remove objects from all path cells (except the final cell)
             for cell in best_path[:-1]:  # Exclude final cell
                 cell.num_objects = 0
                 cell.current_objects = 0
-                affected_cells.add(cell)
                 if cell in self.cells_with_objects:
                     self.cells_with_objects.remove(cell)
 
-        # Verify conservation after execution
-        final_objects = sum(cell.num_objects for cell in affected_cells)
-        print(f"Objects after execution: {final_objects}")
-        if abs(initial_objects - final_objects) > 0.01:
-            print(f"⚠️ Post-execution conservation issue detected! Difference: {initial_objects - final_objects}")
-        
-        # ✅ Store affected cells for `update_environment`
-        self.affected_cells = affected_cells
-
         print(f"✅ Executed path ({path_type}) for ({start_cell.x}, {start_cell.y}). "
-              f"Objects moved to ({best_path[-1].x}, {best_path[-1].y}). "
+              f"Objects moved to ({final_cell.x}, {final_cell.y}). "
               f"Using spillage: {use_spillage}")
 
     def update_environment(self):
         """
-        Update only the affected cells instead of recalculating everything.
+        Recalculate visibility, potential fields, velocity fields, and heat maps for all cells.
         """
-        if not hasattr(self, "affected_cells") or not self.affected_cells:
-            print("No affected cells. Skipping update.")
-            return
+        print("Updating visibility for all cells...")
+        for cell in self.cells_with_objects:
+            # Calculate visibility toward the target zone
+            closest_point_target = self.find_closest_point_on_target((cell.x + 0.5, cell.y + 0.5))
+            target_cell_target = Cell(
+                int(closest_point_target[0]), int(closest_point_target[1]), 0, self.target_zone, self.grid_size
+            )
+            visible_cells_target, distance_to_children_target = self.calculate_visibility_simple(
+                cell, angle_tolerance=60, target_cell=target_cell_target
+            )
+            cell.visible_cells_target = visible_cells_target
+            cell.distance_to_children_target = distance_to_children_target
 
-        print("Updating visibility for affected cells...")
+        print("Recalculating potential field...")
+        self.calculate_potential_field()
 
-        # ✅ Identify all cells that need updates (including backward propagation)
-        affected_cells = set(self.affected_cells)
-        queue = list(self.affected_cells)
+        print("Recalculating velocity field...")
+        self.calculate_velocity_field()
 
-        while queue:
-            current_cell = queue.pop(0)
-
-            # Find all cells that could be affected by this change
-            for candidate in self.cells_with_objects:
-                if candidate == current_cell:
-                    continue
-
-                # ✅ Check if candidate is within visibility scope
-                if self.is_visible_from(candidate, current_cell, angle_tolerance=60):
-                    if candidate not in affected_cells:
-                        affected_cells.add(candidate)
-                        queue.append(candidate)
-
-        print(f"Total affected cells identified: {len(affected_cells)}")
-
-        # ✅ Update environment selectively
-        self.calculate_potential_field(affected_cells=affected_cells)
-        self.calculate_velocity_field(affected_cells=affected_cells)
-
-        # ✅ Remove cells that no longer contain objects
-        self.cells_with_objects = [cell for cell in self.cells_with_objects if cell.num_objects > 0]
-
-        # ✅ Heat map still needs full recalculation
+        print("Recalculating heat map...")
         self.update_heat_map()
 
         print("Environment update complete.")
-
-        # ✅ Recalculate highway paths
+        # Calculate paths to highways
         print("Calculating paths to highways for low-potential cells...")
         self.calculate_path_to_highway()
         print("Paths to highways calculated.")
-
-    def is_visible_from(self, candidate, reference_cell, angle_tolerance=60):
-        """
-        Checks if `candidate` is within the visibility scope of `reference_cell`
-        based on an angular tolerance.
-
-        :param candidate: The cell being checked for visibility.
-        :param reference_cell: The cell that was impacted and needs updates.
-        :param angle_tolerance: Maximum angle deviation allowed for visibility.
-        :return: True if candidate is visible from reference_cell, False otherwise.
-        """
-        # Compute vector from reference_cell to candidate
-        to_candidate_x = (candidate.x + 0.5) - (reference_cell.x + 0.5)
-        to_candidate_y = (candidate.y + 0.5) - (reference_cell.y + 0.5)
-        magnitude_to_candidate = math.sqrt(to_candidate_x ** 2 + to_candidate_y ** 2)
-
-        if magnitude_to_candidate == 0:  # Prevent self-check
-            return False
-
-        unit_to_candidate = (to_candidate_x / magnitude_to_candidate, to_candidate_y / magnitude_to_candidate)
-
-        # Compute reference vector (from target to reference_cell)
-        from_target_x = (reference_cell.x + 0.5) - reference_cell.closest_x
-        from_target_y = (reference_cell.y + 0.5) - reference_cell.closest_y
-        magnitude_from_target = math.sqrt(from_target_x ** 2 + from_target_y ** 2)
-
-        if magnitude_from_target == 0:  # Avoid division by zero
-            return False
-
-        unit_from_target = (from_target_x / magnitude_from_target, from_target_y / magnitude_from_target)
-
-        # Compute dot product between reference direction and candidate direction
-        dot_product = max(0, unit_from_target[0] * unit_to_candidate[0] +
-                          unit_from_target[1] * unit_to_candidate[1])
-
-        # Check if within angular tolerance
-        return dot_product > math.cos(math.radians(angle_tolerance))
 
     def calculate_visibility_simple(self, current_cell, angle_tolerance=30, target_cell=None):
         """

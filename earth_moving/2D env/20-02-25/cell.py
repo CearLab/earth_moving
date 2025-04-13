@@ -35,7 +35,6 @@ class Cell:
         self.total_objects_path_highway = 0  # Maximum objects collected for paths to the highway
         self.velocity_highway = (0, 0)  # Velocity toward the highway
         self.total_distance_highway = 0
-        self.distance_to_highway = float("inf")  # ✅ New attribute
 
         # Calculate the closest point on the target zone boundary
         object_position = (self.x + 0.5, self.y + 0.5)
@@ -54,9 +53,6 @@ class Cell:
         self.total_distance = float('inf')  # Default total distance
         self.potential = None  # Potential field value
         self.velocity = (0, 0)  # Default velocity
-
-        self.impacted_cells_target = {}  # Stores impacted cells from spillage (target)
-        self.impacted_cells_highway = {}  # Stores impacted cells from spillage (highway)
 
     def calculate_potential(self):
         """

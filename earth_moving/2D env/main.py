@@ -1,16 +1,11 @@
-
 from env import SimulationEnv
 import pygame
 from visualizer import SimulationVisualizer
 import warnings
-# from search import a_star_search
 from cell import Cell  # Import the Cell class
 
 warnings.filterwarnings("ignore", category=UserWarning, module="numpy")
 
-
-# Suppress numpy warnings
-warnings.filterwarnings("ignore", category=UserWarning, module="numpy")
 
 
 def main():
@@ -24,13 +19,13 @@ def main():
     )
     print("Environment initialized!")
     print(f"Number of cells with objects: {len(env.cells_with_objects)}")
+
     for cell in env.cells_with_objects:
         print(f"Cell at ({cell.x}, {cell.y}) has {cell.num_objects} objects.")
 
     # Precompute visibility for all cells in the grid (Target Zone Path-related only)
     print("Calculating visibility for all cells (Target Zone Path-related)...")
     for cell in env.cells_with_objects:
-        # Calculate visibility toward the target zone
         closest_point_target = env.find_closest_point_on_target((cell.x + 0.5, cell.y + 0.5))
         target_cell_target = Cell(
             int(closest_point_target[0]), int(closest_point_target[1]), 0, env.target_zone, env.grid_size
@@ -42,31 +37,30 @@ def main():
         cell.distance_to_children_target = distance_to_children_target
     print("Visibility for Target Zone Path-related attributes calculated.")
 
-    # Proceed with potential field calculation
+    # ✅ Compute potential field **including spillage effects**
     print("Calculating potential field...")
-    env.calculate_potential_field()
+    env.calculate_potential_field(use_spillage_model=True, visualize=True)
     print("Potential field calculated.")
 
-    # Calculate velocity field
+    # ✅ Compute velocity field
     print("Calculating velocity field...")
     env.calculate_velocity_field()
     print("Velocity field calculated.")
 
-    # Simulate flow and update the heat map
+    # ✅ Simulate flow and update the heat map
     print("Simulating flow and updating heat map...")
     env.update_heat_map()
     print("Heat map updated.")
 
-    # Calculate paths to highways
+    # ✅ Calculate paths to highways (needed for execution)
     print("Calculating paths to highways for low-potential cells...")
     env.calculate_path_to_highway()
     print("Paths to highways calculated.")
 
-    # Initialize the visualization
+    # Initialize visualization
     visualizer = SimulationVisualizer(env, screen_size=800)
-    # visualizer.run()
 
-    # Visualization loop with interaction
+    # ✅ Visualization loop with interaction
     running = True
     while running:
         visualizer.screen.fill((255, 255, 255))  # Clear screen
@@ -87,18 +81,24 @@ def main():
                 pos = pygame.mouse.get_pos()
                 clicked_cell = visualizer.handle_click_event(pos)
                 if clicked_cell:
-                    print(
-                        f"Clicked cell: ({clicked_cell.x}, {clicked_cell.y}) with {clicked_cell.num_objects} objects.")
-                    # Ask the user for path choice
+                    print(f"Clicked cell: ({clicked_cell.x}, {clicked_cell.y}) with {clicked_cell.num_objects} objects.")
+
+                    # ✅ Ask user for path choice
                     choice = input("Choose path type ('target' or 'highway'): ").strip().lower()
-                    if choice == "target":
-                        env.execute_path(clicked_cell, "target")
-                    elif choice == "highway":
-                        env.execute_path(clicked_cell, "highway")
-                    else:
-                        print("Invalid choice. Try again.")
-                    # Update the environment after execution
+                    if choice not in ["target", "highway"]:
+                        print("⚠️ Invalid choice. Try again.")
+                        continue
+
+                    # ✅ Ask if spillage should be used
+                    use_spillage_input = input("Use spillage model? (yes/no): ").strip().lower()
+                    use_spillage = use_spillage_input in ["yes", "y"]
+
+                    # ✅ Execute path with selected mode
+                    env.execute_path(clicked_cell, choice, use_spillage=use_spillage)
+
+                    # ✅ Update the environment after execution
                     env.update_environment()
+
     pygame.quit()
     print("Simulation ended successfully.")
 
