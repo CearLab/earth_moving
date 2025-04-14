@@ -171,7 +171,7 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
             end = module_misc.get_coordinates_from_perimeter(self._width-1, self._height-1, position_end)
             
             # generate stream
-            points = [start, middle_1, middle_2, end]
+            points = [start, middle_1, end]
             self.generate_stream(points)
 
     def generate_stream(self, points) -> None:        

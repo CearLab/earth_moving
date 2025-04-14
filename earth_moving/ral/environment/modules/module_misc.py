@@ -52,15 +52,38 @@ def generate_path_from_points(points, width, height) -> list:
         points = np.array(points)
         x = points[:, 0]
         y = points[:, 1]
+        
+        # Create splines for each pair of points
+        splines = []
+        for i in range(len(points) - 1):
+            x_pair = points[i:i + 2, 0]
+            y_pair = points[i:i + 2, 1]
+            t_pair = np.linspace(0, 1, len(x_pair))
+            spline_x = np.poly1d(np.polyfit(t_pair, x_pair, 1))
+            spline_y = np.poly1d(np.polyfit(t_pair, y_pair, 1))
+            splines.append((spline_x, spline_y))
+            
+        # Merge all splines into a single spline
+        t_values = np.linspace(0, len(points) - 1, (len(points) -1) * 100)
+        merged_x = []
+        merged_y = []
+        for i, (spline_x, spline_y) in enumerate(splines):
+            t_local = np.linspace(i, i + 1, 100)
+            merged_x.extend(spline_x(t_local - i))
+            merged_y.extend(spline_y(t_local - i))
+        
+        # Create a single spline from the merged points
+        spline_x = np.poly1d(np.polyfit(t_values, merged_x, 4))
+        spline_y = np.poly1d(np.polyfit(t_values, merged_y, 4))
 
         # Parameterize the points
-        t = np.linspace(0, 1, len(points))
-        spline_x = np.poly1d(np.polyfit(t, x, 1))
-        spline_y = np.poly1d(np.polyfit(t, y, 3))
+        # t = np.linspace(0, 1, len(points))
+        # spline_x = np.poly1d(np.polyfit(t, x, 3))
+        # spline_y = np.poly1d(np.polyfit(t, y, 3))
         
         # Generate points along the spline
         num_points = 500  # Number of points to generate along the spline
-        t_values = np.linspace(0, 1, num_points)
+        t_values = np.linspace(0, len(points) - 1, num_points)
         spline_points = np.array([[spline_x(t), spline_y(t)] for t in t_values])
 
         # Round and convert to integer coordinates
