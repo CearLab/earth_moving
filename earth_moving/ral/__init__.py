@@ -1,11 +1,11 @@
-from ral.backend.pybullet_backend import PybulletBackend
+from earth_moving import constants as const
+from earth_moving.ral.backend.backend_pybullet import PybulletBackend
 
 def get_backend(**backend_kwargs):
     backend_type = backend_kwargs.get('backend_type')
-    timedelta = backend_kwargs.get('timedelta')
-    if backend_type == 'pybulllet':
-        backend = PybulletBackend(timedelta)
-    elif backend_type == 'mujoco':
+    if backend_type == const.PYBULLET:
+        backend = PybulletBackend(**backend_kwargs)
+    elif backend_type == const.MUJOCO:
         backend = ...
     else:
         raise ValueError()

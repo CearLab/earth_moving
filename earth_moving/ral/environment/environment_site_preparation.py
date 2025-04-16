@@ -1,8 +1,8 @@
 import numpy as np
 from abc import ABC, abstractmethod
-from ral.environment.environment_backend import BaseEnvironmentBackend
+from earth_moving.ral.environment.environment_base import EnvironmentBase
 
-class SitePreparationEnvironmentBackend(BaseEnvironmentBackend): 
+class EnvironmentSitePreparation(EnvironmentBase): 
     
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)

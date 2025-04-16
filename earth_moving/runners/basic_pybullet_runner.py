@@ -1,8 +1,8 @@
-from scenarios.basic_pybullet_scenario import basic_pybullet_scenario
+from earth_moving import constants as const
+from earth_moving.scenarios.basic_pybullet_scenario import basic_pybullet_scenario
 import numpy as np
 
 pybullet_running_config = {
-    'backend_type': 'pybullet',
     'environment':
         {
           'name': 'earth_moving',  
@@ -12,12 +12,14 @@ pybullet_running_config = {
                 'max_pos': (+1.0, +1.0),
                 'num_clusters': 5,
                 'max_per_cluster': 20,
+                'min_per_cluster': 5,
                 'max_radius': 0.3,
                 'aggregate_urdf': 'clutter/urdf/pebbles/pebbles.urdf'
               }
         },        
     'simulation':
         {
+            'backend_type': const.PYBULLET,
             'timedelta': 1.0/240,
             'gravity': (0, 0, -9.81),
             'gui': True
@@ -37,7 +39,7 @@ pybullet_running_config = {
          'aspect_ratio': 1.0, # :param aspect_ratio: Float, the aspect ratio of the camera view (width/height).
          'near': 0.1,   # :param near: Float, the distance to the near clipping plane. 
          'far': 20,     # :param far: Float, the distance to the far clipping plane.
-         'save_path': 'outputs/fig/',         
+         'save_path': './outputs/fig/',         
         }    
     }
 

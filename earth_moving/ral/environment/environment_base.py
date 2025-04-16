@@ -1,7 +1,7 @@
 import numpy as np
 from abc import ABC, abstractmethod
 
-class BaseEnvironmentBackend(ABC): 
+class EnvironmentBase(ABC): 
     
     def __init__(self, **kwargs) -> None:
         pass
