@@ -5,13 +5,13 @@ from mesa.time import RandomActivation
 from mesa.space import MultiGrid
 
 # backend imports
-from ral.backend.base_backend import BaseBackend
-from ral.robot.robot_beavers_backend import BeaversRobotBackend
-from ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
+from earth_moving.ral.backend.base_backend import BaseBackend
+from earth_moving.ral.robot.robot_beavers_backend import BeaversRobotBackend
+from earth_moving.ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
 
 # module imports
-from ral.backend.modules.module_colors import ColorMaps
-import ral.backend.modules.module_misc as module_misc
+from earth_moving.ral.backend.modules.module_colors import ColorMaps
+import earth_moving.ral.algorithms.module_misc as module_misc
 class BeaversVisualizerBackend(BaseBackend,Model):
     
     def __init__(self, **kwargs) -> None:            
@@ -153,7 +153,7 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                 except:
                     map_normalized = self.np.nan
                     
-                ax1.plot(agent._position[0] + 4, agent._position[1], 
+                ax1.plot(agent._position[0] + 0.04 * self._width, agent._position[1], 
                     marker =         vegetation_marker.vertices, 
                     markersize=      vegetation_markersize, 
                     markeredgecolor= vegetation_markeredgecolor,
@@ -163,7 +163,7 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                 
                 # battery marker
                 energy_normalized = agent._energy/100
-                ax1.plot(agent._position[0] - 4.2, agent._position[1], 
+                ax1.plot(agent._position[0] - 0.045 * self._width, agent._position[1], 
                     marker =         battery_marker.vertices, 
                     markersize=      battery_markersize, 
                     markeredgecolor= battery_markeredgecolor,

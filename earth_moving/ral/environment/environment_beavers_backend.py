@@ -2,10 +2,10 @@
 from scipy.stats import norm
 
 # backend imports
-from ral.environment.environment_backend import BaseEnvironmentBackend
+from earth_moving.ral.environment.environment_backend import BaseEnvironmentBackend
 
 # module imports
-import ral.environment.modules.module_misc as module_misc
+import earth_moving.ral.algorithms.module_misc as module_misc
 class BeaversEnvironmentBackend(BaseEnvironmentBackend): 
     
     def __init__(self, **kwargs) -> None:
@@ -184,7 +184,8 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         for position in path:
             x, y = position
             for width in range(2, self._streams_width + 1):
-                neighbours = module_misc.D4_neighbourhood(position, [self._width-1, self._height-1], step=width-1)
+                limits = self.np.array([[0, self._width - 1], [0, self._height - 1]])                
+                neighbours = module_misc.D4_neighbourhood(position, limits, step=width-1)
                 for neighbour in neighbours:                    
                     if not any((neighbour == self.np.array(points)).all() for points in path) and \
                        not any((neighbour == self.np.array(points)).all() for points in extended_path) and \

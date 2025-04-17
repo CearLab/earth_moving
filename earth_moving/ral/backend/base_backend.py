@@ -20,7 +20,7 @@ class BaseBackend():
         if self._backend_type == 'pybullet':
             pass
         elif self._backend_type == 'beavers_visualizer':
-            from ral.backend.beavers_visualizer_backend import BeaversVisualizerBackend            
+            from earth_moving.ral.backend.beavers_visualizer_backend import BeaversVisualizerBackend            
             return BeaversVisualizerBackend(simulation=_simulation)
             
     def step(self):

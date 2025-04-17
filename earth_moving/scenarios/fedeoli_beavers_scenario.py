@@ -1,5 +1,5 @@
-from ral.backend.base_backend import BaseBackend
-from ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
+from earth_moving.ral.backend.base_backend import BaseBackend
+from earth_moving.ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
 from IPython.display import clear_output
 
 def fedeoli_beavers_scenario(config):        
@@ -17,7 +17,5 @@ def fedeoli_beavers_scenario(config):
         Backend.plot_environment_with_heatmap()
         Backend.step()
         clear_output(wait=True)
-        break
-        
     Backend.plot_environment_with_heatmap()
         

@@ -1,13 +1,13 @@
 # general imports
 
 # backend imports
-from ral.robot.robot_backend import BaseRobotBackend
+from earth_moving.ral.robot.robot_backend import BaseRobotBackend
 
 # module imports
-from ral.robot.modules.module_control import Controller
-from ral.robot.modules.module_control import Dynamics
-import ral.robot.modules.module_misc as module_misc
-import ral.robot.modules.module_beaver as module_beaver
+from earth_moving.ral.robot.modules.module_control import Controller
+from earth_moving.ral.robot.modules.module_control import Dynamics
+import earth_moving.ral.algorithms.module_misc as module_misc
+import earth_moving.ral.robot.modules.module_beaver as module_beaver
 class BeaversRobotBackend(BaseRobotBackend):
     
     def __init__(self, **kwargs) -> None:
@@ -398,9 +398,9 @@ class BeaversRobotBackend(BaseRobotBackend):
         local_map = self._local_map
         position_store = self._position_store
         if self._local_map is not None:
-            limits = [[0,0], [self._local_map.shape[0] - 1, self._local_map.shape[1] - 1]]
+            limits = [[0, self._local_map.shape[0] - 1], [0, self._local_map.shape[1] - 1]]
         else:
-            limits = [[self._position[0], self._position[1]], [self._position[0], self._position[1]]]                        
+            limits = [[self._position[0], self._position[0]], [self._position[1], self._position[1]]]                        
         
         # This is the D4 exploration
         if self._exploration_mode == 'D4':            
@@ -423,6 +423,12 @@ class BeaversRobotBackend(BaseRobotBackend):
             
         elif self._exploration_mode == 'gradient_D8':
             N , NF, NI = module_beaver.exploration_gradient_D8(position, limits, local_map, position_store)
+            
+        elif self._exploration_mode == 'gradient_D12':
+            N , NF, NI = module_beaver.exploration_gradient_D12(position, limits, local_map, position_store)
+            
+        elif self._exploration_mode == 'gradient_D20':
+            N , NF, NI = module_beaver.exploration_gradient_D20(position, limits, local_map, position_store)
         
         else:
             raise ValueError('Invalid exploration mode: {}'.format(self._exploration_mode))
