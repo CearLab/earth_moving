@@ -7,7 +7,7 @@ class EnvironmentBase(ABC):
         pass
     
     def initiate_environment(self, **kwargs):
-        self._kwargs = kwargs
+        self._kwargs = kwargs # TODO: remove all those types of init_... and use the __init__ method instead
         self._environment = self._kwargs.get('environment')
         self._environment_name = self._environment.get('name')        
         return self                            
