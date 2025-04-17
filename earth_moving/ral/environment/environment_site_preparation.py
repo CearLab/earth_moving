@@ -19,7 +19,7 @@ class EnvironmentSitePreparation(EnvironmentBase):
         
         self._aggregate_urdf = aggregates.get('aggregate_urdf')
         
-        import ral.algorithms.general_actions as general_actions
+        import earth_moving.ral.algorithms.general_actions as general_actions
         general_actions = general_actions.GeneralActions()
         self._aggregates_positions = general_actions.generate_aggregates_in_clusters(min_pos, max_pos, num_clusters, max_per_cluster, min_per_cluster, max_radius)
         

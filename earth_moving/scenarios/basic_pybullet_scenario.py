@@ -1,4 +1,4 @@
-from earth_moving. ral import get_backend
+from earth_moving.ral import get_backend
 from earth_moving.ral.backend.backend_base import BackendBase
 from earth_moving.ral.environment.environment_site_preparation import EnvironmentSitePreparation
 from earth_moving.ral.sensor.sensor_backend import BaseSensorBackend

@@ -36,8 +36,8 @@ class BackendPybullet(BackendBase):
         t.sleep(self._timedelta)
         
     def spawn_object(self, object_pose, object_description):        
-        position = object_pose[0:2]
-        orientation = object_pose[3:-1]                        
+        position = object_pose[0:3]
+        orientation = object_pose[3:7]
         self._ID.append(p.loadURDF(object_description, basePosition=position, baseOrientation=orientation))
         self._ID_aggregates.append(self._ID[-1])       
             

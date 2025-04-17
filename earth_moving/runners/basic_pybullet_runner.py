@@ -14,7 +14,7 @@ pybullet_running_config = {
                 'max_per_cluster': 20,
                 'min_per_cluster': 5,
                 'max_radius': 0.3,
-                'aggregate_urdf': 'clutter/urdf/pebbles/pebbles.urdf'
+                'aggregate_urdf': 'earth_moving/earth_moving/clutter/urdf/pebbles/pebbles.urdf'
               }
         },        
     'simulation':
