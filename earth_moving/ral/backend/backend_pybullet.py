@@ -8,7 +8,6 @@ import numpy as np
 from earth_moving.ral.backend.backend_base import BackendBase
 from earth_moving.ral.sensor.sensor_backend import BaseSensorBackend
 from earth_moving.ral.robot.robot_backend import BaseRobotBackend
-from earth_moving.ral.algorithms.probabilistic_simulator import ProbabilisticSimulator
 
 
 class BackendPybullet(BackendBase):
