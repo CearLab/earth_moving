@@ -24,11 +24,10 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         if self._number_vegetation_clusters_init > self._number_vegetation_clusters_max:
             raise ValueError("Initial number of vegetation clusters cannot be greater than the maximum number of vegetation clusters.")
         
-        self._vegetation_cluster_sigma = self._environment.get('vegetation_cluster_sigma') #! This is an initial sigma, it will be scaled when growing the clusters
-        self._vegetation_cluster_radius = self._environment.get('vegetation_cluster_radius')
+        self._vegetation_cluster_sigma = self._environment.get('vegetation_cluster_sigma') #! This is an initial sigma, it will be scaled when growing the clusters        
         self._vegetation_cluster_radius_range = self._environment.get('vegetation_cluster_radius_range')
         self._vegetation_quality_range = self._environment.get('vegetation_quality_range')        
-        self._vegetation_quality_init = self._environment.get('vegetation_quality_init')
+        self._vegetation_quality_init_range = self._environment.get('vegetation_quality_init_range')
         self._vegetation_growth_frequency = self._environment.get('vegetation_growth_frequency')        
         if self._vegetation_growth_frequency == 'inf':
             self._vegetation_growth_frequency = self.np.inf
@@ -47,7 +46,9 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         self._trail_usage_map = self.np.zeros((self._width, self._height))
         self._canal_usage_map = self.np.zeros((self._width, self._height))
         self._number_vegetation_clusters = 0
-        self._map = self.np.ones((self._width, self._height)) * self._vegetation_quality_init
+        self._map = self.np.ones((self._width, self._height)) * self.np.random.randint(
+            self._vegetation_quality_init_range[0], self._vegetation_quality_init_range[1], size=(self._width, self._height)
+        )
         self._vegetation_clusters_store = []
         
         # call init methods
@@ -58,7 +59,7 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
     def update_time_of_day(self) -> None:  
         self._current_hour = self._current_time % 24
         self._current_day = self._current_time // 24
-        if self._current_hour > 6  and self._current_hour < 18:
+        if self._current_hour > 6  and self._current_hour < 18 or True:
             self._time_of_day = 'day' 
         else:  
             self._time_of_day = 'night'   
@@ -88,10 +89,7 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         
         # generate the cluster radius and sigma
         if cluster_radius is None:
-            if self._vegetation_cluster_radius is 'random':
-                cluster_radius = self.random.randint(self._vegetation_cluster_radius_range[0], self._vegetation_cluster_radius_range[1])
-            else:
-                cluster_radius = self._vegetation_cluster_radius
+            cluster_radius = self.random.randint(self._vegetation_cluster_radius_range[0], self._vegetation_cluster_radius_range[1])            
         else:
             cluster_radius = self.np.clip(cluster_radius, self._vegetation_cluster_radius_range[0], self._vegetation_cluster_radius_range[1])
             
@@ -174,7 +172,7 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
             points = [start, middle_1, end]
             self.generate_stream(points)
 
-    def generate_stream(self, points) -> None:        
+    def generate_stream(self, points) -> None:
         sigma = 3
         path = module_misc.generate_path_from_points(points, self._width-1, self._height-1)        
         for position in path:
@@ -185,7 +183,7 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
             x, y = position
             for width in range(2, self._streams_width + 1):
                 limits = self.np.array([[0, self._width - 1], [0, self._height - 1]])                
-                neighbours = module_misc.D4_neighbourhood(position, limits, step=width-1)
+                neighbours = module_misc.DN_neighbourhood(position, limits, N=4, step=width-1)
                 for neighbour in neighbours:                    
                     if not any((neighbour == self.np.array(points)).all() for points in path) and \
                        not any((neighbour == self.np.array(points)).all() for points in extended_path) and \

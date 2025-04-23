@@ -24,12 +24,16 @@ class BeaversRobotBackend(BaseRobotBackend):
         #   - read(map_quality)
         # Harvesting: harvest vegetation where you are
         #   - remove_vegetation()
+        # Storing: store the harvested vegetation in the home base
+        #   - move(destination)
+        #   - store_vegetation()
 
         # ACTION RECAP
         # Idle: do nothing                          -> constant energy, constant load
         # Sleep: recover energy                     -> increase energy, constant load
         # Move: move to a destination               -> consume energy, constant load
         # Remove_vegetation: harvest vegetation     -> consume energy, increase load
+        # Store_vegetation: store vegetation        -> consume energy, decrease load
         
         # STATE RECAP
         # status_robot: #! changed in do_action
@@ -64,9 +68,9 @@ class BeaversRobotBackend(BaseRobotBackend):
             self._maximum_load = self.np.inf   
         self._print = self._robot.get('print')
         
-        # custom attributes        
+        # custom attributes                        
         self._range_x = self._robot.get('range_x')
-        self._range_y = self._robot.get('range_y')        
+        self._range_y = self._robot.get('range_y')
         self._exploration_mode = self._robot.get('exploration_mode')
         self._motion_consumption = self._robot.get('motion_consumption')
         self._load_consumption = self._robot.get('load_consumption')
@@ -75,25 +79,28 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._sleep_recovery = self._robot.get('sleep_recovery')
         self._vegetation_removal = self._robot.get('vegetation_removal')
         self._measurement_mode = self._robot.get('measurement_mode')
+        self._home_base_position = self._robot.get('home_base_position')
         
         # other attributes
-        self._current_time = 0 #! this is a counter. Agent does not compute the hour/time of the day. It will be provided by the environment         
-        self._map_quality = None
+        self._current_time = 0 #! this is a counter. Agent does not compute the hour/time of the day. It will be provided by the environment        
         self._map_quality_measure = None
         self._map_quality_measure_position = None
-        self._map_quality_update = False #! this is a flag to update the vegetation quality in the environment
+        self._map_quality_update = False #! this is a flag to update the vegetation quality in the environment     
         self._motion_destination = None
         self._neighbourhood = None        
         self._neighbourhood_reached_flag = None
         self._neighbourhood_current_index = None
         self._local_map = None
         
+        # from environment
+        self._vegetation_quality_range = None        
+        
         # physical attributes
         # position
         position = self._robot.get('position')
         if position is 'random':
-            self._position = [self.random.randint(self._range_x[0], self._range_x[1]), 
-                              self.random.randint(self._range_y[0], self._range_y[1])]
+            self._position = [self.random.randint(self._range_x[0], self._range_x[1] - 1), 
+                              self.random.randint(self._range_y[0], self._range_y[1] - 1)]
         elif position is None:
             self._position = [0,0]
         elif isinstance(position,list):
@@ -144,6 +151,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._load_store = []
         self._task_store = []
         self._time_store = []
+        self._home_base_position_store = [list(self._home_base_position)]
         
         return self
     
@@ -156,9 +164,14 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._dynamics._dt = dt     
                         
         # gather information (OBSERVATIONS)
-        #! time_of_day is provided, no need to store it
+        #! map quality = [measure_positions, measure_values]
+        #! measure_positions = [[x1,y1],[x2,y2],...,[xn,yn]]
+        #! measure_values = [[v1,v2,...,vn], vposition]  
         self._map_quality_measure = map_quality #? Do I read the measurements also at night? It doesn't hurt
-        self._map_quality_measure_position = self._map_quality_measure[1][0] #! this is the quality at the current position (see module_misc in the visualizer)
+        self._map_quality_measure_position = self._map_quality_measure[1][-1] #! this is the quality at the current position (see module_misc in the visualizer)                
+        
+        # update the local_map according to the measurements
+        self.update_local_map(self._map_quality_measure)
         self._map_quality_update = False #! reset the flag
         
         # decide the goal (TASK POLICY)
@@ -166,17 +179,20 @@ class BeaversRobotBackend(BaseRobotBackend):
         # do the task (TASK IMPLEMENTATION)
         self.do_task(time_of_day, limits)
         # update energy
-        self.update_energy()                        
+        self.update_energy()                 
         
         #! this is where we change/actuate the environment
-        if self._current_task == 'harvest' and self._status_task == 'FINISHED':               
+        if (self._current_task == 'harvest' and self._status_task == 'FINISHED') or \
+            (self._current_task == 'store' and \
+                (self._status_task == 'FINISHED') or (self._status_task == 'INPROGRESS' and self._status_motion == 'FINISHED')):
             self._map_quality_update = True
         else:                        
-            self._map_quality_update = False
+            self._map_quality_update = False                       
             
-        # update the local_map according to the action 
-        self._map_quality = self._map_quality_measure_position
-        self.update_local_map(self._map_quality_measure)
+        # update the local_map according to the action
+        if self._map_quality_update == True:
+            self._map_quality_measure = [[self._position], [self._map_quality_measure_position]]
+            self.update_local_map(self._map_quality_measure)
         
         # store the data
         self._destination_store.append(self._motion_destination)
@@ -203,14 +219,18 @@ class BeaversRobotBackend(BaseRobotBackend):
             self._status_task = 'IDLE'            
                 
         # task policy
-        if self._status_task is 'IDLE':
-            if self._map_quality_measure_position > self._harvest_threshold and self._load < self._maximum_load:
-                self._current_task = 'harvest'
-            else:
-                self._current_task = 'explore' 
-                            
-            # set the task status
-            self._status_task = 'STARTING'
+        # if self._status_task is 'IDLE':
+        if self._map_quality_measure_position > self._harvest_threshold and \
+            self._load < self._maximum_load and \
+            (not any(self._position[0] == pos[0] and self._position[1] == pos[1] for pos in self._home_base_position_store)):
+            self._current_task = 'harvest'
+        elif self._load > self.np.floor(0.8 * self._maximum_load):
+            self._current_task = 'store'
+        else:
+            self._current_task = 'explore'
+                        
+        # set the task status
+        self._status_task = 'STARTING'
             
         # if you get here you're INPROGRESS
        
@@ -227,6 +247,12 @@ class BeaversRobotBackend(BaseRobotBackend):
             if self._status_task is 'STARTING':
                 self._status_task = 'INPROGRESS'
             self.harvest(time_of_day, limits)
+        elif self._current_task == 'store':
+            # first time you set the status to INPROGRESS
+            if self._status_task is 'STARTING':
+                self._motion_destination = self._home_base_position
+                self._status_task = 'INPROGRESS'
+            self.store(time_of_day, limits)
         elif self._current_task == 'sleep':
             # first time you set the status to INPROGRESS
             if self._status_task is 'STARTING':
@@ -343,6 +369,40 @@ class BeaversRobotBackend(BaseRobotBackend):
         # do the action
         success = self.do_action(time_of_day, limits)
         
+    def store(self, time_of_day=None, limits=None) -> None:
+        # decide the action
+        # nothing to do here, the action is already decided
+        
+        # do the action        
+        self._current_action = 'move'
+        success = self.do_action(time_of_day, limits)
+        
+        # close the task
+        if success:
+            # transfer the load to the home base
+            if self._status_motion == 'FINISHED':                
+                self.store_vegetation(time_of_day, limits)
+                
+                if self._load > 0:
+                    home_base_barycenter = self.np.mean(self._home_base_position_store, axis=0)
+                    neighbourhood = module_misc.DN_neighbourhood(home_base_barycenter, limits, N=4)
+                    home_base = min(neighbourhood, key=lambda pos: self._local_map[int(pos[0]), int(pos[1])])
+                    home_base = [int(home_base[0]), int(home_base[1])]
+                    
+                    if not any(home_base[0] == pos[0] and home_base[1] == pos[1] for pos in self._home_base_position_store):
+                        self._home_base_position_store.append([int(home_base[0]), int(home_base[1])])
+                    else:
+                        home_base = [self._home_base_position_store[-1][0] - 1, self._home_base_position_store[-1][1] - 1]
+                        self._home_base_position_store.append(home_base)
+                        
+                    self._status_task = 'INPROGRESS'
+                    self._home_base_position = self._home_base_position_store[-1]
+                    self._motion_destination = self._home_base_position
+                    self._current_action = 'move'
+                else:                                    
+                    self._status_task = 'FINISHED'
+                    self._current_action = 'idle'                
+        
     ############################################################
     # ACTIONS
     ############################################################
@@ -354,7 +414,17 @@ class BeaversRobotBackend(BaseRobotBackend):
     # action: move
     def move(self, time_of_day=None, limits=None) -> None:
                      
-        self._controller.step(self._motion_destination, self._position)
+        if self._controller._name == 'P':
+            setpoint = self._motion_destination
+            self._controller.step(setpoint, self._position)
+        elif self._controller._name == 'P_repulsive':            
+            setpoint = self._motion_destination
+            _neighbourhood = module_misc.DN_neighbourhood(self._position, limits, N=8)
+            _neighbourhood_values = [self._local_map[int(pos[0]), int(pos[1])] for pos in _neighbourhood]
+            self._controller.step(setpoint, self._position, [_neighbourhood, _neighbourhood_values])
+        else:
+            raise ValueError('Invalid controller name: {}'.format(self._controller._name))
+                
         self._dynamics.step(self._controller._output)
         self._position = list([int(coord) for coord in self._dynamics._output[0]])  
         
@@ -367,9 +437,22 @@ class BeaversRobotBackend(BaseRobotBackend):
         
     # action: remove_vegetation
     def remove_vegetation(self, time_of_day=None, limits=None) -> None:
-        if self._load < self._maximum_load - self._vegetation_removal:
+        if self._load <= self._maximum_load - self._vegetation_removal:
             self._map_quality_measure_position  -= self._vegetation_removal
             self._load += self._vegetation_removal
+            
+    # action: store_vegetation
+    def store_vegetation(self, time_of_day=None, limits=None) -> None:
+        if self._load > 0:
+            available_space = 20 * self._vegetation_quality_range[1] - self.np.ceil(self._map_quality_measure_position)
+            
+            if available_space > 0:
+                removed_load = min(available_space, self._load)
+                self._map_quality_measure_position += removed_load
+                self._load -= removed_load
+                # self._map_quality_measure_position = self.np.nan
+                # self._load = 0
+                        
         
     ############################################################
     # UTILS
@@ -400,38 +483,28 @@ class BeaversRobotBackend(BaseRobotBackend):
         if self._local_map is not None:
             limits = [[0, self._local_map.shape[0] - 1], [0, self._local_map.shape[1] - 1]]
         else:
-            limits = [[self._position[0], self._position[0]], [self._position[1], self._position[1]]]                        
-        
-        # This is the D4 exploration
-        if self._exploration_mode == 'D4':            
-           N , NF, NI = module_beaver.exploration_D4(position, limits)
+            limits = [[self._position[0], self._position[0]], [self._position[1], self._position[1]]]                    
             
-        # This is the D8 exploration
-        elif self._exploration_mode == 'D8':            
-            N , NF, NI = module_beaver.exploration_D8(position, limits)
-                
-        # Generate a single random position in the D4 neighborhood
-        elif self._exploration_mode == 'random_D4':
-            N , NF, NI = module_beaver.exploration_D4_random(position, limits)
-            
-        # Generate a single random position in the D8 neighborhood
-        elif self._exploration_mode == 'random_D8':  
-            N , NF, NI = module_beaver.exploration_D8_random(position, limits)
-               
-        elif self._exploration_mode == 'gradient_D4':
-            N , NF, NI = module_beaver.exploration_gradient_D4(position, limits, local_map, position_store)
-            
-        elif self._exploration_mode == 'gradient_D8':
-            N , NF, NI = module_beaver.exploration_gradient_D8(position, limits, local_map, position_store)
-            
-        elif self._exploration_mode == 'gradient_D12':
-            N , NF, NI = module_beaver.exploration_gradient_D12(position, limits, local_map, position_store)
-            
-        elif self._exploration_mode == 'gradient_D20':
-            N , NF, NI = module_beaver.exploration_gradient_D20(position, limits, local_map, position_store)
-        
+        # Split exploration_mode into two parts: prefix and suffix
+        if len(self._exploration_mode) > 2:
+            exploration_prefix = self._exploration_mode[:-2]
+            exploration_suffix = int(self._exploration_mode[-2:])
         else:
+            exploration_prefix = self._exploration_mode
+            exploration_suffix = None
+            
+        # Check if the suffix is a valid number
+        if exploration_suffix not in [0, 4, 8, 20, 50]:
             raise ValueError('Invalid exploration mode: {}'.format(self._exploration_mode))
+            
+        if exploration_prefix == 'D':
+            N, NF, NI = module_beaver.exploration_DN(position, limits, N=exploration_suffix, home_base_store=self._home_base_position_store)
+        elif exploration_prefix == 'random_D':
+            N, NF, NI = module_beaver.exploration_random_DN(position, limits, N=exploration_suffix, home_base_store=self._home_base_position_store)
+        elif exploration_prefix == 'gradient_D':
+            N, NF, NI = module_beaver.exploration_gradient_DN(position, limits, local_map, N=exploration_suffix, home_base_store=self._home_base_position_store)                        
+        else:
+            raise ValueError('Invalid exploration mode: {}'.format(self._exploration_mode))                
         
         self._neighbourhood = N
         self._neighbourhood_reached_flag = NF
@@ -443,6 +516,11 @@ class BeaversRobotBackend(BaseRobotBackend):
         # Ensure the local map is initialized
         if self._local_map is None:
             self._local_map = self.np.ones((1, 1)) * self.np.nan
+            
+        # if I see the whole map
+        if map_quality[0] is 'all':
+            self._local_map = map_quality[1][0]
+            return
             
         # positions
         measure_positions = map_quality[0]

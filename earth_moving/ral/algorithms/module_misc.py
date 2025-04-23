@@ -3,27 +3,35 @@
 import numpy as np
 import random
 from scipy.interpolate import CubicSpline
+import earth_moving.constants as const
 
 # general measure mode
 def measure(map, position, mode):
-    if mode == 'D1':
-        measure_positions = [position]
-    elif mode == 'D4':
-        measure_positions = measure_D4(map, position)
-    elif mode == 'D8':
-        measure_positions = measure_D8(map, position)    
-    elif mode == 'gradient_D8':
-        measure_positions = measure_D8(map, position)
+    
+    if mode is 'full_map':
+        measure_positions = 'all'
+        measure_values = [map.copy(), map[position[0]][position[1]]]
+        return measure_positions, measure_values
+    
+    # Split exploration_mode into two parts: prefix and suffix
+    if len(mode) > 2:
+        _prefix = mode[:-2]
+        _suffix = int(mode[-2:])
+    else:
+        _prefix = mode
+        _suffix = None
+        
+    # Check if the suffix is a valid number
+    if _suffix not in [4, 8, 24, 40]:
+        raise ValueError('Invalid exploration mode: {}'.format(mode))
+    
+    if _prefix == 'D':
+        measure_positions = measure_DN(map, position, N=_suffix)
+    elif _prefix == 'gradient_D':
+        measure_positions = measure_DN(map, position, N=_suffix)
         gradient_matrix, values_matrix = matrix_gradient(map, measure_positions)
-        measure_positions = remove_negative_gradient(measure_positions[0], gradient_matrix, values_matrix)
-    elif mode == 'D12':
-        measure_positions = measure_D12(map, position)
-    elif mode == 'D20':
-        measure_positions = measure_D20(map, position)
-    elif mode == 'gradient_D20':
-        measure_positions = measure_D20(map, position)
-        _, values_matrix = matrix_gradient(map, measure_positions)
         measure_positions, _ = find_monotonic_indices(values_matrix, position)
+        measure_positions = np.clip(measure_positions, [0, 0], [map.shape[0] - 1, map.shape[1] - 1])            
     else:
         raise ValueError('Invalid mode')
     
@@ -33,109 +41,36 @@ def measure(map, position, mode):
     
     return measure_positions, measure_values
     
-# measure D4
-def measure_D4(map, position):
+# Generalized DN measure
+def measure_DN(map, position, N=4):
     limits = get_map_limits(map)
-    neighbourhood = D4_neighbourhood(position, limits)
+    neighbourhood = DN_neighbourhood(position, limits, N)
     return neighbourhood
+    
+# Generalized DN neighbourhood
+def DN_neighbourhood(position, limits, N=4, step=1) -> list:
+    
+    if N == 4:
+        offset = const.D4_neighbours
+    elif N == 8:
+        offset = const.D8_neighbours    
+    elif N == 24:
+        offset = const.D24_neighbours
+    elif N == 40:
+        offset = const.D40_neighbours
+    else:
+        raise(ValueError('Neighbourhood not recognized'))
+    
+    neighbourhood = [tuple(np.add(position, o)) for o in offset]
+    
+    # Ensure all positions in the neighbourhood are within the map limits    
+    neighbourhood = [pos for pos in neighbourhood if limits[0][0] <= pos[0] <= limits[0][1] and limits[1][0] <= pos[1] <= limits[1][1]]
 
-# measure D8
-def measure_D8(map, position):
-    limits = get_map_limits(map)
-    neighbourhood = D8_neighbourhood(position, limits)
-    return neighbourhood
-
-# measure D12
-def measure_D12(map, position):
-    limits = get_map_limits(map)
-    neighbourhood = D12_neighbourhood(position, limits)
-    return neighbourhood
-
-# measure D20
-def measure_D20(map, position):
-    limits = get_map_limits(map)
-    neighbourhood = D20_neighbourhood(position, limits)
     return neighbourhood
 
 # get map limits
 def get_map_limits(map):
     return np.array([[0, map.shape[0]-1], [0, map.shape[1]-1]])    
-    
-# D4 neighbourhood
-def D4_neighbourhood(position, limits, step=1) -> list:
-    neighbourhood = [[position[0], position[1]],
-                     [position[0], position[1] - step],
-                     [position[0] + step, position[1]],
-                     [position[0], position[1] + step],
-                     [position[0] - step, position[1]]]
-    
-    neighbourhood = [pos for pos in neighbourhood if limits[0][0] <= pos[0] <= limits[0][1] and limits[1][0] <= pos[1] <= limits[1][1]]
-    
-    return neighbourhood
-
-# D8 neighbourhood
-def D8_neighbourhood(position, limits, step=1) -> list:
-    neighbourhood = [[position[0], position[1]],
-                     [position[0], position[1] - step],
-                     [position[0] + step, position[1] - step],
-                     [position[0] + step, position[1]],
-                     [position[0] + step, position[1] + step],
-                     [position[0], position[1] + step],
-                     [position[0] - step, position[1] + step],
-                     [position[0] - step, position[1]],
-                     [position[0] - step, position[1] - step]]
-    
-    neighbourhood = [pos for pos in neighbourhood if limits[0][0] <= pos[0] <= limits[0][1] and limits[1][0] <= pos[1] <= limits[1][1]]
-    
-    return neighbourhood
-
-# D12 neighbourhood
-def D12_neighbourhood(position, limits, step=1) -> list:
-    neighbourhood = [[position[0], position[1]],
-                     [position[0], position[1] - step],
-                     [position[0] + step, position[1] - step],
-                     [position[0] + step, position[1]],
-                     [position[0] + step, position[1] + step],
-                     [position[0], position[1] + step],
-                     [position[0] - step, position[1] + step],
-                     [position[0] - step, position[1]],
-                     [position[0] - step, position[1] - step],
-                     [position[0] + 2*step, position[1]],
-                     [position[0], position[1] + 2*step],
-                     [position[0] - 2*step, position[1]], 
-                     [position[0], position[1] - 2*step]]
-    
-    neighbourhood = [pos for pos in neighbourhood if limits[0][0] <= pos[0] <= limits[0][1] and limits[1][0] <= pos[1] <= limits[1][1]]
-    
-    return neighbourhood
-
-# D20 neighbourhood
-def D20_neighbourhood(position, limits, step=1) -> list:
-    neighbourhood = [[position[0], position[1]],
-                     [position[0], position[1] - step],
-                     [position[0] + step, position[1] - step],
-                     [position[0] + step, position[1]],
-                     [position[0] + step, position[1] + step],
-                     [position[0], position[1] + step],
-                     [position[0] - step, position[1] + step],
-                     [position[0] - step, position[1]],
-                     [position[0] - step, position[1] - step],
-                     [position[0] + 2*step, position[1]],
-                     [position[0], position[1] + 2*step],
-                     [position[0] - 2*step, position[1]], 
-                     [position[0], position[1] - 2*step],
-                     [position[0] + 2*step, position[1] + step],
-                     [position[0] + 2*step, position[1] - step],
-                     [position[0] - 2*step, position[1] + step],
-                     [position[0] - 2*step, position[1] - step],
-                     [position[0] + step, position[1] + 2*step],
-                     [position[0] - step, position[1] + 2*step],
-                     [position[0] + step, position[1] - 2*step],
-                     [position[0] - step, position[1] - 2*step]]
-    
-    neighbourhood = [pos for pos in neighbourhood if limits[0][0] <= pos[0] <= limits[0][1] and limits[1][0] <= pos[1] <= limits[1][1]]
-    
-    return neighbourhood
 
 # matrix gradient
 def matrix_gradient(matrix, neighbours) -> np.array:
@@ -172,27 +107,6 @@ def matrix_gradient(matrix, neighbours) -> np.array:
                                             
 
     return gradient_matrix, values_matrix
-
-# remove from neighbourhood the values that have a negative gradient
-def remove_negative_gradient(neighbours_center, gradient_matrix, values_matrix):
-        
-    gradient_matrix = np.array(gradient_matrix)
-    values_matrix = np.array(values_matrix)
-    
-    # Get the coordinates of the non-NaN values in the gradient matrix
-    non_nan_coords = np.argwhere(~np.isnan(gradient_matrix))
-    
-    # Create a mask to filter out negative gradients
-    mask = gradient_matrix[non_nan_coords[:, 0], non_nan_coords[:, 1]] >= 0
-    
-    # Get the filtered coordinates
-    filtered_coords = non_nan_coords[mask]
-    
-    # Convert back to original coordinates  
-    dd = values_matrix.shape[0] // 2                  
-    filtered_neighbours = neighbours_center + filtered_coords - dd
-    
-    return filtered_neighbours.tolist()
 
 # find monotonic indices
 def find_monotonic_indices(values_matrix, center):
@@ -321,10 +235,10 @@ def generate_path_from_points(points, width, height) -> list:
             prev_point = final_path[-1]
             current_point = path[i]
             limits = np.array([[0, width], [0, height]])
-            neighbours = np.asarray(D4_neighbourhood(prev_point, limits))
+            neighbours = np.asarray(DN_neighbourhood(prev_point, limits, N=4))
             while not any((current_point == np.array(neighbour)).all() for neighbour in neighbours):
                 # Find the next neighbour closer to the current_point
-                neighbours = np.asarray(D4_neighbourhood(prev_point, limits))
+                neighbours = np.asarray(DN_neighbourhood(prev_point, limits, N=4))
                 next_point = min(neighbours, key=lambda p: abs(p[0] - current_point[0]) + abs(p[1] - current_point[1]))
                 final_path.append(next_point)
                 prev_point = next_point

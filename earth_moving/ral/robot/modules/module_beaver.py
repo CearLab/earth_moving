@@ -7,268 +7,71 @@ import numpy as np
 # module imports
 import earth_moving.ral.algorithms.module_misc as module_misc
 
-def exploration_D4(position, limits):
-    _neighbourhood = module_misc.D4_neighbourhood(position, limits)
+def exploration_DN(position, limits, N=4, home_base=None):
+    _neighbourhood = module_misc.DN_neighbourhood(position, limits, N)
+    if home_base in _neighbourhood:
+        _neighbourhood.remove(home_base)
     _neighbourhood_reached_flag = [False] * len(_neighbourhood)
     _neighbourhood_current_index = 0
     
     return _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index
 
-def exploration_D8(position, limits):
-    _neighbourhood = module_misc.D8_neighbourhood(position, limits)
+def exploration_random_DN(position, limits, N=4, home_base=None):
+    _neighbourhood = module_misc.DN_neighbourhood(position, limits, N)
+    if home_base in _neighbourhood:
+        _neighbourhood.remove(home_base)
+    direction = random.randint(0, len(_neighbourhood) - 1)
+    _neighbourhood = [_neighbourhood[direction]]            
+    _neighbourhood_reached_flag = [False]
+    _neighbourhood_current_index = 0
+    
+    return _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index
+
+def exploration_gradient_DN(position, limits, local_vegetation_map, N=4, home_base_store=None):
+    
+    local_vegetation_map = local_vegetation_map.copy()
+    for home_base in home_base_store:
+        if limits[0][1] >= home_base[0] and limits[1][1] >= home_base[1]:
+            local_vegetation_map[home_base[0]][home_base[1]] = 0    
+    
+    if local_vegetation_map is None:
+        _neighbourhood, _, _ = exploration_DN(position, limits, N=4)        
+    elif position[0] == limits[0][1] or position[1] == limits[1][1]:
+        _neighbourhood, _, _ = exploration_DN(position, limits, N=4)        
+    else:                
+        
+        if N == 0:
+            _neighbourhood = np.argwhere(local_vegetation_map == np.nanmax(local_vegetation_map))            
+            _neighbourhood = [min(_neighbourhood, key=lambda pos: np.linalg.norm(np.array(pos) - np.array(position)))]            
+        else:
+            _neighbourhood = module_misc.DN_neighbourhood(position, limits, N)            
+            
+            gradient_matrix, values_matrix = module_misc.matrix_gradient(local_vegetation_map, _neighbourhood)
+        
+            if np.nanmax(gradient_matrix) < 0.0:
+                _neighbourhood = [min(_neighbourhood, key=lambda pos: np.linalg.norm(np.array(pos) - np.array(position)))]                
+            else:        
+                max_indices = np.argwhere(gradient_matrix == np.nanmax(gradient_matrix))
+                direction = max_indices.tolist()
+                
+                dx = []
+                dy = []
+                for dir in direction:
+                    dx.append(dir[1] - 1)  # column index - center column
+                    dy.append(1 - dir[0])  # row index - center row
+                    
+                new_position = []
+                for i, dir in enumerate(direction):  
+                    possible_position = [position[0] + dx[i], position[1] + dy[i]]
+                    if possible_position != position: 
+                        new_position.append(possible_position)
+                
+                if new_position:
+                    _neighbourhood = [min(new_position, key=lambda pos: np.linalg.norm(np.array(pos) - np.array(position)))]                    
+                else:                
+                    _neighbourhood, _, _ = exploration_DN(position, limits, N=4)
+                    
     _neighbourhood_reached_flag = [False] * len(_neighbourhood)
     _neighbourhood_current_index = 0
-    
-    return _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index
-
-def exploration_D4_random(position, limits):
-    D4_neighbourhood = module_misc.D4_neighbourhood(position, limits)     
-    direction = random.randint(0, len(D4_neighbourhood) - 1)
-    _neighbourhood = [D4_neighbourhood[direction]]            
-    _neighbourhood_reached_flag = [False]
-    _neighbourhood_current_index = 0
-    
-    return _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index
-
-def exploration_D8_random(position, limits):
-    D8_neighbourhood = module_misc.D8_neighbourhood(position, limits)     
-    direction = random.randint(0, len(D8_neighbourhood) - 1)
-    _neighbourhood = [D8_neighbourhood[direction]]            
-    _neighbourhood_reached_flag = [False]
-    _neighbourhood_current_index = 0
-    
-    return _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index
-
-def exploration_gradient_D4(position, limits, local_vegetation_map, position_store):
-    if local_vegetation_map is None:
-        _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index = exploration_D4(position, limits)        
-    elif position[0] == limits[0][1] or position[1] == limits[1][1]:
-        _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index = exploration_D4(position, limits)
-    else:
-        D4_neighbourhood = module_misc.D4_neighbourhood(position, limits)     
-        gradient_matrix, values_matrix = module_misc.matrix_gradient(local_vegetation_map, D4_neighbourhood)
-        
-        # get the last different position from current
-        last_different_position = None
-        for pos in reversed(position_store):
-            if pos != position:
-                last_different_position = pos
-                break
             
-        possible_unseen_neighbours = [
-            pos for pos in D4_neighbourhood
-            if pos != last_different_position and \
-            pos != position
-        ]
-        
-        if np.nanmax(gradient_matrix) < 0.0:
-            if possible_unseen_neighbours:
-                _neighbourhood = [random.choice(possible_unseen_neighbours)]
-            else:
-                _neighbourhood = [random.choiche(D4_neighbourhood)]
-            _neighbourhood_reached_flag = [False]
-            _neighbourhood_current_index = 0
-        else:
-        
-            max_indices = np.argwhere(gradient_matrix == np.nanmax(gradient_matrix))
-            direction = max_indices.tolist()
-            
-            dx = []
-            dy = []
-            for dir in direction:
-                dx.append(dir[1] - 1)  # column index - center column
-                dy.append(1 - dir[0])  # row index - center row
-                
-            new_position = []
-            for i, dir in enumerate(direction):  
-                possible_position = [position[0] + dx[i], position[1] + dy[i]]
-                if possible_position != position: 
-                    new_position.append(possible_position)                
-            
-            if new_position:
-                _neighbourhood = [random.choice(new_position)]
-                _neighbourhood_reached_flag = [False]
-                _neighbourhood_current_index = 0
-            elif possible_unseen_neighbours:
-                _neighbourhood = [random.choice(possible_unseen_neighbours)]
-                _neighbourhood_reached_flag = [False]
-                _neighbourhood_current_index = 0
-            else:
-                _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index = exploration_D4(position, limits)            
-            
-    return _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index
-
-def exploration_gradient_D8(position, limits, local_vegetation_map, position_store):
-    if local_vegetation_map is None:
-        _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index = exploration_D8(position, limits)        
-    elif position[0] == limits[0][1] or position[1] == limits[1][1]:
-        _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index = exploration_D8(position, limits)
-    else:
-        D8_neighbourhood = module_misc.D8_neighbourhood(position, limits)     
-        gradient_matrix, values_matrix = module_misc.matrix_gradient(local_vegetation_map, D8_neighbourhood)
-        
-        # get the last different position from current
-        last_different_position = None
-        for pos in reversed(position_store):
-            if pos != position:
-                last_different_position = pos
-                break
-            
-        possible_unseen_neighbours = [
-            pos for pos in D8_neighbourhood
-            if pos != last_different_position and \
-            pos != position
-        ]
-        
-        if np.nanmax(gradient_matrix) < 0.0:
-            if possible_unseen_neighbours:
-                _neighbourhood = [random.choice(possible_unseen_neighbours)]
-            else:
-                _neighbourhood = [random.choiche(D8_neighbourhood)]
-            _neighbourhood_reached_flag = [False]
-            _neighbourhood_current_index = 0
-        else:
-        
-            max_indices = np.argwhere(gradient_matrix == np.nanmax(gradient_matrix))
-            direction = max_indices.tolist()
-            
-            dx = []
-            dy = []
-            for dir in direction:
-                dx.append(dir[1] - 1)  # column index - center column
-                dy.append(1 - dir[0])  # row index - center row
-                
-            new_position = []
-            for i, dir in enumerate(direction):  
-                possible_position = [position[0] + dx[i], position[1] + dy[i]]
-                if possible_position != position: 
-                    new_position.append(possible_position)                
-                    
-            if new_position:
-                _neighbourhood = [random.choice(new_position)]
-                _neighbourhood_reached_flag = [False]
-                _neighbourhood_current_index = 0
-            elif possible_unseen_neighbours:
-                _neighbourhood = [random.choice(possible_unseen_neighbours)]
-                _neighbourhood_reached_flag = [False]
-                _neighbourhood_current_index = 0
-            else:
-                _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index = exploration_D8(position, limits)
-            
-    return _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index
-
-def exploration_gradient_D12(position, limits, local_vegetation_map, position_store):
-    if local_vegetation_map is None:
-        _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index = exploration_D8(position, limits)        
-    elif position[0] == limits[0][1] or position[1] == limits[1][1]:
-        _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index = exploration_D8(position, limits)
-    else:
-        D12_neighbourhood = module_misc.D12_neighbourhood(position, limits)     
-        gradient_matrix, values_matrix = module_misc.matrix_gradient(local_vegetation_map, D12_neighbourhood)
-        
-        # get the last different position from current
-        last_different_position = None
-        for pos in reversed(position_store):
-            if pos != position:
-                last_different_position = pos
-                break
-            
-        possible_unseen_neighbours = [
-            pos for pos in D12_neighbourhood
-            if pos != last_different_position and \
-            pos != position
-        ]
-        
-        if np.nanmax(gradient_matrix) < 0.0:
-            if possible_unseen_neighbours:
-                _neighbourhood = [random.choice(possible_unseen_neighbours)]
-            else:
-                _neighbourhood = [random.choiche(D12_neighbourhood)]
-            _neighbourhood_reached_flag = [False]
-            _neighbourhood_current_index = 0
-        else:
-        
-            max_indices = np.argwhere(gradient_matrix == np.nanmax(gradient_matrix))
-            direction = max_indices.tolist()
-            
-            dx = []
-            dy = []
-            for dir in direction:
-                dx.append(dir[1] - 1)  # column index - center column
-                dy.append(1 - dir[0])  # row index - center row
-                
-            new_position = []
-            for i, dir in enumerate(direction):  
-                possible_position = [position[0] + dx[i], position[1] + dy[i]]
-                if possible_position != position: 
-                    new_position.append(possible_position)                
-                    
-            if new_position:
-                _neighbourhood = [random.choice(new_position)]
-                _neighbourhood_reached_flag = [False]
-                _neighbourhood_current_index = 0
-            elif possible_unseen_neighbours:
-                _neighbourhood = [random.choice(possible_unseen_neighbours)]
-                _neighbourhood_reached_flag = [False]
-                _neighbourhood_current_index = 0
-            else:
-                _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index = exploration_D8(position, limits)
-    return _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index
-
-def exploration_gradient_D20(position, limits, local_vegetation_map, position_store):
-    if local_vegetation_map is None:
-        _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index = exploration_D8(position, limits)        
-    elif position[0] == limits[0][1] or position[1] == limits[1][1]:
-        _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index = exploration_D8(position, limits)
-    else:
-        D20_neighbourhood = module_misc.D20_neighbourhood(position, limits)     
-        gradient_matrix, values_matrix = module_misc.matrix_gradient(local_vegetation_map, D20_neighbourhood)
-        
-        # get the last different position from current
-        last_different_position = None
-        for pos in reversed(position_store):
-            if pos != position:
-                last_different_position = pos
-                break
-            
-        possible_unseen_neighbours = [
-            pos for pos in D20_neighbourhood
-            if pos != last_different_position and \
-            pos != position
-        ]
-        
-        if np.nanmax(gradient_matrix) < 0.0:
-            if possible_unseen_neighbours:
-                _neighbourhood = [random.choice(possible_unseen_neighbours)]
-            else:
-                _neighbourhood = [random.choiche(D20_neighbourhood)]
-            _neighbourhood_reached_flag = [False]
-            _neighbourhood_current_index = 0
-        else:
-        
-            max_indices = np.argwhere(gradient_matrix == np.nanmax(gradient_matrix))
-            direction = max_indices.tolist()
-            
-            dx = []
-            dy = []
-            for dir in direction:
-                dx.append(dir[1] - 1)  # column index - center column
-                dy.append(1 - dir[0])  # row index - center row
-                
-            new_position = []
-            for i, dir in enumerate(direction):  
-                possible_position = [position[0] + dx[i], position[1] + dy[i]]
-                if possible_position != position: 
-                    new_position.append(possible_position)                
-                    
-            if new_position:
-                _neighbourhood = [random.choice(new_position)]
-                _neighbourhood_reached_flag = [False]
-                _neighbourhood_current_index = 0
-            elif possible_unseen_neighbours:
-                _neighbourhood = [random.choice(possible_unseen_neighbours)]
-                _neighbourhood_reached_flag = [False]
-                _neighbourhood_current_index = 0
-            else:
-                _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index = exploration_D8(position, limits)
     return _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index

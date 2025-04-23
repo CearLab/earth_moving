@@ -24,6 +24,7 @@ class BeaversVisualizerBackend(BaseBackend,Model):
         self._gui = simulation.get('gui')
         self._N_agents = simulation.get('number_of_agents')
         self._print = simulation.get('print')
+        self._fig = None
                 
         # mesa init
         self._schedule = RandomActivation(self)  # Alternative: StagedActivation, SimultaneousActivation, or BaseScheduler
@@ -73,11 +74,7 @@ class BeaversVisualizerBackend(BaseBackend,Model):
         # map max and min
         vmin = -self._environment._streams_width
         vmax = self._environment._vegetation_quality_range[1]
-        v_normalizer = vmax - vmin
-        
-        # check if GUI is set
-        if not self._gui:
-            raise Warning("There is no GUI set. Do you really need to call this method?")
+        v_normalizer = vmax - vmin                
         
         # colors 
         if self._environment._time_of_day == 'day':
@@ -149,7 +146,7 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                 
                 #! note here that we're linking the agent to the environment to get the map quality. This is why we need an engine
                 try:
-                    map_normalized = agent._map_quality / (vmax - vmin)
+                    map_normalized = agent._map_quality_measure_position / (vmax - vmin)
                 except:
                     map_normalized = self.np.nan
                     
@@ -206,7 +203,6 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                fontsize=12, color='black', verticalalignment='top', font=fontname)                
                 
         ## FIG - AGENTS        
-
         for agent in self._schedule.agents:
             if isinstance(agent, BeaversVisualizerAgent): 
                 
@@ -228,7 +224,7 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                     ax.imshow(padded_map.transpose(), origin='lower', 
                               cmap=map_colormap, alpha=alpha_map,
                               vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
-                    map_print = agent._map_quality
+                    map_print = agent._map_quality_measure_position
                 except:
                     ax.imshow(self.np.nan * self.np.ones((self._width, self._height)).transpose(), origin='lower', 
                               cmap=map_colormap, alpha=alpha_map,
@@ -276,7 +272,8 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                     f"TASK: {agent._current_task} STATUS: {agent._status_task} \n"
                     f"ROBOT STATUS: {agent._status_robot} ACTION: {agent._current_action}", 
                     fontsize=14, color='black', verticalalignment='top', font=fontname)                                                                                   
-        
+                # Clear the figure to avoid overlapping plots
+        self._fig = fig
         if self._gui:
             plt.show()    
         
@@ -298,6 +295,11 @@ class BeaversVisualizerAgent(BeaversRobotBackend, Agent):
         map_quality = [measure_positions, measure_values]
         limits = module_misc.get_map_limits(self.model._environment._map)
         
+        # link the vegetation quality from environment to the agent
+        self._vegetation_quality_range = self.model._environment._vegetation_quality_range
+        self._range_x = self.model._environment._width
+        self._range_y = self.model._environment._height
+        
         # step the agent
         self.step_beaver(dt, 
                          time_of_day,
@@ -306,8 +308,8 @@ class BeaversVisualizerAgent(BeaversRobotBackend, Agent):
         
         #! here we update the environment with the agent's actions 
         #! note that we only update the current position because it's the only the beaver can actually change
-        if self._map_quality_update == True:        
-            self.model._environment._map[self._position[0], self._position[1]] = self._map_quality
+        if self._map_quality_update == True:
+            self.model._environment._map[self._position[0], self._position[1]] =self._map_quality_measure_position
         
 class EnvironmentVisualizerAgent(BeaversEnvironmentBackend, Agent):
     
