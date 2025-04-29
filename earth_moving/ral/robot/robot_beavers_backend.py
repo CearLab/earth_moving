@@ -79,7 +79,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._sleep_recovery = self._robot.get('sleep_recovery')
         self._vegetation_removal = self._robot.get('vegetation_removal')
         self._measurement_mode = self._robot.get('measurement_mode')
-        self._home_base_position = self._robot.get('home_base_position')
+        self._home_base_position = self._robot.get('home_base_position')         
         
         # other attributes
         self._current_time = 0 #! this is a counter. Agent does not compute the hour/time of the day. It will be provided by the environment        
@@ -91,6 +91,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._neighbourhood_reached_flag = None
         self._neighbourhood_current_index = None
         self._local_map = None
+        self._local_map_visits = None
         
         # from environment
         self._vegetation_quality_range = None        
@@ -135,7 +136,8 @@ class BeaversRobotBackend(BaseRobotBackend):
         # motion policy                        
         self._controller = Controller(**self._robot)
         initial_state = self.np.array([self._position, self.np.zeros(self._controller._dimension)])
-        self._dynamics = Dynamics(initial_state, **self._robot)
+        self._dynamics = Dynamics(initial_state, **self._robot)        
+        self._local_map_control = None        
         
         self._status_robot = 'IDLE'      
         self._status_task = 'IDLE'  
@@ -220,12 +222,13 @@ class BeaversRobotBackend(BaseRobotBackend):
                 
         # task policy
         # if self._status_task is 'IDLE':
-        if self._map_quality_measure_position > self._harvest_threshold and \
+        if self._load >= self.np.floor(self._maximum_load):
+            self._current_task = 'store'
+        elif self._map_quality_measure_position > self._harvest_threshold[0] and \
+            self._map_quality_measure_position < self._harvest_threshold[1] and \
             self._load < self._maximum_load and \
             (not any(self._position[0] == pos[0] and self._position[1] == pos[1] for pos in self._home_base_position_store)):
-            self._current_task = 'harvest'
-        elif self._load > self.np.floor(0.8 * self._maximum_load):
-            self._current_task = 'store'
+            self._current_task = 'harvest'        
         else:
             self._current_task = 'explore'
                         
@@ -419,8 +422,20 @@ class BeaversRobotBackend(BaseRobotBackend):
             self._controller.step(setpoint, self._position)
         elif self._controller._name == 'P_repulsive':            
             setpoint = self._motion_destination
-            _neighbourhood = module_misc.DN_neighbourhood(self._position, limits, N=8)
-            _neighbourhood_values = [self._local_map[int(pos[0]), int(pos[1])] for pos in _neighbourhood]
+            _neighbourhood = module_misc.DN_neighbourhood(self._position, limits, N=self._controller._neighbourhood_size)
+            
+            if self._controller._map_repulsive is 'vegetation':
+                self._local_map_control = self._local_map
+            elif self._controller._map_repulsive is 'vegetation_visits':
+                map_repulsive = self.np.zeros(self._local_map.shape)
+                map_repulsive[self._local_map > self._harvest_threshold[0]] = self._controller._vegetation_barrier
+                map_repulsive[self._local_map > self._harvest_threshold[1]] = 2 * self._controller._vegetation_barrier
+                map_repulsive[self._local_map < 0] = self._controller._river_barrier
+                self._local_map_control = map_repulsive + self._local_map_visits
+            else:
+                raise ValueError('Invalid map_repulsive value: {}'.format(self._controller._map_repulsive))
+                                   
+            _neighbourhood_values = [self._local_map_control[int(pos[0]), int(pos[1])] for pos in _neighbourhood]                        
             self._controller.step(setpoint, self._position, [_neighbourhood, _neighbourhood_values])
         else:
             raise ValueError('Invalid controller name: {}'.format(self._controller._name))
@@ -444,7 +459,7 @@ class BeaversRobotBackend(BaseRobotBackend):
     # action: store_vegetation
     def store_vegetation(self, time_of_day=None, limits=None) -> None:
         if self._load > 0:
-            available_space = 20 * self._vegetation_quality_range[1] - self.np.ceil(self._map_quality_measure_position)
+            available_space = self.np.inf * self._vegetation_quality_range[1] - self.np.ceil(self._map_quality_measure_position)
             
             if available_space > 0:
                 removed_load = min(available_space, self._load)
@@ -494,7 +509,7 @@ class BeaversRobotBackend(BaseRobotBackend):
             exploration_suffix = None
             
         # Check if the suffix is a valid number
-        if exploration_suffix not in [0, 4, 8, 20, 50]:
+        if exploration_suffix not in [0, 4, 8, 24, 40]:
             raise ValueError('Invalid exploration mode: {}'.format(self._exploration_mode))
             
         if exploration_prefix == 'D':
@@ -502,7 +517,8 @@ class BeaversRobotBackend(BaseRobotBackend):
         elif exploration_prefix == 'random_D':
             N, NF, NI = module_beaver.exploration_random_DN(position, limits, N=exploration_suffix, home_base_store=self._home_base_position_store)
         elif exploration_prefix == 'gradient_D':
-            N, NF, NI = module_beaver.exploration_gradient_DN(position, limits, local_map, N=exploration_suffix, home_base_store=self._home_base_position_store)                        
+            N, NF, NI = module_beaver.exploration_gradient_DN(position, limits, local_map, N=exploration_suffix, \
+                home_base_store=self._home_base_position_store, max_vegetation=None)
         else:
             raise ValueError('Invalid exploration mode: {}'.format(self._exploration_mode))                
         
@@ -515,27 +531,50 @@ class BeaversRobotBackend(BaseRobotBackend):
         
         # Ensure the local map is initialized
         if self._local_map is None:
-            self._local_map = self.np.ones((1, 1)) * self.np.nan
-            
-        # if I see the whole map
-        if map_quality[0] is 'all':
-            self._local_map = map_quality[1][0]
-            return
+            self._local_map = self.np.ones((1, 1)) * self.np.nan            
+            if self._local_map_visits is None:
+                self._local_map_visits = self.np.zeros((1, 1))
             
         # positions
         measure_positions = map_quality[0]
         measure_values = map_quality[1]
+        
+        # reset visits
+        N_reset = self._controller._visits_reset
+            
+        # if I see the whole map
+        if map_quality[0] is 'all':
+            self._local_map = map_quality[1][0]                              
+                      
+            if self._local_map_visits is None:
+                self._local_map_visits = self.np.zeros(self._local_map.shape)
+            self._local_map_visits[self._position[0], self._position[1]] += 1
+            self._local_map_visits = self._local_map_visits * N_reset
+            return                    
 
         # Expand the matrix if the position is out of bounds
         x = self.np.max([pos[0] for pos in measure_positions])
         y = self.np.max([pos[1] for pos in measure_positions])
         if x >= self._local_map.shape[0]:
+            # local map
             self._local_map = self.np.pad(self._local_map, ((0, x - self._local_map.shape[0] + 1), (0, 0)), 
                                                 mode='constant', constant_values=self.np.nan)
+            
+            # local map visits
+            self._local_map_visits = self.np.pad(self._local_map_visits, ((0, x - self._local_map_visits.shape[0] + 1), (0, 0)), 
+                                                mode='constant', constant_values=0)                        
+            
         if y >= self._local_map.shape[1]:
+            # local map
             self._local_map = self.np.pad(self._local_map, ((0, 0), (0, y - self._local_map.shape[1] + 1)), 
                                                 mode='constant', constant_values=self.np.nan)
+            
+            # local map visits
+            self._local_map_visits = self.np.pad(self._local_map_visits, ((0, 0), (0, y - self._local_map_visits.shape[1] + 1)), 
+                                                mode='constant', constant_values=0)                        
 
-        # Update the vegetation quality at the current position
+        # Update the vegetation quality at the current position        
         for pos, val in zip(measure_positions, measure_values):
-            self._local_map[pos[0], pos[1]] = val
+            self._local_map[pos[0], pos[1]] = val            
+        self._local_map_visits[self._position[0], self._position[1]] += 1     
+        self._local_map_visits = self._local_map_visits * N_reset

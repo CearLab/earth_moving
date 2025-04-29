@@ -27,7 +27,7 @@ def exploration_random_DN(position, limits, N=4, home_base=None):
     
     return _neighbourhood, _neighbourhood_reached_flag, _neighbourhood_current_index
 
-def exploration_gradient_DN(position, limits, local_vegetation_map, N=4, home_base_store=None):
+def exploration_gradient_DN(position, limits, local_vegetation_map, N=4, home_base_store=None, max_vegetation=None):
     
     local_vegetation_map = local_vegetation_map.copy()
     for home_base in home_base_store:
@@ -41,8 +41,11 @@ def exploration_gradient_DN(position, limits, local_vegetation_map, N=4, home_ba
     else:                
         
         if N == 0:
-            _neighbourhood = np.argwhere(local_vegetation_map == np.nanmax(local_vegetation_map))            
-            _neighbourhood = [min(_neighbourhood, key=lambda pos: np.linalg.norm(np.array(pos) - np.array(position)))]            
+            if max_vegetation is None:
+                max_vegetation = np.nanmax(local_vegetation_map)
+            _neighbourhood = np.argwhere(local_vegetation_map >= np.floor(max_vegetation))
+            _neighbourhood = [min((pos for pos in _neighbourhood if (pos[0] != position[0] and pos[1] != position[1])), 
+                                  key=lambda pos: np.linalg.norm(np.array(pos) - np.array(position)))]            
         else:
             _neighbourhood = module_misc.DN_neighbourhood(position, limits, N)            
             

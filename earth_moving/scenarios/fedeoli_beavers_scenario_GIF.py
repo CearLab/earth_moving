@@ -49,7 +49,10 @@ def fedeoli_beavers_scenario_GIF(config):
     file_name = f"STEP{number_of_steps}\
         _MEAS{config.get('robot').get('measurement_mode')}\
         _EXP{config.get('robot').get('exploration_mode')}\
-        __MAXLD{config.get('robot').get('maximum_load')}.gif"
+        _MAXLD{config.get('robot').get('maximum_load')}\
+        _CTRL{config.get('robot').get('controller').get('name')}\
+        _MAP{config.get('robot').get('controller').get('map_repulsive')}\
+        _STREAM{config.get('environment').get('streams_number')}.gif"
     gif_path = os.path.join(output_dir, file_name)
     with imageio.get_writer(gif_path, mode="I", duration=0.1) as writer:
         for image_file in tqdm(image_files):
