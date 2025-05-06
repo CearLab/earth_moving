@@ -8,7 +8,7 @@ import csv
 
 
 # custom imports
-from earth_moving.ral.algorithms.module_misc import module_misc as misc
+from earth_moving.ral.algorithms import module_misc as misc
 
 # Connect to PyBullet GUI
 p.connect(p.GUI)
@@ -53,8 +53,10 @@ def create_aggregate(pos):
 
 # Scatter aggregates randomly
 num_aggregates = 100
-scatter_range_x = [-1.5, 1.5]
-scatter_range_y = [-1.5, 1.5]
+length = 3
+width = 3
+scatter_range_x = [-width, width]
+scatter_range_y = [-length, length]
 # scatter_range_x = [-.5, .5]
 # scatter_range_y = [-.5, .5]
 
@@ -76,13 +78,23 @@ def save_aggregate_data(filename, aggregate_ids):
 # Save initial positions and orientations
 save_aggregate_data("aggregates_start.csv", aggregate_ids)
 
-# Configuration - random walk
-delta_distance = 0.001  # Distance increment per step (meters)
-delta_angle = math.radians(1)  # Angle increment per step (radians)
-yaw_direction_rand_weights = [0.25, 0.5, 0.25]  # Weights for yaw direction randomization
+trajectory_type = "random_spline"
 
-# create a random path
-start = pusher_id.getBasePositionAndOrientation()[0]
+# Configuration - random walk
+if trajectory_type == "random_walk":
+    delta_distance = 0.001  # Distance increment per step (meters)
+    delta_angle = math.radians(1)  # Angle increment per step (radians)
+    yaw_direction_rand_weights = [0.25, 0.5, 0.25]  # Weights for yaw direction randomization
+
+# create a random path - spline
+if trajectory_type == "random_spline":
+    start = list(p.getBasePositionAndOrientation(pusher_id)[0])
+    end = [length, start[1], start[2]]
+    path, orientation = misc.generate_trajectory(start, end, scatter_range_y[1], n_points=10, degree=6)
+
+    # add debug point for each point in path
+    colors = [[0.0, 0.0, 0.0] for _ in path]  # Red color as vec3
+    p.addUserDebugPoints(path, colors, pointSize=3, lifeTime=0)
 
 step_idx = 0
 total_steps = 10_000
@@ -92,23 +104,39 @@ pusher_yaw = 0.0  # Initial yaw angle (radians)
 current_distance = 0.0  # Track distance traveled
 
 # Motion control loop
-while step_idx < total_steps: #if path_type == "straight" else current_distance < 1 * math.radians(arc_length):
-    step_idx += 1
-    pusher_yaw += np.random.choice(
-        [-delta_angle, 0, delta_angle], 
-        p=yaw_direction_rand_weights
-    )
-    if step_idx % 500 == 0:
-        yaw_direction_rand_weights = np.random.permutation(yaw_direction_rand_weights)
-    pusher_position[0] += delta_distance * math.cos(pusher_yaw)
-    pusher_position[1] += delta_distance * math.sin(pusher_yaw)
-    current_distance += delta_distance
+stop = False
+while not stop:
+    
+    if trajectory_type == "random_walk":        
+        pusher_yaw += np.random.choice(
+            [-delta_angle, 0, delta_angle], 
+            p=yaw_direction_rand_weights
+        )
+        pusher_orientation = [0, 0, pusher_yaw]
+        if step_idx % 500 == 0:
+            yaw_direction_rand_weights = np.random.permutation(yaw_direction_rand_weights)
+        pusher_position[0] += delta_distance * math.cos(pusher_yaw)
+        pusher_position[1] += delta_distance * math.sin(pusher_yaw)
+        current_distance += delta_distance
+        if step_idx == total_steps:
+            stop = True
+        
+    if trajectory_type == "random_spline":
+        # Move along the spline path        
+        if step_idx < len(path):
+            pusher_position = path[step_idx]
+            pusher_orientation = orientation[step_idx]                            
+        else:
+            pusher_position = path[step_idx-1]
+            pusher_orientation = orientation[step_idx-1]
+            stop = True
 
     # Update pusher position and orientation
-    pusher_orientation = p.getQuaternionFromEuler([0, 0, pusher_yaw])
+    pusher_orientation = p.getQuaternionFromEuler(pusher_orientation)
     p.resetBasePositionAndOrientation(pusher_id, pusher_position, pusher_orientation)
 
     # Step the simulation
+    step_idx += 1
     p.stepSimulation()
     time.sleep(1. / 480.)
 
