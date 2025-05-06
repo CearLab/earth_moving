@@ -9,4 +9,5 @@ outputs/
 # files
 core.*
 *.pyc
+*.mp4
 
