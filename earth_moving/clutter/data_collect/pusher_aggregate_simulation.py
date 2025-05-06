@@ -6,6 +6,10 @@ import math
 import numpy as np
 import csv
 
+
+# custom imports
+from earth_moving.ral.algorithms.module_misc import module_misc as misc
+
 # Connect to PyBullet GUI
 p.connect(p.GUI)
 p.setAdditionalSearchPath(pybullet_data.getDataPath())  # For plane.urdf
@@ -72,15 +76,13 @@ def save_aggregate_data(filename, aggregate_ids):
 # Save initial positions and orientations
 save_aggregate_data("aggregates_start.csv", aggregate_ids)
 
-# Configuration
-path_type = "curved_left"  # Options: "straight", "curved_right", "curved_left"
-path_length = 10  # Length of the straight path (meters)
-curve_radius = 1  # Radius of the curved path (meters)
+# Configuration - random walk
 delta_distance = 0.001  # Distance increment per step (meters)
 delta_angle = math.radians(1)  # Angle increment per step (radians)
-# arc_length = path_length
 yaw_direction_rand_weights = [0.25, 0.5, 0.25]  # Weights for yaw direction randomization
 
+# create a random path
+start = pusher_id.getBasePositionAndOrientation()[0]
 
 step_idx = 0
 total_steps = 10_000
