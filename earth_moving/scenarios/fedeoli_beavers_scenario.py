@@ -10,7 +10,7 @@ def fedeoli_beavers_scenario(config):
     Backend = Basebackend.initiate_backend(**config)    
     
     # number of steps
-    number_of_steps = int(config.get('simulation').get('number_of_steps'))
+    number_of_steps = int(config.get('simulation').get('number_of_steps')) * 24
     downsampling = config.get('simulation').get('downsampling')
         
     # init agents    

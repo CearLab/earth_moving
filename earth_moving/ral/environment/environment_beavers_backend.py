@@ -67,7 +67,7 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
     def step_environment(self, dt) -> None: 
         self._current_time += dt #! I wamt to pass the timedelta from the simulation, the environment is not aware of the time flow
         self.update_time_of_day()
-        if (self._current_time % self._vegetation_growth_frequency == 0) and (self._time_of_day == 'night'):
+        if (self._current_time % self._vegetation_growth_frequency == 0): #and (self._time_of_day == 'night'):
             self.grow_vegetation()
             
         # prints
@@ -77,7 +77,7 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
                 print(f"Cluster ID: {cluster[0]}, X: {cluster[1]}, Y: {cluster[2]}, Radius: {cluster[3]}")
                 
     def generate_map(self) -> None:        
-        self.generate_streams()
+        self.generate_streams(n_points=12)
         self.generate_vegetation()        
             
     def generate_vegetation(self) -> None:
@@ -152,29 +152,31 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
             cx, cy = self.random.randint(0, self._width - 1), self.random.randint(0, self._height - 1)            
             self.generate_cluster(cx, cy, cluster_radius=self._vegetation_cluster_radius_range[0])
             
-    def generate_streams(self) -> None:
-        for _ in range(self._streams_number):
-            perimeter = 2*self._width + 2*self._height
+    def generate_streams(self, n_points = 1) -> None:
+        for _ in range(self._streams_number):            
             
-            # start from the bottom
-            position_start = self.random.randint(0, self._width -1)
-            start = module_misc.get_coordinates_from_perimeter(self._width-1, self._height-1, position_start)
+            # start from the left side
+            bound = int(0.2 * self._height)
+            start = self.np.array((0, self.random.randint(bound, self._height - bound)))
+            end = self.np.array((self._width - 1, self.random.randint(bound, self._height - bound)))
             
-            # middle
-            middle_1 = [self.random.randint(0, self._width - 1), self.random.randint(0, self._height - 1)]
-            middle_2 = [self.random.randint(0, self._width - 1), self.random.randint(0, self._height - 1)]            
-            
-            # end in another side
-            position_end = self.random.randint(self._width, perimeter)
-            end = module_misc.get_coordinates_from_perimeter(self._width-1, self._height-1, position_end)
+            # middle points            
+            middle_points = []
+            for i in range(1, n_points + 1):
+                fraction = i / (n_points + 1)
+                x = int(start[0] + fraction * (end[0] - start[0]))                                
+                y = self.random.randint(bound, self._height - bound)
+                middle_points.append(self.np.array((x, y)))                            
             
             # generate stream
-            points = [start, middle_1, end]
-            self.generate_stream(points)
+            points = [start] + middle_points + [end]
+            self.generate_stream(points, degree=8)
 
-    def generate_stream(self, points) -> None:
-        sigma = 3
-        path = module_misc.generate_path_from_points(points, self._width-1, self._height-1)        
+    def generate_stream(self, points, degree = 3) -> None:
+        
+        sigma = 3        
+        num_points = 1000
+        path = module_misc.generate_path_from_points(points, degree, num_points, self._width-1, self._height-1)        
         for position in path:
             self._map[position[0], position[1]] = -(self._streams_width + 1)
             
@@ -183,7 +185,7 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
             x, y = position
             for width in range(2, self._streams_width + 1):
                 limits = self.np.array([[0, self._width - 1], [0, self._height - 1]])                
-                neighbours = module_misc.DN_neighbourhood(position, limits, N=4, step=width-1)
+                neighbours = module_misc.DN_neighbourhood(position, limits, N=8, step=width-1)
                 for neighbour in neighbours:                    
                     if not any((neighbour == self.np.array(points)).all() for points in path) and \
                        not any((neighbour == self.np.array(points)).all() for points in extended_path) and \

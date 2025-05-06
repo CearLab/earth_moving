@@ -74,13 +74,17 @@ class BeaversVisualizerBackend(BaseBackend,Model):
         # map max and min
         vmin = -self._environment._streams_width
         vmax = self._environment._vegetation_quality_range[1]
-        v_normalizer = vmax - vmin                
+        
+        # always same color (regardless river)
+        v_normalizer = vmax              
+        # different colors
+        # v_normalizer = vmax - vmin
         
         # colors 
         if self._environment._time_of_day == 'day':
             # agents
             agent_marker =          self._color_maps._agent_marker
-            agent_markersize =      self._color_maps._agent_markersize
+            agent_markersize =      self._color_maps._agent_markersize_small
             agent_markerfacecolor = self._color_maps._agent_markerfacecolor
             agent_markeredgecolor = self._color_maps._agent_markeredgecolor
             agent_markeredgewidth = self._color_maps._agent_markeredgewidth
@@ -91,8 +95,8 @@ class BeaversVisualizerBackend(BaseBackend,Model):
             alpha_map = self._color_maps._bluebrowngreen_colormap_alpha
         else:
             # agents
-            agent_marker =          self._color_maps._agent_marker_night
-            agent_markersize =      self._color_maps._agent_markersize_night
+            agent_marker =          self._color_maps._agent_marker_night_
+            agent_markersize =      self._color_maps._agent_markersize_small_night
             agent_markerfacecolor = self._color_maps._agent_markerfacecolor_night
             agent_markeredgecolor = self._color_maps._agent_markeredgecolor_night
             agent_markeredgewidth = self._color_maps._agent_markeredgewidth_night
@@ -131,7 +135,7 @@ class BeaversVisualizerBackend(BaseBackend,Model):
         # Plot map
         ax1.imshow(map_normalized.transpose(), origin='lower', 
                    cmap=map_colormap, alpha=alpha_map,
-                   vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)    
+                   vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)                        
 
         # Overlay agent positions
         for agent in self._schedule.agents:
@@ -167,6 +171,12 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                     markerfacecolor= self._color_maps._redgreen_colormap(energy_normalized),
                     markeredgewidth= battery_markeredgewidth,
                     alpha=           battery_markeralpha)
+                
+                # add a box around home_position
+                if agent._home_base_position is not None:
+                    box = plt.Rectangle((agent._home_base_position[0] - 0.5, agent._home_base_position[1] - 0.5), 1, 1, 
+                                        fill=False, edgecolor='lightgreen', facecolor='white', linestyle='-', linewidth=2)
+                    ax1.add_patch(box)
         
         # set axes
         ax1.set_aspect('equal')
@@ -238,7 +248,13 @@ class BeaversVisualizerBackend(BaseBackend,Model):
                     markeredgecolor=agent_markeredgecolor,
                     markerfacecolor=agent_markerfacecolor,
                     markeredgewidth=agent_markeredgewidth,
-                    alpha=agent_markeralpha)      
+                    alpha=agent_markeralpha)
+                
+                # add a box around home_position
+                if agent._home_base_position is not None:
+                    box = plt.Rectangle((agent._home_base_position[0] - 0.5, agent._home_base_position[1] - 0.5), 1, 1, 
+                                        fill=False, edgecolor='lightgreen', facecolor='white', linestyle='-', linewidth=2)
+                    ax.add_patch(box)
                 
                 # Draw an arrow from the agent's position to its destination
                 if agent._motion_destination is not None:
@@ -293,7 +309,14 @@ class BeaversVisualizerAgent(BeaversRobotBackend, Agent):
         time_of_day = self.model._environment._time_of_day
         measure_positions, measure_values = module_misc.measure(self.model._environment._map, self._position, self._measurement_mode)
         map_quality = [measure_positions, measure_values]
-        limits = module_misc.get_map_limits(self.model._environment._map)
+        
+        if self._measurement_mode is 'full_map':
+            limits = module_misc.get_map_limits(self.model._environment._map)
+        else:
+            if self._local_map is not None:
+                limits = module_misc.get_map_limits(self._local_map)
+            else:
+                limits = [[0, self._position[0] - 1], [0, self._position[1] - 1]]
         
         # link the vegetation quality from environment to the agent
         self._vegetation_quality_range = self.model._environment._vegetation_quality_range

@@ -14,7 +14,7 @@ def fedeoli_beavers_scenario_GIF(config):
     os.makedirs(output_dir_frames, exist_ok=True)
     
     # number of steps
-    number_of_steps = int(config.get('simulation').get('number_of_steps'))
+    number_of_steps = int(config.get('simulation').get('number_of_steps')) * 24
     downsampling = config.get('simulation').get('downsampling')
     
     # Init backend
@@ -46,13 +46,18 @@ def fedeoli_beavers_scenario_GIF(config):
         clear_output(wait=True)
     
     # Create a GIF from the saved images
-    file_name = f"STEP{number_of_steps}\
+    file_name = f"DAYS{number_of_steps/24}\
+        _NAGENTS{config.get('simulation').get('number_of_agents')}\
+        _SIZE{config.get('environment').get('width')}x{config.get('environment').get('height')}\
         _MEAS{config.get('robot').get('measurement_mode')}\
         _EXP{config.get('robot').get('exploration_mode')}\
+        _EXPMAP{config.get('robot').get('exploration_map')}\
+        _EXPETA{config.get('robot').get('exploration_eta')}\
         _MAXLD{config.get('robot').get('maximum_load')}\
         _CTRL{config.get('robot').get('controller').get('name')}\
-        _MAP{config.get('robot').get('controller').get('map_repulsive')}\
-        _STREAM{config.get('environment').get('streams_number')}.gif"
+        _CTRLMAP{config.get('robot').get('controller').get('map_repulsive')}\
+        _STREAM{config.get('environment').get('streams_number')}\
+        _SEED{config.get('simulation').get('seed')}.gif"
     gif_path = os.path.join(output_dir, file_name)
     with imageio.get_writer(gif_path, mode="I", duration=0.1) as writer:
         for image_file in tqdm(image_files):
