@@ -3,6 +3,7 @@
 docker/
 earth_moving/clutter/__pycache__/
 earth_moving/outputs/
+resources/images/
 
 # files
 core.*
