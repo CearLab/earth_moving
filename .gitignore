@@ -6,6 +6,7 @@ pyenv/
 __pycache__/
 outputs/
 resources/images/
+resources/doc
 
 # files
 core.*

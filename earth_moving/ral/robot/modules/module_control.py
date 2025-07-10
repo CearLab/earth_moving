@@ -90,7 +90,7 @@ class Controller:
                         value = (1 - beta) * control_attractive + beta * val
                         value_list.append([pos[0], pos[1], value])
                     else:
-                        value = (1 - beta) * 0 + beta * val
+                        value = np.inf
                         value_list.append([pos[0], pos[1], value])
                 
                 # Find the position corresponding to the minimum value in the third column
@@ -104,21 +104,7 @@ class Controller:
                 control_y = self._Kp * error_center[1]
                     
             # Set control
-            control = np.array([control_x, control_y])       
-            
-            ##! TEST _ REMOVED ##
-            # # Define range of alpha (e.g., between 0.2 and 0.9)
-            # alpha_min = self._alpha_memory[0]
-            # alpha_max = self._alpha_memory[1]
-            
-            # # variance of the neighbourhood                        
-            # variance_max = max(np.var(neighbourhood_values), self._variance) + 1e-4
-            # self._variance = np.var(neighbourhood_values) + 1e-4
-            # normalized_variance = self._variance / variance_max
-            # # Inverse relationship: higher variance → lower alpha
-            # alpha = alpha_max - (alpha_max - alpha_min) * normalized_variance
-            # # Apply the alpha value to the control signal
-            # control = alpha * control + (1 - alpha) * self._previous_control
+            control = np.array([control_x, control_y])                        
                                     
         else:
             raise NotImplementedError()

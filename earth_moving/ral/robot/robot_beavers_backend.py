@@ -95,6 +95,8 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._neighbourhood_current_index = None
         self._local_map = None
         self._local_map_visits = None
+        self._harvesting_actions_counter = 0
+        self._harvesting_actions_limit = 4
         
         # from environment
         self._vegetation_quality_range = None        
@@ -227,15 +229,27 @@ class BeaversRobotBackend(BaseRobotBackend):
                 
         # task policy
         # if self._status_task is 'IDLE':
-        if self._load >= self.np.floor(self._maximum_load):
-            self._current_task = 'store'
-        elif self._map_quality_measure_position >= self._harvest_threshold[0] and \
+        
+        # define interrupt or atomic schedule
+        cond_atomic = self._status_task == 'IDLE'
+        # cond_atomic = True
+        
+        # decide the task
+        if  cond_atomic and \
+            self._load >= self.np.floor(self._maximum_load):
+            self._current_task = 'store'        
+        # self._current_task == 'explore' and self._status_task == 'IDLE' and \
+        elif cond_atomic and \
+            self._map_quality_measure_position >= self._harvest_threshold[0] and \
             self._map_quality_measure_position <= self._harvest_threshold[1] and \
             self._load < self._maximum_load and \
+            self._harvesting_actions_counter < self._harvesting_actions_limit and \
             (not any(self._position[0] == pos[0] and self._position[1] == pos[1] for pos in self._home_base_position_store)):
             self._current_task = 'harvest'        
         else:
-            self._current_task = 'explore'
+            self._harvesting_actions_counter = 0
+            self._current_task = 'explore'        
+        
                         
         # set the task status
         self._status_task = 'STARTING'
@@ -252,20 +266,20 @@ class BeaversRobotBackend(BaseRobotBackend):
             self.explore(time_of_day, limits)
         elif self._current_task == 'harvest':
             # first time you set the status to INPROGRESS
-            if self._status_task is 'STARTING':
+            if self._status_task is 'STARTING':                
                 self._status_task = 'INPROGRESS'
             self.harvest(time_of_day, limits)
         elif self._current_task == 'store':
             # first time you set the status to INPROGRESS
-            if self._status_task is 'STARTING':
-                self._motion_destination = self._home_base_position
+            if self._status_task is 'STARTING':   
+                self.set_home_base_position()             
                 self._status_task = 'INPROGRESS'
             self.store(time_of_day, limits)
         elif self._current_task == 'sleep':
             # first time you set the status to INPROGRESS
             if self._status_task is 'STARTING':
                 self._status_task = 'INPROGRESS'
-            self.sleep(time_of_day, limits)
+            self.sleep(time_of_day, limits)        
         else:
             raise ValueError('Invalid task: {}'.format(self._current_task))
         
@@ -333,7 +347,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         
         # close the task
         if success:
-            self._status_task = 'FINISHED'
+            self._status_task = 'FINISHED'                    
         
     # TASK: explore
     def explore(self, time_of_day=None, limits=None) -> None:
@@ -341,7 +355,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         # if you're not moving, find a new destination
         if self._status_motion is 'IDLE':
             try:
-                self._neighbourhood_current_index = self._neighbourhood_reached_flag.index(False) #! explore the next first unexplored cell
+                self._neighbourhood_current_index = self._neighbourhood_reached_flag.index(False)
             except ValueError:
                 self._neighbourhood_current_index = None #! this means that all cells have been explored                
                     
@@ -370,7 +384,7 @@ class BeaversRobotBackend(BaseRobotBackend):
             
             # set the action and update task status  
             self._current_action = 'move'           
-            self._status_task = 'INPROGRESS'        
+            self._status_task = 'FINISHED'
         else:
             raise ValueError('Invalid status_motion: {}'.format(self._status_motion))
             
@@ -379,7 +393,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         
     def store(self, time_of_day=None, limits=None) -> None:
         # decide the action
-        # nothing to do here, the action is already decided
+        # nothing to do here, the action is already decided                
         
         # do the action        
         self._current_action = 'move'
@@ -389,27 +403,9 @@ class BeaversRobotBackend(BaseRobotBackend):
         if success:
             # transfer the load to the home base
             if self._status_motion == 'FINISHED':                
-                self.store_vegetation(time_of_day, limits)
-                
-                if self._load > 0:
-                    home_base_barycenter = self.np.mean(self._home_base_position_store, axis=0)
-                    neighbourhood = module_misc.DN_neighbourhood(home_base_barycenter, limits, N=4)
-                    home_base = min(neighbourhood, key=lambda pos: self._local_map[int(pos[0]), int(pos[1])])
-                    home_base = [int(home_base[0]), int(home_base[1])]
-                    
-                    if not any(home_base[0] == pos[0] and home_base[1] == pos[1] for pos in self._home_base_position_store):
-                        self._home_base_position_store.append([int(home_base[0]), int(home_base[1])])
-                    else:
-                        home_base = [self._home_base_position_store[-1][0] - 1, self._home_base_position_store[-1][1] - 1]
-                        self._home_base_position_store.append(home_base)
-                        
-                    self._status_task = 'INPROGRESS'
-                    self._home_base_position = self._home_base_position_store[-1]
-                    self._motion_destination = self._home_base_position
-                    self._current_action = 'move'
-                else:                                    
-                    self._status_task = 'FINISHED'
-                    self._current_action = 'idle'                
+                self.store_vegetation(time_of_day, limits)                                
+                self._status_task = 'FINISHED'
+                self._current_action = 'idle'                
         
     ############################################################
     # ACTIONS
@@ -429,18 +425,21 @@ class BeaversRobotBackend(BaseRobotBackend):
             setpoint = self._motion_destination
             _neighbourhood = module_misc.DN_neighbourhood(self._position, limits, N=self._controller._neighbourhood_size)
             
-            if self._controller._map_repulsive is 'vegetation':
-                self._local_map_control = self._local_map
-            elif self._controller._map_repulsive is 'vegetation_visits':
-                map_repulsive = self.np.zeros(self._local_map.shape)
-                map_repulsive[self.np.isnan(map_repulsive)] = 0
-                map_repulsive[self._local_map >= self._harvest_threshold[0]] = self._controller._vegetation_barrier[0]
-                map_repulsive[self._local_map > self._harvest_threshold[1]] = self._controller._vegetation_barrier[1]
-                map_repulsive[self._local_map < 0] = self._controller._river_barrier
-                self._local_map_control = map_repulsive + self._local_map_visits
+            map_repulsive = self.np.zeros(self._local_map.shape)
+            map_repulsive[self.np.isnan(map_repulsive)] = 0
+            map_repulsive[self._local_map >= self._harvest_threshold[0]] = self._controller._vegetation_barrier[0]
+            map_repulsive[self._local_map > self._harvest_threshold[1]] = self._controller._vegetation_barrier[1]
+            map_repulsive[self._local_map < 0] = self._controller._river_barrier
+            
+            score = 1
+            if self._controller._map_repulsive is 'vegetation_quality':
+                self._local_map_control = map_repulsive + score * self._local_map
+            elif self._controller._map_repulsive is 'vegetation_visits':                
+                self._local_map_control = map_repulsive + score * self._local_map_visits
             else:
-                raise ValueError('Invalid map_repulsive value: {}'.format(self._controller._map_repulsive))
-                                   
+                raise ValueError('Invalid map_repulsive value: {}'.format(self._controller._map_repulsive))                                
+                        
+            # control
             _neighbourhood_values = [self._local_map_control[int(pos[0]), int(pos[1])] for pos in _neighbourhood]
             self._controller.step(setpoint, self._position, [_neighbourhood, _neighbourhood_values])
         else:
@@ -458,12 +457,14 @@ class BeaversRobotBackend(BaseRobotBackend):
         
     # action: remove_vegetation
     def remove_vegetation(self, time_of_day=None, limits=None) -> None:
-        if self._load <= self._maximum_load - self._vegetation_removal:
-            self._map_quality_measure_position  -= self._vegetation_removal
-            self._load += self._vegetation_removal
+        if self._load <= self._maximum_load - self._vegetation_removal and \
+            self._harvesting_actions_counter < self._harvesting_actions_limit:
+                self._harvesting_actions_counter += 1
+                self._map_quality_measure_position  -= self._vegetation_removal
+                self._load += self._vegetation_removal            
             
     # action: store_vegetation
-    def store_vegetation(self, time_of_day=None, limits=None) -> None:
+    def store_vegetation(self, time_of_day=None, limits=None) -> bool:
         if self._load > 0:
             available_space = self.np.inf * self._vegetation_quality_range[1] - self.np.ceil(self._map_quality_measure_position)
             
@@ -471,9 +472,9 @@ class BeaversRobotBackend(BaseRobotBackend):
                 removed_load = min(available_space, self._load)
                 self._map_quality_measure_position += removed_load
                 self._load -= removed_load
-                # self._map_quality_measure_position = self.np.nan
-                # self._load = 0
-                        
+                return True
+            else:
+                 return False       
         
     ############################################################
     # UTILS
@@ -501,7 +502,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         position = self._position   
         
         # exploration_map
-        if self._exploration_map is 'vegetation':
+        if self._exploration_map is 'vegetation_quality':
             local_map = self._local_map   
         elif self._exploration_map is 'vegetation_visits':     
             local_map = self._local_map / (1 + self._local_map_visits)
@@ -538,7 +539,7 @@ class BeaversRobotBackend(BaseRobotBackend):
                 home_base_store=self._home_base_position_store, max_vegetation=self._harvest_threshold, eta=self._exploration_eta,
                 N_recovery=self._exploration_N_recovery)
         else:
-            raise ValueError('Invalid exploration mode: {}'.format(self._exploration_mode))
+            raise ValueError('Invalid exploration mode: {}'.format(self._exploration_mode))            
         
         self._neighbourhood = N
         self._neighbourhood_reached_flag = NF
@@ -596,3 +597,34 @@ class BeaversRobotBackend(BaseRobotBackend):
             self._local_map[pos[0], pos[1]] = val            
         self._local_map_visits[self._position[0], self._position[1]] += 1     
         self._local_map_visits = self._local_map_visits * N_reset
+        
+    def set_home_base_position(self) -> None:
+        # get distance to the home base
+        distances_to_home = [
+            self.np.sqrt(
+                (self._position[0] - home_pos[0]) ** 2 +
+                (self._position[1] - home_pos[1]) ** 2
+            )
+            for home_pos in self._home_base_position_store
+        ]
+        distance_to_home = min(distances_to_home)
+        
+        # if too far, find a new home base position        
+        if distance_to_home > 30:    
+            _limits = [[0, self._local_map.shape[0] - 1], [0, self._local_map.shape[1] - 1]]
+            _local_neighbourhood = module_misc.DN_neighbourhood(self._position, _limits, N=40) 
+            valid_positions = [
+                pos for pos in _local_neighbourhood
+                if self._local_map[int(pos[0] - 1), int(pos[1] - 1)] <= self._vegetation_quality_range[0]
+            ]
+            if valid_positions:        
+                self._home_base_position_store.append(self.random.choice(valid_positions))
+                
+        # define the motion destination as the closest home base position
+        self._motion_destination = min(
+            self._home_base_position_store,
+            key=lambda pos: self.np.sqrt(
+                (self._position[0] - pos[0]) ** 2 +
+                (self._position[1] - pos[1]) ** 2
+            )
+        )

@@ -53,51 +53,40 @@ def exploration_gradient_DN(position, limits, local_map, N=4, home_base_store=No
             _neighbourhood = np.argwhere(local_map >= eta * max_vegetation[1])            
             if len(_neighbourhood) > 1:
                 _neighbourhood_valid = True
-                np.random.shuffle(_neighbourhood)
-                try:
-                    _neighbourhood = [min((pos for pos in _neighbourhood if not np.array_equal(pos, position) \
-                                        and (np.linalg.norm(np.array(pos) - np.array(position)) < 2)),
-                                        key=lambda pos: np.linalg.norm(np.array(pos) - np.array(position)))]                    
-                except:
-                    pass
+                _neighbourhood = [random.choice(_neighbourhood)]
             else:
                 N = N_recovery
                 
         if not _neighbourhood_valid:
-            _neighbourhood = module_misc.DN_neighbourhood(position, limits, N)          
+            _neighbourhood = module_misc.DN_neighbourhood(position, limits, N)            
             
             gradient_matrix, values_matrix = module_misc.matrix_gradient(local_map, _neighbourhood)
-        
-            if np.nanmax(gradient_matrix) < 0.0:
-                try:
-                    _neighbourhood = [min(  (pos for pos in _neighbourhood if (not np.array_equal(pos, position)) \
-                        and (np.linalg.norm(np.array(pos) - np.array(position)) < 2)),
-                        key=lambda pos: np.linalg.norm(np.array(pos) - np.array(position)))]                    
-                except:
-                    pass
-            else:        
-                max_indices = np.argwhere(gradient_matrix == np.nanmax(gradient_matrix))
-                direction = max_indices.tolist()
+                                                
+            max_indices = np.argwhere(gradient_matrix >= eta * np.nanmax(gradient_matrix))                
+            direction = max_indices.tolist()
+            
+            dir_matrix = [[[] for _ in range(values_matrix.shape[1])] for _ in range(values_matrix.shape[0])]
+            cx = values_matrix.shape[0] // 2
+            cy = values_matrix.shape[1] // 2
+            for dir in direction:
+                dir_matrix[dir[0]][dir[1]] = [dir[1] - cx, cy - dir[0]]  # column index - center column, row index - center row                
                 
-                dx = []
-                dy = []
-                cx = values_matrix.shape[0] // 2
-                cy = values_matrix.shape[1] // 2
-                for dir in direction:
-                    dx.append(dir[1] - cx)  # column index - center column
-                    dy.append(cy - dir[0])  # row index - center row
-                    
-                new_position = []
-                for i, dir in enumerate(direction):  
-                    possible_position = [position[0] + dx[i], position[1] + dy[i]]
-                    if possible_position[0] != position[0] and possible_position[1] != position[1]: 
-                        new_position.append(possible_position)
-                
-                if new_position:
-                    _neighbourhood = [random.choice(new_position)]                 
-                else:                
-                    _neighbourhood, _, _ = exploration_DN(position, limits, N=4)
-                    np.random.shuffle(_neighbourhood)
+            new_position_matrix = [[[] for _ in range(values_matrix.shape[1])] for _ in range(values_matrix.shape[0])]
+            new_position = []
+            for i in range(values_matrix.shape[0]):
+                for j in range(values_matrix.shape[1]):
+                    if dir_matrix[i][j]:  # Check if the direction is not empty
+                        possible_position = [position[0] + dir_matrix[i][j][0], position[1] + dir_matrix[i][j][1]]
+                        if possible_position[0] != position[0] or possible_position[1] != position[1]: 
+                            new_position_matrix[i][j] = possible_position
+                            new_position.append(possible_position)
+            
+            
+            if new_position:
+                _neighbourhood = [random.choice(new_position)]                 
+            else:                
+                _neighbourhood, _, _ = exploration_DN(position, limits, N=4)
+                _neighbourhood = [random.choice(_neighbourhood)]
                     
     _neighbourhood_reached_flag = [False] * len(_neighbourhood)
     _neighbourhood_current_index = 0
@@ -136,13 +125,7 @@ def exploration_softmax_DN(position, limits, local_map, N=4, home_base_store=Non
             _neighbourhood = np.argwhere(probabilities >= eta * np.nanmax(probabilities))
             if len(_neighbourhood) > 1:
                 _neighbourhood_valid = True
-                np.random.shuffle(_neighbourhood)
-                try:
-                    _neighbourhood = [min((pos for pos in _neighbourhood if not np.array_equal(pos, position) \
-                                        and (np.linalg.norm(np.array(pos) - np.array(position)) < 2)),
-                                        key=lambda pos: np.linalg.norm(np.array(pos) - np.array(position)))]                    
-                except:
-                    pass
+                _neighbourhood = [random.choice(_neighbourhood)]
             else:
                 N = N_recovery
                 
@@ -159,11 +142,11 @@ def exploration_softmax_DN(position, limits, local_map, N=4, home_base_store=Non
             cx = values_matrix.shape[0] // 2
             cy = values_matrix.shape[1] // 2
             for dir in direction:
-                dx.append(dir[1] - cx)  # column index - center column
+                dx.append(cx - dir[1])  # column index - center column
                 dy.append(cy - dir[0])  # row index - center row
                 
             new_position = []
-            for i, dir in enumerate(direction):  
+            for i in range(len(direction)):  
                 possible_position = [position[0] + dx[i], position[1] + dy[i]]
                 if possible_position[0] != position[0] and possible_position[1] != position[1]: 
                     new_position.append(possible_position)
@@ -172,7 +155,7 @@ def exploration_softmax_DN(position, limits, local_map, N=4, home_base_store=Non
                 _neighbourhood = [random.choice(new_position)]
             else:                
                 _neighbourhood, _, _ = exploration_DN(position, limits, N=4)
-                np.random.shuffle(_neighbourhood)
+                _neighbourhood = [random.choice(_neighbourhood)]
                     
     _neighbourhood_reached_flag = [False] * len(_neighbourhood)
     _neighbourhood_current_index = 0

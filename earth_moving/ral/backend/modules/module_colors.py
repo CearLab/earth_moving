@@ -28,31 +28,7 @@ battery_marker = Path(
 # class to define the color maps
 class ColorMaps(): 
     
-    def __init__(self) -> None:  
-        
-        # background color
-        # self._background_color = '#FFFFFF' # white
-        self._background_color = '#e9f5db' # nature green
-        self._background_color_night = '#979dac' # grey
-        self._background_color_monitor = '#f8f9fa' # light grey
-        
-        # agent markers
-        self._agent_marker = 'ro'
-        self._agent_markersize = 20
-        self._agent_markersize_small = 10
-        self._agent_markerfacecolor = '#936639' # brown
-        self._agent_markeredgecolor = '#465362' # dark grey
-        self._agent_markeredgewidth = 2
-        self._agent_markeralpha = 0.8
-        
-        # agent markers - night
-        self._agent_marker_night = 'ro'
-        self._agent_markersize_night = 20
-        self._agent_markersize_small_night = 10
-        self._agent_markerfacecolor_night = '#f8f9fa' # light grey
-        self._agent_markeredgecolor_night = '#465362' # dark grey
-        self._agent_markeredgewidth_night = 2
-        self._agent_markeralpha_night = 1.0                
+    def __init__(self) -> None:                  
         
         # greens - daylight
         lightgreen = '#cfe1b9'
@@ -108,26 +84,52 @@ class ColorMaps():
         orange = '#d3b44e'
         tanorange = '#d8eaab'
         darkorange = '#95d387'
-        alpha_orange = 1.0                
+        alpha_orange = 1.0     
+        
+        # general clolors
+        self._white = '#FFFFFF'
+        self._black = '#000000' 
+        self._light_gray = '#F8F9FA'  # light grey       
+        self._gray = '#6c757d'  # grey        
+        red = '#FF0000'    
+        
+        # background color
+        # self._background_color = '#FFFFFF' # white
+        self._background_color = '#e9f5db' # nature green
+        self._background_color_night = '#979dac' # grey
+        self._background_color_monitor = '#f8f9fa' # light grey
+        
+        # agent markers
+        self._agent_marker = 'ro'
+        self._agent_markersize = 20
+        self._agent_markersize_small = 3
+        self._agent_markerfacecolor = '#936639' # brown
+        self._agent_markeredgecolor = self._light_gray # light grey
+        self._agent_markeredgewidth = 1
+        self._agent_markeralpha = 0.8
+        
+        # agent markers - night
+        self._agent_marker_night = 'ro'
+        self._agent_markersize_night = 20
+        self._agent_markersize_small_night = 10
+        self._agent_markerfacecolor_night = '#f8f9fa' # light grey
+        self._agent_markeredgecolor_night = self._light_gray # light grey
+        self._agent_markeredgewidth_night = 1
+        self._agent_markeralpha_night = 1.0                                               
         
         # vegetation markers
         self._vegetation_marker = flag_marker
         self._vegetation_markersize = 20
-        self._vegetation_markeredgecolor = '#465362' # dark grey
-        self._vegetation_markeredgewidth = 2
+        self._vegetation_markeredgecolor = self._light_gray # light grey
+        self._vegetation_markeredgewidth = 1
         self._vegetation_markeralpha = 1.0
         
         # battery markers
         self._battery_marker = battery_marker
         self._battery_markersize = 20
-        self._battery_markeredgecolor = '#465362' # dark grey
-        self._battery_markeredgewidth = 2
-        self._battery_markeralpha = 1.0
-        
-        # general clolors
-        self._white = '#FFFFFF'
-        self._black = '#000000'                
-        red = '#FF0000'                        
+        self._battery_markeredgecolor = self._light_gray # light grey
+        self._battery_markeredgewidth = 1
+        self._battery_markeralpha = 1.0                
         
         # green colormap - daylight
         self._green_colors_list = [(0, self._background_color),
@@ -202,27 +204,34 @@ class ColorMaps():
                                             (0.10, tanblue),
                                             (0.15, blue),
                                             (0.20, mediumblue),
-                                            (0.30, lightblue),
+                                            (0.25, lightblue),
+                                            (0.30, darkbrown),
                                             (0.40, darkbrown),
-                                            (0.50, tanbrown),
-                                            (0.55, brown),
+                                            (0.50, darkbrown),
                                             (0.60, mediumbrown),
-                                            (0.70, lightbrown),
+                                            (0.70, mediumbrown),
+                                            (0.75, lightgreen),
                                             (0.80, lightgreen),
                                             (0.85, mediumgreen),
-                                            (0.90, green),
-                                            (0.95, tangreen),
+                                            (0.90, tangreen),
                                             (1.00, darkgreen)]        
         self._bluebrowngreen_colormap = cc.LinearSegmentedColormap.from_list("bluebrowngreen_colormap",self._bluebrowngreen_colors_list)
         self._bluebrowngreen_colormap_alpha = alpha_brown
+        
+        # white to black colormap
+        self._whiteblack_colors_list = [(0, self._white),
+                                        (0.5, self._light_gray),                                        
+                                        (1, self._black)]
+        self._whiteblack_colormap = cc.LinearSegmentedColormap.from_list("whiteblack_colormap",self._whiteblack_colors_list)
+        self._whiteblack_colormap_alpha = 1.0
         
         # blue to brown to green colormap - sleepnight
         self._bluebrowngreen_colors_list_night = [(0.00, darkblue_night),
                                                   (0.10, tanblue_night),
                                                   (0.15, blue_night),
                                                   (0.20, mediumblue_night),
-                                                  (0.30, lightblue_night),
-                                                  (0.40, darkbrown_night),
+                                                  (0.25, lightblue_night),
+                                                  (0.30, darkbrown_night),
                                                   (0.50, tanbrown_night),
                                                   (0.55, brown_night),
                                                   (0.60, mediumbrown_night),

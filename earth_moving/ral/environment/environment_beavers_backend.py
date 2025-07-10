@@ -42,17 +42,20 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         self._current_day = []
         self._current_hour = []
         self._time_of_day = []
-        self.update_time_of_day()
-        self._trail_usage_map = self.np.zeros((self._width, self._height))
-        self._canal_usage_map = self.np.zeros((self._width, self._height))
+        self.update_time_of_day()        
         self._number_vegetation_clusters = 0
-        self._map = self.np.ones((self._width, self._height)) * self.np.random.randint(
+        self._map_original = self.np.ones((self._width, self._height)) * self.np.random.randint(
             self._vegetation_quality_init_range[0], self._vegetation_quality_init_range[1], size=(self._width, self._height)
         )
+        self._map = self._map_original.copy()
+        self._map_visits = self._map_original.copy()            
         self._vegetation_clusters_store = []
         
+        # home base position store
+        self._home_base_position_store = None
+        
         # call init methods
-        self.generate_map()        
+        self.generate_map()                        
         
         return self   
     
@@ -64,11 +67,33 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         else:  
             self._time_of_day = 'night'   
     
-    def step_environment(self, dt) -> None: 
+    def step_environment(self, dt, map_visits, home_base_position_store, grass_growth_interval) -> None: 
         self._current_time += dt #! I wamt to pass the timedelta from the simulation, the environment is not aware of the time flow
         self.update_time_of_day()
-        if (self._current_time % self._vegetation_growth_frequency == 0): #and (self._time_of_day == 'night'):
-            self.grow_vegetation()
+        
+        # update the map
+        self._map = self._map_original.copy()
+        self._map_visits = self._map_original.copy()
+        self._home_base_position_store = home_base_position_store
+        
+        # scale the map based on the visits
+        fade_thresh = 0
+        fade_speed = 1        
+        self._map_visits[self._map_original > fade_thresh] = self._map_original[self._map_original > fade_thresh] / \
+            (1 + fade_speed * map_visits[self._map_original > fade_thresh]) #! This is a simple scaling, it can be improved                    
+            
+            
+        # grow grass        
+        rate = 0.00107 # 2.6% growth per day, 0.00107 per hour (3 weeks to grow grass)
+        rate = rate / 1
+        self._map_original[(self._map_original >= grass_growth_interval[0]) & \
+            (self._map_original <= grass_growth_interval[1])] = \
+            self._map_original[(self._map_original >= grass_growth_interval[0]) & \
+            (self._map_original <= grass_growth_interval[1])] * (1 + rate)
+                    
+        # grow vegetation
+        if (self._current_time % self._vegetation_growth_frequency == 0): #and (self._time_of_day == 'night'):            
+            self.grow_vegetation()                        
             
         # prints
         if self._print:
@@ -103,10 +128,10 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
                 if 0 <= nx < self._width and 0 <= ny < self._height:
                     distance = self.np.sqrt(dx**2 + dy**2)
                     #! remark: base_map is increased because vegetation can overlap when generated
-                    if self._map[nx, ny] >= 0:
-                        self._map[nx, ny] += self._vegetation_quality_range[1] * self.np.sqrt(2 * self.np.pi * sigma**2) \
+                    if self._map_original[nx, ny] >= 0:
+                        self._map_original[nx, ny] += self._vegetation_quality_range[1] * self.np.sqrt(2 * self.np.pi * sigma**2) \
                                             * norm.pdf(distance, 0.0, sigma)
-                        self._map = self.np.clip(self._map, -self._streams_width, self._vegetation_quality_range[1])
+                        self._map_original = self.np.clip(self._map_original, -self._streams_width, self._vegetation_quality_range[1])
         
         # store clusters
         found = False
@@ -128,17 +153,17 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
                 nx, ny = cx + dx, cy + dy
                 if 0 <= nx < self._width and 0 <= ny < self._height:
                     distance = self.np.sqrt(dx**2 + dy**2)
-                    if self._map[nx, ny] > 0:                        
-                        self._map[nx, ny] -= self._vegetation_quality_range[1] * self.np.sqrt(2 * self.np.pi * sigma**2) \
+                    if self._map_original[nx, ny] > 0:                        
+                        self._map_original[nx, ny] -= self._vegetation_quality_range[1] * self.np.sqrt(2 * self.np.pi * sigma**2) \
                                             * norm.pdf(distance, 0.0, sigma)
-                        self._map[nx, ny] = self.np.clip(self._map[nx, ny], 0.05, self._vegetation_quality_range[1])
+                        self._map_original[nx, ny] = self.np.clip(self._map_original[nx, ny], 0.05, self._vegetation_quality_range[1])
         
         # increase radius 
         cluster_radius += 1
         sigma = module_misc.scale_sigma(self._vegetation_cluster_sigma, cluster_radius)
         self.generate_cluster(cx, cy, cluster_radius)
         
-    def grow_vegetation(self) -> None:
+    def grow_vegetation(self) -> None:                
         
         # grow previous clusters
         for cluster in self._vegetation_clusters_store:
@@ -178,7 +203,7 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         num_points = 1000
         path = module_misc.generate_path_from_points(points, degree, num_points, self._width-1, self._height-1)        
         for position in path:
-            self._map[position[0], position[1]] = -(self._streams_width + 1)
+            self._map_original[position[0], position[1]] = -(self._streams_width + 1)
             
         extended_path = []
         for position in path:
@@ -193,6 +218,6 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
                             
                             extended_path.append(neighbour)                         
                             distance = self.np.sqrt((neighbour[0] - x)**2 + (neighbour[1] - y)**2)
-                            self._map[neighbour[0], neighbour[1]] = -self._streams_width * self.np.sqrt(2 * self.np.pi * sigma**2) \
+                            self._map_original[neighbour[0], neighbour[1]] = -self._streams_width * self.np.sqrt(2 * self.np.pi * sigma**2) \
                                         * norm.pdf(distance, 0.0, sigma)
-                            self._map[neighbour[0], neighbour[1]] = self.np.clip(self._map[neighbour[0], neighbour[1]], -self._streams_width, -0.05)    
+                            self._map_original[neighbour[0], neighbour[1]] = self.np.clip(self._map_original[neighbour[0], neighbour[1]], -self._streams_width, -0.05)    

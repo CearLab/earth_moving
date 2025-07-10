@@ -11,6 +11,7 @@ def fedeoli_beavers_scenario(config):
     
     # number of steps
     number_of_steps = int(config.get('simulation').get('number_of_steps')) * 24
+    # number_of_steps = 1
     downsampling = config.get('simulation').get('downsampling')
         
     # init agents    
