@@ -2,7 +2,7 @@ from main import run_2d_env
 import pygame
 import math
 import pybullet as p
-from pybullet_integration import PyBulletIntegration, follow_smooth_trajectory
+from pybullet_integration import PyBulletIntegration
 import numpy as np
 from scipy.interpolate import splprep, splev   # requires SciPy
 
@@ -76,7 +76,8 @@ def handle_2d_events(visualizer, env, integration):
             if clicked_cell:
                 print(f"\nClicked cell: ({clicked_cell.x}, {clicked_cell.y}) with {clicked_cell.num_objects} objects.")
 
-                choice = input("Choose path type ('target' or 'highway'): ").strip().lower()
+                # choice = input("Choose path type ('target' or 'highway'): ").strip().lower()
+                choice = "target"
                 if choice not in ["target", "highway"]:
                     print("⚠️ Invalid choice. Try again.")
                     return True
@@ -92,7 +93,8 @@ def handle_2d_events(visualizer, env, integration):
                 visualizer.set_trajectory(trajectory)
                 integration.visualize_trajectory(trajectory)
 
-                confirm = input("\nExecute trajectory? (yes/no): ").strip().lower()
+                # confirm = input("\nExecute trajectory? (yes/no): ").strip().lower()
+                confirm = "yes"
                 if confirm in ["yes", "y"]:
                     print("\nExecuting trajectory...")
                     robot_id = integration.object_ids[1]  # assuming robot is 2nd loaded object
@@ -132,14 +134,15 @@ def handle_2d_events(visualizer, env, integration):
 
                     # Build → spline → thin
                     world_path = approach_trajectory + trajectory_3d  # as before
-                    bspline_path = make_bspline(world_path, ds=0.07)  # 7 cm samples
+                    bspline_path = make_bspline(world_path, ds=0.5)
 
                     integration.draw_trajectory([(x, y) for x, y, _ in bspline_path], color=[0, 0, 0])
                     integration.follow_smooth_trajectory(bspline_path,
                                                          lookahead=4,
                                                          pos_tol=0.05,  # 5 cm
                                                          angle_tol=0.25)
-
+                    
+                    # integration.follow_trajectory(bspline_path)
                     env.execute_path(env.current_cell, env.current_path_type, use_spillage=env.current_use_spillage)
                     env.update_environment()
 
