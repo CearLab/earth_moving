@@ -50,7 +50,7 @@ class PyBulletIntegration:
         self.Kphi_vel = 0.00001
         self.Kd_phi_vel = 0
         self.K1 = 3
-        self.K2 = 10
+        self.K2 = 20
         self.K3 = 20
         self.vmax = 0.5
         self.phimax = 1
