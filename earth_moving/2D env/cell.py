@@ -8,6 +8,10 @@ class Cell:
         self.y = y
         self.num_objects = num_objects
         self.current_objects = num_objects  # Number of objects currently in the cell
+        
+        # Check if this cell is inside the target zone
+        cell_point = Point(x + 0.5, y + 0.5)  # Center of the cell
+        self.is_target_zone = target_zone.contains(cell_point)
 
         # Separate lists for visible cells
         self.visible_cells_target = []  # List of visible cells toward the target zone
@@ -24,7 +28,8 @@ class Cell:
 
         # Target zone path-related attributes
         self.best_path_target = []  # Best path to the target zone
-        self.total_objects_target = self.num_objects  # Objects collected on the way to the target zone
+        self.total_objects_target = self.num_objects  # Objects collected on the way to the target zone (spillage-affected)
+        self.total_objects_raw = self.num_objects  # Raw objects collected (no spillage effects, for propagation)
         self.total_objects_path_target = 0  # Maximum objects collected for paths to the target zone
         self.velocity_target = (0, 0)  # Velocity toward the target zone
         self.total_distance_target = 0
@@ -57,6 +62,11 @@ class Cell:
 
         self.impacted_cells_target = {}  # Stores impacted cells from spillage (target)
         self.impacted_cells_highway = {}  # Stores impacted cells from spillage (highway)
+
+        # Memoization / heuristics (target mode)
+        self.solved_target = False          # True once best_path_target is finalized
+        self.h_vis_target = 0               # optimistic: sum(objects) in visibility scope
+        self.h_resolved_target = 0          # exact: objects delivered by best_path_target when solved
 
     def calculate_potential(self):
         """
