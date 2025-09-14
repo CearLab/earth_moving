@@ -18,24 +18,48 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         # parse the config file        
         self._width = self._environment.get('width')
         self._height = self._environment.get('height')
-        self._number_vegetation_clusters_init = self._environment.get('number_vegetation_clusters_init')
-        self._number_vegetation_clusters_max = self._environment.get('number_vegetation_clusters_max')
         
-        if self._number_vegetation_clusters_init > self._number_vegetation_clusters_max:
-            raise ValueError("Initial number of vegetation clusters cannot be greater than the maximum number of vegetation clusters.")
+        # map generation mode
+        self._map_mode = self._environment.get('map_mode', 'generate')  # 'generate' or 'csv'                
         
-        self._vegetation_cluster_sigma = self._environment.get('vegetation_cluster_sigma') #! This is an initial sigma, it will be scaled when growing the clusters        
-        self._vegetation_cluster_radius_range = self._environment.get('vegetation_cluster_radius_range')
-        self._vegetation_quality_range = self._environment.get('vegetation_quality_range')        
+        if self._map_mode == 'csv':
+            # csv file path and center
+            self._elevation_file_path = self._environment.get('elevation_file_path', None)
+            self._latitude_file_path = self._environment.get('latitude_file_path', None)
+            self._longitude_file_path = self._environment.get('longitude_file_path', None)
+            self._csv_center = self._environment.get('csv_center', None)  # [x, y] coordinates for center of selection
+            
+            # initial map
+            self._map_original = self.np.ones((self._width, self._height))
+        elif self._map_mode == 'generate':            
+            # vegetation clusters
+            self._number_vegetation_clusters_init = self._environment.get('number_vegetation_clusters_init')
+            self._number_vegetation_clusters_max = self._environment.get('number_vegetation_clusters_max')            
+            if self._number_vegetation_clusters_init > self._number_vegetation_clusters_max:
+                raise ValueError("Initial number of vegetation clusters cannot be greater than the maximum number of vegetation clusters.")            
+            self._vegetation_cluster_sigma = self._environment.get('vegetation_cluster_sigma') #! This is an initial sigma, it will be scaled when growing the clusters        
+            self._vegetation_cluster_radius_range = self._environment.get('vegetation_cluster_radius_range')                        
+                        
+            # vegetation growth frequency
+            self._vegetation_growth_frequency = self._environment.get('vegetation_growth_frequency')        
+            if self._vegetation_growth_frequency == 'inf':
+                self._vegetation_growth_frequency = self.np.inf            
+                
+            # streams
+            self._streams_number = self._environment.get('streams_number')            
+            
+            # init map
+            self._map_original = self.np.ones((self._width, self._height)) * self.np.random.randint(
+                self._vegetation_quality_init_range[0], self._vegetation_quality_init_range[1], size=(self._width, self._height)
+            )
+        else:
+            raise ValueError(f"Invalid map mode: {self._map_mode}. Must be 'generate' or 'csv'.")
+        
+        # general environment parameters        
         self._vegetation_quality_init_range = self._environment.get('vegetation_quality_init_range')
-        self._vegetation_growth_frequency = self._environment.get('vegetation_growth_frequency')        
-        if self._vegetation_growth_frequency == 'inf':
-            self._vegetation_growth_frequency = self.np.inf
-        self._print = self._environment.get('print')
-        
-        # streams
-        self._streams_number = self._environment.get('streams_number')
-        self._streams_width = self._environment.get('streams_width')        
+        self._vegetation_quality_range = self._environment.get('vegetation_quality_range')        
+        self._streams_width = self._environment.get('streams_width')
+        self._print = self._environment.get('print')                
         
         # init class attributes        
         self._current_time = 0
@@ -43,10 +67,7 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         self._current_hour = []
         self._time_of_day = []
         self.update_time_of_day()        
-        self._number_vegetation_clusters = 0
-        self._map_original = self.np.ones((self._width, self._height)) * self.np.random.randint(
-            self._vegetation_quality_init_range[0], self._vegetation_quality_init_range[1], size=(self._width, self._height)
-        )
+        self._number_vegetation_clusters = 0        
         self._map = self._map_original.copy()
         self._map_visits = self._map_original.copy()            
         self._vegetation_clusters_store = []
@@ -92,8 +113,9 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
             (self._map_original <= grass_growth_interval[1])] * (1 + rate)
                     
         # grow vegetation
-        if (self._current_time % self._vegetation_growth_frequency == 0): #and (self._time_of_day == 'night'):            
-            self.grow_vegetation()                        
+        if self._map_mode == 'generate':
+            if (self._current_time % self._vegetation_growth_frequency == 0):
+                self.grow_vegetation()                        
             
         # prints
         if self._print:
@@ -101,9 +123,167 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
             for cluster in self._vegetation_clusters_store:
                 print(f"Cluster ID: {cluster[0]}, X: {cluster[1]}, Y: {cluster[2]}, Radius: {cluster[3]}")
                 
-    def generate_map(self) -> None:        
-        self.generate_streams(n_points=12)
-        self.generate_vegetation()        
+    def generate_map(self) -> None:
+        if self._map_mode == 'csv':
+            self.load_map_from_npy()
+        else:
+            self.generate_streams(n_points=12)
+            self.generate_vegetation()
+    
+    def load_map_from_npy(self) -> None:
+        """Load map from NPY file and extract a portion based on center and size."""
+        if self._elevation_file_path is None:
+            raise ValueError("NPY file path must be provided when map_mode is 'csv'")
+        if self._csv_center is None:
+            raise ValueError("NPY center coordinates must be provided when map_mode is 'csv'")
+        
+        try:
+            # Load numpy binary files
+            full_map = self.np.load(self._elevation_file_path)
+            
+            # Load coordinate arrays if provided
+            if self._longitude_file_path is not None:
+                full_longitude_coords = self.np.load(self._longitude_file_path)
+            else:
+                # Create default longitude coordinates
+                full_longitude_coords = self.np.arange(full_map.shape[1])
+                
+            if self._latitude_file_path is not None:
+                full_latitude_coords = self.np.load(self._latitude_file_path)
+            else:
+                # Create default latitude coordinates
+                full_latitude_coords = self.np.arange(full_map.shape[0])
+                
+        except Exception as e:
+            raise ValueError(f"Error loading NPY files: {str(e)}")
+        
+        # Print x/y coordinate stats
+        print("\n--- Loaded NPY coordinate info ---")
+        print(f"X axis: {len(full_longitude_coords)} points, min={full_longitude_coords.min():.3f}, max={full_longitude_coords.max():.3f}")
+        print(f"Y axis: {len(full_latitude_coords)} points, min={full_latitude_coords.min():.3f}, max={full_latitude_coords.max():.3f}")
+        print("----------------------------------\n")
+        # Get the dimensions of the full map
+        full_height, full_width = full_map.shape
+        
+        # Extract center coordinates
+        center_x, center_y = self._csv_center
+        
+        # Validate center coordinates
+        if (
+            center_x < 0 or center_x >= full_width or
+            center_y < 0 or center_y >= full_height            
+        ):
+            raise ValueError(f"Center coordinates ({center_x}, {center_y}) are outside the NPY bounds "
+                           f"({full_width}, {full_height})")
+            
+        if (
+            center_x < self._width // 2 or
+            center_x >= full_width - self._width // 2 or
+            center_y < self._height // 2 or
+            center_y >= full_height - self._height // 2
+        ):
+            raise ValueError(f"Center coordinates ({center_x}, {center_y}) are outside the selection bounds "
+                           f"({self._width}, {self._height})")
+
+        # Calculate the selection bounds
+        half_width = self._width // 2
+        half_height = self._height // 2
+
+        # Calculate start and end indices
+        start_x = center_x - half_width
+        end_x = start_x + self._width
+        start_y = center_y - half_height
+        end_y = start_y + self._height
+
+        # Ensure indices are within bounds
+        start_x = max(0, start_x)
+        end_x = min(full_width, end_x)
+        start_y = max(0, start_y)
+        end_y = min(full_height, end_y)
+        
+        # Extract the portion - Note: using [y, x] indexing to match np.ones(width, height)
+        selected_portion = full_map[start_y:end_y, start_x:end_x]
+        
+        # Extract corresponding coordinate portions
+        selected_longitude = full_longitude_coords[start_x:end_x]
+        selected_latitude = full_latitude_coords[start_y:end_y]
+        
+        # Initialize map with same structure as np.ones(width, height)
+        self._map_original = self.np.ones((self._width, self._height))
+        
+        # Get actual dimensions of selected portion
+        portion_height, portion_width = selected_portion.shape
+        
+        # Calculate where to place the selected portion in the map
+        # Center it if the selected portion is smaller than desired size
+        start_row = (self._width - portion_height) // 2 if portion_height < self._width else 0
+        start_col = (self._height - portion_width) // 2 if portion_width < self._height else 0
+        
+        # Ensure we don't exceed map boundaries
+        end_row = min(start_row + portion_height, self._width)
+        end_col = min(start_col + portion_width, self._height)
+        
+        # Adjust portion size if needed
+        actual_height = end_row - start_row
+        actual_width = end_col - start_col
+        
+        # Handle NaN values - replace with minimum vegetation quality
+        portion_to_place = selected_portion[:actual_height, :actual_width].copy()
+        nan_mask = self.np.isnan(portion_to_place)
+        portion_to_place[nan_mask] = self._vegetation_quality_range[0]
+        
+        # Get min and max of the selected portion for rescaling (excluding NaN)
+        valid_values = portion_to_place[~self.np.isnan(selected_portion[:actual_height, :actual_width])]
+        if len(valid_values) > 0:
+            min_val = self.np.min(valid_values)
+            max_val = self.np.max(valid_values)
+            
+            # Rescale to vegetation quality range
+            if max_val > min_val:  # Avoid division by zero
+                portion_to_place = (portion_to_place - min_val) / (max_val - min_val) * \
+                                 (self._vegetation_quality_range[1] - self._vegetation_quality_range[0]) + \
+                                 self._vegetation_quality_range[0]
+            else:
+                # If all values are the same, set to middle of range
+                portion_to_place[:] = (self._vegetation_quality_range[0] + self._vegetation_quality_range[1]) / 2
+        else:
+            # If no valid values, fill with minimum vegetation quality
+            portion_to_place[:] = self._vegetation_quality_range[0]
+        
+        # Place the processed portion in the map - Note: transpose to match np.ones(width, height) structure
+        self._map_original[start_row:end_row, start_col:end_col] = portion_to_place
+        
+        # Store coordinate axes for visualization
+        # Create coordinate arrays matching the final map dimensions
+        self.x_axis = self.np.zeros(self._width)
+        self.y_axis = self.np.zeros(self._height)
+        
+        # Fill coordinate arrays with selected coordinates, padding with extrapolated values if needed
+        if actual_width > 0 and actual_height > 0:
+            # Place longitude coordinates (x_axis corresponds to width dimension)
+            coord_start_col = start_col
+            coord_end_col = min(start_col + len(selected_longitude), self._height)
+            self.x_axis = selected_longitude[:coord_end_col - coord_start_col]
+            
+            # Place latitude coordinates (y_axis corresponds to height dimension) 
+            coord_start_row = start_row
+            coord_end_row = min(start_row + len(selected_latitude), self._width)
+            self.y_axis = selected_latitude[:coord_end_row - coord_start_row]                        
+        else:
+            # Fallback to index-based coordinates
+            self.x_axis = self.np.arange(self._width, dtype=float)
+            self.y_axis = self.np.arange(self._height, dtype=float)
+
+        if self._print:
+            print(f"Loaded map from NPY: {self._elevation_file_path}")
+            print(f"Full map size: {full_height} x {full_width}")
+            print(f"Selected portion: ({start_x}, {start_y}) to ({end_x}, {end_y})")
+            print(f"Final map size: {self._map_original.shape} (width x height)")
+            print(f"Value range: {self.np.min(self._map_original):.3f} to {self.np.max(self._map_original):.3f}")
+            print(f"X-axis range: {self.x_axis.min():.6f} to {self.x_axis.max():.6f}")
+            print(f"Y-axis range: {self.y_axis.min():.6f} to {self.y_axis.max():.6f}")
+            
+        
             
     def generate_vegetation(self) -> None:
         for _ in range(self._number_vegetation_clusters_init):

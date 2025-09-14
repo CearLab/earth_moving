@@ -136,10 +136,20 @@ class BeaversVisualizerBackend(BaseBackend,Model):
         # Normalize map
         map_normalized = self._environment._map / v_normalizer
         map_visits_normalized = self._environment._map_visits / v_normalizer
-        # Plot map
-        ax1.imshow(map_normalized.transpose(), origin='lower', 
-                   cmap=map_colormap, alpha=alpha_map,
-                   vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
+        
+        # Plot map with geographic coordinate ticks
+        im = ax1.imshow(map_normalized.transpose(), origin='lower', 
+                        cmap=map_colormap, alpha=alpha_map,
+                        vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
+        
+        # Add colorbar
+        cbar = plt.colorbar(im, ax=ax1, shrink=0.8, aspect=20, pad=0.02)
+        cbar.set_label('Vegetation Quality / Elevation', rotation=270, labelpad=20)
+        # Set colorbar ticks to show actual values (not normalized)
+        cbar_ticks = [vmin/v_normalizer, 0, vmax/v_normalizer]
+        cbar_labels = [f'{vmin:.1f}', '0.0', f'{vmax:.1f}']
+        cbar.set_ticks(cbar_ticks)
+        cbar.set_ticklabels(cbar_labels)                
         
         # Add another imshow on the right        
         # ax2.imshow(map_visits_normalized.transpose(), origin='lower', 
@@ -150,7 +160,7 @@ class BeaversVisualizerBackend(BaseBackend,Model):
         if True:
             for agent in self._schedule.agents:
                 if isinstance(agent, BeaversVisualizerAgent):
-                    pass
+                    # Use pixel coordinates directly (simple approach)
                     ax1.plot(agent._position[0], agent._position[1], 
                         agent_marker, 
                         markersize=      agent_markersize, 
@@ -187,6 +197,7 @@ class BeaversVisualizerBackend(BaseBackend,Model):
             # add a box around home_position
             if agent._home_base_position_store is not None:
                 for home_base_position in agent._home_base_position_store:
+                    # Use pixel coordinates (simple approach)
                     box = plt.Rectangle((home_base_position[0] - 2, home_base_position[1] - 2), 3, 3, 
                                         fill=True, edgecolor=self._color_maps._black, facecolor=self._color_maps._gray, linestyle='-', linewidth=2)
                     ax1.add_patch(box)
@@ -194,7 +205,33 @@ class BeaversVisualizerBackend(BaseBackend,Model):
         # set axes
         ax1.set_aspect('equal')
         ax1.grid(False)
-        ax1.set_axis_off()                
+        
+        # Set custom tick labels with latitude/longitude if available
+        if hasattr(self._environment, 'x_axis') and hasattr(self._environment, 'y_axis'):
+            # Show geographic coordinate labels
+            ax1.set_xlabel('X [m]', fontsize=12)
+            ax1.set_ylabel('Y [m]', fontsize=12)
+
+            # Create custom tick positions and labels
+            # Sample 6 points across each axis for reasonable tick spacing
+            n_ticks = 6
+            x_tick_positions = self.np.linspace(0, len(self._environment.x_axis)-1, n_ticks, dtype=int)
+            y_tick_positions = self.np.linspace(0, len(self._environment.y_axis)-1, n_ticks, dtype=int)
+
+            # Get corresponding geographic coordinates
+            x_tick_labels = [f'{self._environment.x_axis[pos]:.4f}' for pos in x_tick_positions]
+            y_tick_labels = [f'{self._environment.y_axis[pos]:.4f}' for pos in y_tick_positions]
+            
+            # Set the ticks
+            ax1.set_xticks(x_tick_positions)
+            ax1.set_xticklabels(x_tick_labels)
+            ax1.set_yticks(y_tick_positions)
+            ax1.set_yticklabels(y_tick_labels)
+        else:
+            ax1.set_axis_off()
+        
+        # Set axis limits in pixel coordinates
+        box_margin = 0.5
         ax1.set_xlim(0 - box_margin, self._width + box_margin)
         ax1.set_ylim(0 - box_margin, self._height + box_margin)
         ax1.set_title("Vegetation Heatmap")

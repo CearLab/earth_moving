@@ -12,4 +12,6 @@ resources/doc
 core.*
 *.pyc
 *.mp4
+*.csv
+*.env
 
