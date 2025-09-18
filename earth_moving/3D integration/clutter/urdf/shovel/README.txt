@@ -1,0 +1,1 @@
+RC4WD earth digger 4200xl sand bucket by bolbot on Thingiverse: https://www.thingiverse.com/thing:4128432

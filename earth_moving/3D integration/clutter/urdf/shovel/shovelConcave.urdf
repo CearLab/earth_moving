@@ -1,0 +1,121 @@
+<?xml version="1.0"?>
+<robot name="shovel">
+
+  <!-- Materials -->  
+  <material name="dark_grey"><color rgba="0.2 0.2 0.2 1.0" /></material>
+  <material name="light_grey"><color rgba="0.4 0.4 0.4 1.0" /></material>
+  <material name="yellow"><color rgba="0.8 0.8 0.0 1.0" /></material>
+  <material name="black"><color rgba="0.15 0.15 0.15 1.0" /></material>
+  <material name="blue"><color rgba="0 0 .8 1"/></material>
+
+  <!-- base_link -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.2 0.2 0.2"/>
+      </geometry>      
+      <material name="blue" />
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.2 0.2 0.2"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1e3"/>
+      <inertia ixx="1.0" ixy="0.0" ixz="0.0" iyy="1.0" iyz="0.0" izz="1.0"/>
+    </inertial>
+  </link>
+
+  <!-- from base to shovel -->
+  <joint name="base_shovel_joint" type="prismatic">
+    <axis xyz="1 0 0"/> 
+    <origin xyz="1 0 0.1" rpy="0 0 0" />
+    <parent link="base_link"/>
+    <child link="shovel_link" />        
+    <limit lower="-10" upper="10" effort="1000" velocity="0.5"/>
+    <joint_properties damping="0.0" friction="0.0"/>
+  </joint>
+
+  <!-- shovel_link -->
+  <link name="shovel_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.4 1 0.4"/>
+      </geometry>
+      <material name="yellow" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.4 1 0.4"/>        
+      </geometry>
+    </collision>
+    <inertial>      
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e0"/>            
+      <inertia ixx="1.0e-1" ixy="0.0" ixz="0.0" iyy="1.0e-1" iyz="0.0" izz="1.0e-1"/>
+      </inertial>
+  </link>
+
+  <!-- from shovel to shovel left -->
+  <joint name="shovel_left_joint" type="fixed">
+    <origin xyz="0.3 0.4 0" rpy="0 -0.5235 -0.5235" />
+    <parent link="shovel_link"/>
+    <child link="shovel_left_link" />
+  </joint>
+
+  <!-- shovel_left_link -->
+  <link name="shovel_left_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.1 0.8 0.4"/>
+      </geometry>
+      <material name="yellow" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.1 0.8 0.4"/>        
+      </geometry>
+    </collision>
+    <inertial>      
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-1"/>            
+      <inertia ixx="1.0e-2" ixy="0.0" ixz="0.0" iyy="1.0e-2" iyz="0.0" izz="1.0e-2"/>
+      </inertial>
+  </link>
+
+  <!-- from shovel to shovel right -->
+  <joint name="shovel_right_joint" type="fixed">
+    <origin xyz="0.3 -0.4 0" rpy="0 -0.5235 0.5235" />
+    <parent link="shovel_link"/>
+    <child link="shovel_right_link" />
+  </joint>
+
+  <!-- shovel_right_link -->
+  <link name="shovel_right_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.1 0.8 0.4"/>
+      </geometry>
+      <material name="yellow" />
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.1 0.8 0.4"/>        
+      </geometry>
+    </collision>
+    <inertial>      
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="1e-1"/>            
+      <inertia ixx="1.0e-2" ixy="0.0" ixz="0.0" iyy="1.0e-2" iyz="0.0" izz="1.0e-2"/>
+      </inertial>
+  </link>
+  
+</robot>

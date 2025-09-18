@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(timeout:*)",
+      "Bash(del test_visualizer_integration.py test_simple.py)",
+      "Read(C:\\Users\\nirm\\Desktop\\Nir\\Master Degree\\Thesis\\Code\\earth_moving\\earth_moving\\3D integration\\3d_integration 040925/**)",
+      "Read(C:\\Users\\nirm\\Desktop\\Nir\\Master Degree\\Thesis\\Code\\earth_moving\\earth_moving\\3D integration\\3d_integration 040925/**)",
+      "Read(C:\\Users\\nirm\\Desktop\\Nir\\Master Degree\\Thesis\\Code\\earth_moving\\earth_moving\\3D integration\\3d_integration 040925\\2D Algorithm/**)",
+      "Read(C:\\Users\\nirm\\Desktop\\Nir\\Master Degree\\Thesis\\Code\\earth_moving\\earth_moving\\3D integration\\3d_integration 040925\\2D Algorithm/**)",
+      "Read(C:\\Users\\nirm\\Desktop\\Nir\\Master Degree\\Thesis\\Code\\earth_moving\\earth_moving\\3D integration\\3d_integration 040925/**)",
+      "Read(C:\\Users\\nirm\\Desktop\\Nir\\Master Degree\\Thesis\\Code\\earth_moving\\earth_moving\\3D integration\\3d_integration 040925\\2D Algorithm/**)",
+      "Read(C:\\Users\\nirm\\Desktop\\Nir\\Master Degree\\Thesis\\Code\\earth_moving\\earth_moving\\3D integration\\3d_integration 040925\\2D Algorithm/**)",
+      "Read(C:\\Users\\nirm\\Desktop\\Nir\\Master Degree\\Thesis\\Code\\earth_moving\\earth_moving\\3D integration\\3d_integration 040925/**)",
+      "Read(C:\\Users\\nirm\\Desktop\\Nir\\Master Degree\\Thesis\\Code\\earth_moving\\earth_moving\\3D integration\\3d_integration 040925/**)",
+      "Bash(for file in agents.py cell.py env.py main.py search.py spillage_model.py visualizer.py)",
+      "Bash(do echo \"=== $file ===\")",
+      "Bash(done)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
