@@ -29,9 +29,14 @@ class ReportSection:
 class BenchmarkReportGenerator:
     """Professional HTML report generator for benchmark results"""
     
-    def __init__(self, output_directory: str = "benchmark_reports"):
+    def __init__(self, output_directory: str = "benchmark_reports", save_individual_plots: bool = True):
         self.output_dir = Path(output_directory)
         self.output_dir.mkdir(exist_ok=True)
+        
+        # Create plots directory for individual plot files
+        self.plots_dir = self.output_dir / "individual_plots"
+        self.plots_dir.mkdir(exist_ok=True)
+        self.save_individual_plots = save_individual_plots
         
         self.analyzer = BenchmarkAnalyzer()
         self.report_sections: List[ReportSection] = []
@@ -39,11 +44,16 @@ class BenchmarkReportGenerator:
         # Chart storage for embedding
         self.embedded_charts: Dict[str, str] = {}
         
-        # Configure matplotlib for report generation
+        # Configure matplotlib for report generation and high-quality thesis plots
         plt.style.use('seaborn-v0_8-whitegrid')
-        plt.rcParams['figure.dpi'] = 150
-        plt.rcParams['savefig.dpi'] = 150
-        plt.rcParams['font.size'] = 10
+        plt.rcParams['figure.dpi'] = 300  # Higher DPI for thesis quality
+        plt.rcParams['savefig.dpi'] = 300
+        plt.rcParams['font.size'] = 12  # Larger font for readability
+        plt.rcParams['axes.labelsize'] = 14
+        plt.rcParams['axes.titlesize'] = 16
+        plt.rcParams['legend.fontsize'] = 12
+        plt.rcParams['xtick.labelsize'] = 11
+        plt.rcParams['ytick.labelsize'] = 11
     
     def load_and_analyze_results(self, results_file: str) -> Dict[str, Any]:
         """Load results and perform comprehensive analysis"""
@@ -63,11 +73,37 @@ class BenchmarkReportGenerator:
             'results_key': results_key
         }
     
-    def create_embedded_chart(self, fig, chart_id: str) -> str:
-        """Convert matplotlib figure to embedded base64 image"""
+    def create_embedded_chart(self, fig, chart_id: str, chart_title: str = None) -> str:
+        """Convert matplotlib figure to embedded base64 image and save individual file"""
+        
+        # Save individual plot file for thesis use
+        if self.save_individual_plots:
+            # Create descriptive filename
+            safe_chart_id = "".join(c for c in chart_id if c.isalnum() or c in ('-', '_', ' ')).strip()
+            safe_chart_id = safe_chart_id.replace(' ', '_')
+            
+            # Save in multiple formats for thesis flexibility
+            plot_filename_base = self.plots_dir / f"{safe_chart_id}"
+            
+            # High-quality PNG for thesis
+            fig.savefig(f"{plot_filename_base}.png", format='png', bbox_inches='tight', 
+                       facecolor='white', edgecolor='none', dpi=300)
+            
+            # Vector format (SVG) for scalable graphics
+            fig.savefig(f"{plot_filename_base}.svg", format='svg', bbox_inches='tight', 
+                       facecolor='white', edgecolor='none')
+            
+            # Optional: PDF format
+            try:
+                fig.savefig(f"{plot_filename_base}.pdf", format='pdf', bbox_inches='tight', 
+                           facecolor='white', edgecolor='none', dpi=300)
+            except Exception:
+                pass  # Skip PDF if not available
+        
+        # Create embedded version for HTML report
         buffer = io.BytesIO()
         fig.savefig(buffer, format='png', bbox_inches='tight', 
-                   facecolor='white', edgecolor='none')
+                   facecolor='white', edgecolor='none', dpi=150)  # Lower DPI for embedding
         buffer.seek(0)
         
         # Convert to base64
@@ -192,8 +228,292 @@ class BenchmarkReportGenerator:
             charts['spillage_impact'] = self.create_embedded_chart(fig, 'spillage_impact')
             plt.close(fig)
         
+        # Generate optimization comparison charts
+        optimization_charts = self.generate_optimization_charts(df)
+        charts.update(optimization_charts)
+        
         return charts
     
+    def generate_optimization_charts(self, df: pd.DataFrame) -> Dict[str, str]:
+        """Generate charts specifically for optimization comparisons"""
+        charts = {}
+        
+        if df.empty:
+            return charts
+        
+        # A* Suffix Stitching Comparison
+        if 'use_suffix_stitching' in df.columns:
+            fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+            fig.suptitle('A* Suffix Stitching Optimization Analysis', fontsize=16, fontweight='bold')
+            
+            # Performance comparison
+            sns.boxplot(data=df, x='use_suffix_stitching', y='execution_time_ms', ax=axes[0,0])
+            axes[0,0].set_title('Execution Time: Suffix Stitching Impact')
+            axes[0,0].set_xlabel('Suffix Stitching Enabled')
+            axes[0,0].set_ylabel('Execution Time (ms)')
+            axes[0,0].set_xticklabels(['Disabled', 'Enabled'])
+            
+            # Memory impact
+            sns.boxplot(data=df, x='use_suffix_stitching', y='memory_delta_mb', ax=axes[0,1])
+            axes[0,1].set_title('Memory Usage: Suffix Stitching Impact')
+            axes[0,1].set_xlabel('Suffix Stitching Enabled')
+            axes[0,1].set_ylabel('Memory Delta (MB)')
+            axes[0,1].set_xticklabels(['Disabled', 'Enabled'])
+            
+            # Path quality metrics (if available)
+            if 'avg_path_length' in df.columns:
+                sns.boxplot(data=df, x='use_suffix_stitching', y='avg_path_length', ax=axes[1,0])
+                axes[1,0].set_title('Path Quality: Average Path Length')
+                axes[1,0].set_xlabel('Suffix Stitching Enabled')
+                axes[1,0].set_ylabel('Average Path Length')
+                axes[1,0].set_xticklabels(['Disabled', 'Enabled'])
+            
+            # Performance improvement visualization
+            if len(df[df['use_suffix_stitching'] == True]) > 0 and len(df[df['use_suffix_stitching'] == False]) > 0:
+                enabled_times = df[df['use_suffix_stitching'] == True]['execution_time_ms']
+                disabled_times = df[df['use_suffix_stitching'] == False]['execution_time_ms']
+                
+                improvement_pct = ((disabled_times.mean() - enabled_times.mean()) / disabled_times.mean()) * 100
+                
+                categories = ['Disabled', 'Enabled']
+                times = [disabled_times.mean(), enabled_times.mean()]
+                colors = ['lightcoral', 'lightgreen']
+                
+                bars = axes[1,1].bar(categories, times, color=colors, alpha=0.7)
+                axes[1,1].set_title(f'Performance Improvement: {improvement_pct:.1f}%')
+                axes[1,1].set_ylabel('Average Execution Time (ms)')
+                
+                # Add value labels on bars
+                for bar, time in zip(bars, times):
+                    axes[1,1].text(bar.get_x() + bar.get_width()/2., bar.get_height(),
+                                  f'{time:.1f}ms', ha='center', va='bottom')
+            
+            plt.tight_layout()
+            charts['suffix_stitching_optimization'] = self.create_embedded_chart(fig, 'suffix_stitching_optimization', 'A* Suffix Stitching Optimization')
+            plt.close(fig)
+        
+        # Optimization Matrix Heatmap
+        if all(col in df.columns for col in ['use_suffix_stitching', 'use_spillage']):
+            fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+            fig.suptitle('Optimization Matrix Analysis', fontsize=16, fontweight='bold')
+            
+            # Create optimization combinations
+            df['optimization_combo'] = df.apply(lambda row: 
+                f"Suffix: {'On' if row.get('use_suffix_stitching', True) else 'Off'}\n"
+                f"Spillage: {'On' if row.get('use_spillage', False) else 'Off'}", axis=1)
+            
+            # Performance heatmap
+            pivot_perf = df.pivot_table(values='execution_time_ms', 
+                                       index='use_spillage', 
+                                       columns='use_suffix_stitching', 
+                                       aggfunc='mean')
+            
+            sns.heatmap(pivot_perf, annot=True, fmt='.1f', cmap='RdYlGn_r', ax=axes[0])
+            axes[0].set_title('Execution Time (ms) by Optimization Combination')
+            axes[0].set_xlabel('Suffix Stitching')
+            axes[0].set_ylabel('Spillage Model')
+            axes[0].set_xticklabels(['Disabled', 'Enabled'])
+            axes[0].set_yticklabels(['Disabled', 'Enabled'])
+            
+            # Memory heatmap
+            pivot_mem = df.pivot_table(values='memory_delta_mb', 
+                                      index='use_spillage', 
+                                      columns='use_suffix_stitching', 
+                                      aggfunc='mean')
+            
+            sns.heatmap(pivot_mem, annot=True, fmt='.2f', cmap='RdYlBu_r', ax=axes[1])
+            axes[1].set_title('Memory Usage (MB) by Optimization Combination')
+            axes[1].set_xlabel('Suffix Stitching')
+            axes[1].set_ylabel('Spillage Model')
+            axes[1].set_xticklabels(['Disabled', 'Enabled'])
+            axes[1].set_yticklabels(['Disabled', 'Enabled'])
+            
+            plt.tight_layout()
+            charts['optimization_matrix_heatmap'] = self.create_embedded_chart(fig, 'optimization_matrix_heatmap', 'Optimization Matrix Heatmap')
+            plt.close(fig)
+        
+        # Performance Improvement Summary Chart
+        if 'use_suffix_stitching' in df.columns:
+            fig, ax = plt.subplots(1, 1, figsize=(12, 8))
+            
+            # Calculate improvement percentages for different metrics
+            improvements = {}
+            
+            if len(df[df['use_suffix_stitching'] == True]) > 0 and len(df[df['use_suffix_stitching'] == False]) > 0:
+                enabled_df = df[df['use_suffix_stitching'] == True]
+                disabled_df = df[df['use_suffix_stitching'] == False]
+                
+                # Execution time improvement
+                time_improvement = ((disabled_df['execution_time_ms'].mean() - 
+                                   enabled_df['execution_time_ms'].mean()) / 
+                                   disabled_df['execution_time_ms'].mean()) * 100
+                improvements['Execution Time'] = time_improvement
+                
+                # Memory improvement
+                if 'memory_delta_mb' in df.columns:
+                    mem_improvement = ((disabled_df['memory_delta_mb'].mean() - 
+                                      enabled_df['memory_delta_mb'].mean()) / 
+                                      abs(disabled_df['memory_delta_mb'].mean())) * 100
+                    improvements['Memory Efficiency'] = mem_improvement
+                
+                # Path quality improvement (if available)
+                if 'path_efficiency' in df.columns:
+                    path_improvement = ((enabled_df['path_efficiency'].mean() - 
+                                       disabled_df['path_efficiency'].mean()) / 
+                                       disabled_df['path_efficiency'].mean()) * 100
+                    improvements['Path Efficiency'] = path_improvement
+                
+                # Create bar chart
+                metrics = list(improvements.keys())
+                values = list(improvements.values())
+                colors = ['green' if v > 0 else 'red' for v in values]
+                
+                bars = ax.barh(metrics, values, color=colors, alpha=0.7)
+                ax.set_title('Optimization Performance Improvements (%)', fontsize=14, fontweight='bold')
+                ax.set_xlabel('Improvement Percentage (%)')
+                ax.axvline(x=0, color='black', linestyle='-', linewidth=0.5)
+                
+                # Add value labels
+                for bar, value in zip(bars, values):
+                    ax.text(value + (1 if value > 0 else -1), bar.get_y() + bar.get_height()/2,
+                           f'{value:+.1f}%', ha='left' if value > 0 else 'right', va='center')
+                
+                # Add grid
+                ax.grid(axis='x', alpha=0.3)
+            
+            plt.tight_layout()
+            charts['performance_improvements'] = self.create_embedded_chart(fig, 'performance_improvements', 'Performance Improvements Summary')
+            plt.close(fig)
+        
+        return charts
+    
+    def create_plot_index_file(self, results_key: str):
+        """Create an index file listing all saved plots for thesis reference"""
+        if not self.save_individual_plots:
+            return
+        
+        # Get all plot files
+        plot_files = {
+            'png': list(self.plots_dir.glob("*.png")),
+            'svg': list(self.plots_dir.glob("*.svg")),
+            'pdf': list(self.plots_dir.glob("*.pdf"))
+        }
+        
+        # Create index content
+        index_content = f"""# Plot Files Index - {results_key}
+Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+This directory contains individual plot files saved from the benchmark report, 
+formatted for thesis use with high resolution (300 DPI) and clean styling.
+
+## Available Formats:
+- **PNG**: High-resolution raster images (300 DPI) - good for most thesis applications
+- **SVG**: Vector graphics - scalable without quality loss, ideal for academic publications  
+- **PDF**: Vector format - publication-ready, perfect for LaTeX documents
+
+## Plot Categories:
+
+### Performance Overview Plots:
+- `performance_overview.*` - Overall performance metrics distribution
+- `execution_time_distribution.*` - Timing analysis across scenarios
+- `memory_usage_analysis.*` - Memory consumption patterns
+
+### Optimization Analysis Plots:
+- `suffix_stitching_optimization.*` - A* suffix stitching performance comparison
+- `optimization_matrix_heatmap.*` - Complete optimization combinations analysis
+- `performance_improvements.*` - Summary of all optimization benefits
+
+### Spillage Model Analysis:
+- `spillage_impact.*` - Performance impact of spillage model enabled/disabled
+
+### Scalability Analysis:
+- `scalability_analysis.*` - Performance scaling with problem size
+- `grid_size_performance.*` - Performance vs. grid size relationship
+
+## Usage in Thesis:
+
+### LaTeX Example:
+```latex
+\\begin{{figure}}[htbp]
+    \\centering
+    \\includegraphics[width=0.8\\textwidth]{{plots/suffix_stitching_optimization.pdf}}
+    \\caption{{A* Suffix Stitching Optimization Performance Analysis}}
+    \\label{{fig:suffix_stitching_opt}}
+\\end{{figure}}
+```
+
+### Word/LibreOffice:
+Use the PNG files (300 DPI) for high-quality images that maintain clarity when scaled.
+
+## File Summary:
+"""
+        
+        # Add file listings
+        for format_type, files in plot_files.items():
+            if files:
+                index_content += f"\n### {format_type.upper()} Files ({len(files)} files):\n"
+                for file in sorted(files):
+                    file_size = file.stat().st_size
+                    size_str = f"{file_size / 1024:.1f} KB" if file_size < 1024*1024 else f"{file_size / (1024*1024):.1f} MB"
+                    index_content += f"- `{file.name}` ({size_str})\n"
+        
+        # Add optimization-specific descriptions
+        index_content += """
+## Plot Descriptions for Thesis Context:
+
+### Suffix Stitching Optimization Analysis
+Shows the performance improvement achieved by the A* suffix stitching optimization.
+Key metrics: execution time reduction, memory efficiency, path quality maintenance.
+
+### Optimization Matrix Heatmap  
+Demonstrates how different optimization combinations affect performance.
+Useful for showing incremental benefits of each optimization technique.
+
+### Performance Improvements Summary
+Bar chart showing percentage improvements across different metrics.
+Perfect for highlighting the quantitative benefits of your algorithmic contributions.
+
+### Spillage Model Impact Analysis
+Compares performance with and without the spillage physics simulation.
+Shows the computational cost of adding realistic spillage behavior.
+
+## Thesis Integration Tips:
+
+1. **Figure Captions**: Include quantitative results (e.g., "X% improvement in execution time")
+2. **References**: Cite the specific benchmark configuration and test parameters
+3. **Consistency**: Use the same format (PNG/SVG/PDF) throughout your thesis
+4. **Resolution**: All images are saved at 300 DPI for print-quality output
+5. **Color Scheme**: Plots use a consistent, professional color scheme suitable for academic publication
+
+## Technical Details:
+- Font sizes optimized for thesis readability (12pt base, 14pt labels, 16pt titles)
+- High contrast colors for both color and grayscale printing
+- Clean, minimal styling following academic publication standards
+- Tight bounding boxes for efficient space usage in documents
+"""
+        
+        # Save index file
+        index_file = self.plots_dir / "PLOT_INDEX.md"
+        with open(index_file, 'w', encoding='utf-8') as f:
+            f.write(index_content)
+        
+        # Also create a simple text version
+        simple_index = f"Plot files generated for {results_key}:\n\n"
+        for format_type, files in plot_files.items():
+            if files:
+                simple_index += f"{format_type.upper()} files:\n"
+                for file in sorted(files):
+                    simple_index += f"  - {file.name}\n"
+                simple_index += "\n"
+        
+        simple_index_file = self.plots_dir / "plot_list.txt"
+        with open(simple_index_file, 'w', encoding='utf-8') as f:
+            f.write(simple_index)
+        
+        print(f"\n📊 Individual plots saved to: {self.plots_dir}")
+        print(f"📋 Plot index created: {index_file}")
+        print(f"📝 Simple list created: {simple_index_file}")
+        
     def generate_executive_summary(self, analysis: Dict[str, Any], df: pd.DataFrame) -> str:
         """Generate executive summary section"""
         metadata = analysis.get('metadata', {})
@@ -400,6 +720,10 @@ class BenchmarkReportGenerator:
         
         # Generate charts
         charts = self.generate_performance_charts(df)
+        
+        # Create plot index file for thesis use
+        if self.save_individual_plots:
+            self.create_plot_index_file(results_key)
         
         # Generate report sections
         executive_summary = self.generate_executive_summary(analysis, df)

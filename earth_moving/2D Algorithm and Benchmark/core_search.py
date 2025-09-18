@@ -2,7 +2,7 @@
 import heapq, math
 
 def a_star_search_target(start_cell, alternative_paths_threshold=2, target_zone=None,
-                         max_path_length_factor=None, env=None):
+                         max_path_length_factor=None, env=None, use_suffix_stitching=True):
     # Straight-line cap (optional)
     if start_cell.x==21 and start_cell.y==1:
         print("test")
@@ -24,8 +24,9 @@ def a_star_search_target(start_cell, alternative_paths_threshold=2, target_zone=
     while open_set:
         _, _, _, current, path, c_so_far, d_so_far = heapq.heappop(open_set)
 
-        # Early-stop stitching if we pop a solved node (spillage OFF only)
-        if env and not getattr(env, "use_spillage_model", True) and getattr(current, "solved_target", False):
+        # Early-stop stitching if we pop a solved node (spillage OFF only, and suffix stitching enabled)
+        if (use_suffix_stitching and env and not getattr(env, "use_spillage_model", True) and 
+            getattr(current, "solved_target", False)):
             # Stitch prefix + current.best_path_target (skip duplicate current)
             tail = current.best_path_target[1:] if current.best_path_target and current.best_path_target[0] is current else current.best_path_target
             full_path = path + tail
@@ -63,8 +64,9 @@ def a_star_search_target(start_cell, alternative_paths_threshold=2, target_zone=
             if new_d > max_allowed_distance:
                 continue
 
-            # Smart heuristic: use h_resolved for solved cells, h_vis for unsolved (spillage OFF only)
-            if env and not getattr(env, "use_spillage_model", True) and getattr(child, "solved_target", False):
+            # Smart heuristic: use h_resolved for solved cells, h_vis for unsolved (spillage OFF only, with suffix stitching)
+            if (use_suffix_stitching and env and not getattr(env, "use_spillage_model", True) and 
+                getattr(child, "solved_target", False)):
                 h = child.h_resolved_target  # Use exact heuristic for solved cells
             else:
                 h = getattr(child, "h_vis_target", 0)  # Use optimistic heuristic for unsolved cells
@@ -92,7 +94,7 @@ def a_star_search_target(start_cell, alternative_paths_threshold=2, target_zone=
 
 # --- A* (HIGHWAY) ----------------------------------------------------------
 def a_star_search_highway(start_cell, target_cell, highway_threshold=None,
-                          max_path_length_factor=None):
+                          max_path_length_factor=None, use_suffix_stitching=True):
     if target_cell is None:
         return []
 

@@ -156,6 +156,14 @@ class BenchmarkAnalyzer:
         
         df = pd.DataFrame(data_rows)
         
+        # Filter out invalid data (grid_size = 0 indicates missing/invalid parameters)
+        if not df.empty and 'grid_size' in df.columns:
+            initial_count = len(df)
+            df = df[df['grid_size'] > 0]  # Remove invalid grid sizes
+            filtered_count = len(df)
+            if initial_count != filtered_count:
+                print(f"Warning: Filtered out {initial_count - filtered_count} rows with invalid grid_size (0)")
+        
         if not df.empty:
             # Add derived columns
             df['total_cells'] = df['grid_size'] ** 2

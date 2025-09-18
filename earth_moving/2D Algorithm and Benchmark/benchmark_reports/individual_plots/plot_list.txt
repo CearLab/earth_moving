@@ -1,0 +1,17 @@
+Plot files generated for benchmark_detailed_comprehensive_20250916_075417:
+
+PNG files:
+  - performance_overview.png
+  - scalability_analysis.png
+  - spillage_impact.png
+
+SVG files:
+  - performance_overview.svg
+  - scalability_analysis.svg
+  - spillage_impact.svg
+
+PDF files:
+  - performance_overview.pdf
+  - scalability_analysis.pdf
+  - spillage_impact.pdf
+

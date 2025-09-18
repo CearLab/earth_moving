@@ -73,7 +73,9 @@ class BenchmarkRunner:
             use_spillage=scenario.use_spillage,
             grid_size=scenario.grid_size,
             object_count=scenario.object_count,
-            seed=scenario.seed
+            seed=scenario.seed,
+            use_suffix_stitching=getattr(scenario, 'use_suffix_stitching', True),
+            use_affected_only_updates=getattr(scenario, 'use_affected_only_updates', True)
         )
         
         if not success:
@@ -87,11 +89,24 @@ class BenchmarkRunner:
         
         def full_calculation():
             """Perform complete strategic calculation from scratch"""
+            import psutil
+            import gc
+            
+            # Check available memory before starting
+            available_memory_gb = psutil.virtual_memory().available / (1024**3)
+            required_memory_gb = (scenario.grid_size ** 2) * scenario.object_count / 1_000_000  # Rough estimate
+            
+            if available_memory_gb < required_memory_gb * 2:  # Safety margin
+                raise MemoryError(f"Insufficient memory. Available: {available_memory_gb:.1f}GB, Estimated needed: {required_memory_gb:.1f}GB")
+            
             # Clear any cached data first
             if hasattr(demo, 'orchestrator') and demo.orchestrator:
                 # Clear cached calculations
                 if hasattr(demo.orchestrator, 'clear_all_cached_data'):
                     demo.orchestrator.clear_all_cached_data()
+            
+            # Force garbage collection
+            gc.collect()
             
             # Force complete recalculation
             demo.calculate_strategic_fields_now()
@@ -455,9 +470,174 @@ class BenchmarkRunner:
             object_count=scenario.object_count
         )
     
+    def run_a_star_optimization_benchmark(self, scenario: BenchmarkScenario) -> BenchmarkResult:
+        """Benchmark A* algorithm optimization (suffix stitching impact)"""
+        demo = self.create_demo_environment(scenario)
+        
+        def a_star_test():
+            """Test A* performance with current optimization settings"""
+            start_time = time.perf_counter()
+            
+            # Force recalculation to test A* performance
+            demo.calculate_strategic_fields_now()
+            
+            # Measure path calculation time
+            paths_calculated = 0
+            total_path_length = 0
+            total_objects_collected = 0
+            
+            for cell in demo.env.cells_with_objects:
+                if hasattr(cell, 'best_path_target') and cell.best_path_target:
+                    paths_calculated += 1
+                    total_path_length += len(cell.best_path_target)
+                    total_objects_collected += getattr(cell, 'total_objects_target', 0)
+            
+            calculation_time = time.perf_counter() - start_time
+            
+            return {
+                'operation_successful': True,
+                'calculation_time': calculation_time,
+                'paths_calculated': paths_calculated,
+                'avg_path_length': total_path_length / paths_calculated if paths_calculated > 0 else 0,
+                'total_objects_collected': total_objects_collected,
+                'use_suffix_stitching': scenario.use_suffix_stitching,
+                'grid_size': scenario.grid_size,
+                'object_count': scenario.object_count
+            }
+        
+        return self.tracker.run_benchmark(
+            operation_name=f"astar_opt_{scenario.grid_size}x{scenario.grid_size}",
+            operation_func=a_star_test,
+            iterations=scenario.iterations,
+            scenario_id=scenario.scenario_id,
+            grid_size=scenario.grid_size,
+            object_count=scenario.object_count
+        )
+    
+    def run_suffix_stitching_benchmark(self, scenario: BenchmarkScenario) -> BenchmarkResult:
+        """Benchmark comparing suffix stitching enabled vs disabled"""
+        demo = self.create_demo_environment(scenario)
+        
+        def suffix_stitching_test():
+            """Test suffix stitching performance impact"""
+            start_time = time.perf_counter()
+            
+            # Run strategic field calculation
+            demo.calculate_strategic_fields_now()
+            
+            calculation_time = time.perf_counter() - start_time
+            
+            # Collect metrics about path quality and performance
+            path_metrics = {
+                'paths_found': 0,
+                'total_path_length': 0,
+                'total_objects_collected': 0,
+                'failed_paths': 0
+            }
+            
+            for cell in demo.env.cells_with_objects:
+                if hasattr(cell, 'best_path_target'):
+                    if cell.best_path_target:
+                        path_metrics['paths_found'] += 1
+                        path_metrics['total_path_length'] += len(cell.best_path_target)
+                        path_metrics['total_objects_collected'] += getattr(cell, 'total_objects_target', 0)
+                    else:
+                        path_metrics['failed_paths'] += 1
+            
+            return {
+                'operation_successful': True,
+                'calculation_time': calculation_time,
+                'use_suffix_stitching': scenario.use_suffix_stitching,
+                'paths_found': path_metrics['paths_found'],
+                'avg_path_length': path_metrics['total_path_length'] / path_metrics['paths_found'] if path_metrics['paths_found'] > 0 else 0,
+                'objects_per_path': path_metrics['total_objects_collected'] / path_metrics['paths_found'] if path_metrics['paths_found'] > 0 else 0,
+                'failed_paths': path_metrics['failed_paths'],
+                'grid_size': scenario.grid_size,
+                'object_count': scenario.object_count
+            }
+        
+        return self.tracker.run_benchmark(
+            operation_name=f"suffix_stitch_{scenario.grid_size}x{scenario.grid_size}",
+            operation_func=suffix_stitching_test,
+            iterations=scenario.iterations,
+            scenario_id=scenario.scenario_id,
+            grid_size=scenario.grid_size,
+            object_count=scenario.object_count
+        )
+    
+    def run_optimization_matrix_benchmark(self, scenario: BenchmarkScenario) -> BenchmarkResult:
+        """Benchmark testing all optimization combinations"""
+        demo = self.create_demo_environment(scenario)
+        
+        def optimization_matrix_test():
+            """Test complete optimization matrix"""
+            start_time = time.perf_counter()
+            
+            # Perform complete strategic calculation
+            demo.calculate_strategic_fields_now()
+            
+            calculation_time = time.perf_counter() - start_time
+            
+            # Collect comprehensive metrics
+            environment_metrics = {
+                'cells_with_objects': len(demo.env.cells_with_objects),
+                'total_objects': sum(cell.num_objects for cell in demo.env.cells_with_objects),
+                'paths_calculated': 0,
+                'highway_paths': 0,
+                'total_path_objects': 0,
+                'total_path_length': 0
+            }
+            
+            for cell in demo.env.cells_with_objects:
+                if hasattr(cell, 'best_path_target') and cell.best_path_target:
+                    environment_metrics['paths_calculated'] += 1
+                    environment_metrics['total_path_length'] += len(cell.best_path_target)
+                    environment_metrics['total_path_objects'] += getattr(cell, 'total_objects_target', 0)
+                
+                if hasattr(cell, 'best_path_highway') and cell.best_path_highway:
+                    environment_metrics['highway_paths'] += 1
+            
+            # Calculate optimization efficiency metrics
+            path_efficiency = environment_metrics['total_path_objects'] / environment_metrics['total_objects'] if environment_metrics['total_objects'] > 0 else 0
+            avg_path_length = environment_metrics['total_path_length'] / environment_metrics['paths_calculated'] if environment_metrics['paths_calculated'] > 0 else 0
+            
+            return {
+                'operation_successful': True,
+                'calculation_time': calculation_time,
+                'use_suffix_stitching': scenario.use_suffix_stitching,
+                'use_affected_only_updates': scenario.use_affected_only_updates,
+                'use_spillage': scenario.use_spillage,
+                'path_efficiency': path_efficiency,
+                'avg_path_length': avg_path_length,
+                'paths_calculated': environment_metrics['paths_calculated'],
+                'highway_paths': environment_metrics['highway_paths'],
+                'total_objects': environment_metrics['total_objects'],
+                'grid_size': scenario.grid_size,
+                'object_count': scenario.object_count
+            }
+        
+        return self.tracker.run_benchmark(
+            operation_name=f"opt_matrix_{scenario.grid_size}x{scenario.grid_size}",
+            operation_func=optimization_matrix_test,
+            iterations=scenario.iterations,
+            scenario_id=scenario.scenario_id,
+            grid_size=scenario.grid_size,
+            object_count=scenario.object_count
+        )
+    
     def execute_scenario(self, scenario: BenchmarkScenario) -> Optional[BenchmarkResult]:
         """Execute single benchmark scenario"""
         try:
+            # Memory check before executing large scenarios
+            import psutil
+            available_memory_gb = psutil.virtual_memory().available / (1024**3)
+            scenario_complexity = scenario.grid_size * scenario.object_count
+            
+            # Skip extremely memory-intensive scenarios
+            if scenario_complexity > 10000 and available_memory_gb < 4.0:
+                self.log(f"SKIPPING scenario {scenario.scenario_id}: Too memory intensive (complexity: {scenario_complexity}, available: {available_memory_gb:.1f}GB)")
+                return None
+            
             self.log(f"Executing scenario: {scenario.scenario_id} ({scenario.benchmark_type.value})")
             
             # Select appropriate benchmark function
@@ -466,7 +646,10 @@ class BenchmarkRunner:
                 BenchmarkType.ENVIRONMENT_UPDATE: self.run_environment_update_benchmark,
                 BenchmarkType.SPILLAGE_COMPARISON: self.run_spillage_comparison_benchmark,
                 BenchmarkType.STRATEGIC_ANALYSIS: self.run_strategic_analysis_benchmark,
-                BenchmarkType.SAVE_LOAD_PERFORMANCE: self.run_save_load_benchmark
+                BenchmarkType.SAVE_LOAD_PERFORMANCE: self.run_save_load_benchmark,
+                BenchmarkType.A_STAR_OPTIMIZATION: self.run_a_star_optimization_benchmark,
+                BenchmarkType.SUFFIX_STITCHING_COMPARISON: self.run_suffix_stitching_benchmark,
+                BenchmarkType.OPTIMIZATION_MATRIX: self.run_optimization_matrix_benchmark
             }
             
             benchmark_func = benchmark_functions.get(scenario.benchmark_type)
@@ -487,6 +670,20 @@ class BenchmarkRunner:
             self.log(f"Completed scenario {scenario.scenario_id} ({progress:.1f}% total progress)")
             
             return result
+            
+        except MemoryError as e:
+            error_msg = f"MEMORY ERROR in scenario {scenario.scenario_id}: {str(e)}"
+            self.log(error_msg, "ERROR")
+            self.log("Forcing garbage collection and continuing...", "INFO")
+            
+            # Force cleanup
+            import gc
+            gc.collect()
+            
+            self.failed_scenarios.append((scenario, f"MemoryError: {str(e)}"))
+            
+            # Continue with other scenarios
+            return None
             
         except Exception as e:
             error_msg = f"Failed to execute scenario {scenario.scenario_id}: {str(e)}"

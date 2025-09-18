@@ -10,7 +10,7 @@ from core_spillage_model import simulate_spillage
 
 
 class SimulationEnv:
-    def __init__(self, grid_size, target_zone_radius=10, agent_positions=None, num_random_objects=0, seed=None, max_path_length_factor=2.5, target_angle_tolerance=30, highway_angle_tolerance=60, highway_min_heat_ratio=0.2, highway_threshold_ratio=0.5, highway_heat_weight=0.7, highway_distance_weight=0.3):
+    def __init__(self, grid_size, target_zone_radius=10, agent_positions=None, num_random_objects=0, seed=None, max_path_length_factor=2.5, target_angle_tolerance=30, highway_angle_tolerance=60, highway_min_heat_ratio=0.2, highway_threshold_ratio=0.5, highway_heat_weight=0.7, highway_distance_weight=0.3, use_suffix_stitching=True):
         self.grid_size = grid_size
         self.target_zone_radius = target_zone_radius
         self.num_agents = len(agent_positions) if agent_positions else 0
@@ -53,6 +53,7 @@ class SimulationEnv:
         self.spillage_factor = 0.05
         self.min_spillage_threshold = 0.03
         self.use_spillage_model = False  # Initialize spillage flag (will be set by calculate_potential_field)
+        self.use_suffix_stitching = use_suffix_stitching  # Toggle for A* suffix stitching optimization
 
     def _initialize_cells(self):
         """Initialize all cells and populate `cells_without_objects` and `all_cells`."""
@@ -182,7 +183,7 @@ class SimulationEnv:
                 print(f"Warning: Skipping cell ({cell.x}, {cell.y}) - no visibility for target zone")
                 continue
                 
-            best_paths = a_star_search_target(cell, target_zone=self.target_zone, max_path_length_factor=self.max_path_length_factor, env=self)
+            best_paths = a_star_search_target(cell, target_zone=self.target_zone, max_path_length_factor=self.max_path_length_factor, env=self, use_suffix_stitching=self.use_suffix_stitching)
             if not best_paths:
                 print(f"Warning: No valid paths found for cell ({cell.x}, {cell.y})")
                 continue
@@ -714,7 +715,7 @@ class SimulationEnv:
 
             # ✅ STEP 3: Find the best path to the SPECIFIC highway target
             # A* now handles direct paths when no visible cells available
-            best_paths = a_star_search_highway(cell, target_cell=target, highway_threshold=self.highway_threshold)
+            best_paths = a_star_search_highway(cell, target_cell=target, highway_threshold=self.highway_threshold, use_suffix_stitching=self.use_suffix_stitching)
 
             if not best_paths:
                 print(f"ERROR: No valid highway paths found for ({cell.x}, {cell.y})")
@@ -1712,6 +1713,7 @@ class SimulationEnv:
             'grid_size': self.grid_size,
             'target_zone_radius': self.target_zone_radius,
             'use_spillage_model': getattr(self, 'use_spillage_model', False),
+            'use_suffix_stitching': getattr(self, 'use_suffix_stitching', True),
             
             # Algorithm parameters
             'max_path_length_factor': self.max_path_length_factor,
@@ -1750,6 +1752,7 @@ class SimulationEnv:
         self.grid_size = state['grid_size']
         self.target_zone_radius = state['target_zone_radius']
         self.use_spillage_model = state['use_spillage_model']
+        self.use_suffix_stitching = state.get('use_suffix_stitching', True)
         
         # Restore algorithm parameters
         self.max_path_length_factor = state['max_path_length_factor']

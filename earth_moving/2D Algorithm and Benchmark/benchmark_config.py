@@ -7,6 +7,7 @@ import itertools
 from dataclasses import dataclass
 from typing import List, Dict, Any, Tuple
 from enum import Enum
+import os
 
 class BenchmarkType(Enum):
     FULL_CALCULATION = "full_calculation"
@@ -14,6 +15,9 @@ class BenchmarkType(Enum):
     SPILLAGE_COMPARISON = "spillage_comparison"
     STRATEGIC_ANALYSIS = "strategic_analysis"
     SAVE_LOAD_PERFORMANCE = "save_load_performance"
+    A_STAR_OPTIMIZATION = "a_star_optimization"
+    OPTIMIZATION_MATRIX = "optimization_matrix"
+    SUFFIX_STITCHING_COMPARISON = "suffix_stitching_comparison"
 
 class StrategyType(Enum):
     GREEDY_NEAREST = "greedy_nearest"
@@ -32,6 +36,8 @@ class BenchmarkScenario:
     strategy: StrategyType
     benchmark_type: BenchmarkType
     iterations: int = 10  # Number of repetitions for averaging
+    use_suffix_stitching: bool = True  # A* suffix stitching optimization
+    use_affected_only_updates: bool = True  # Environment update optimization
     
     def __str__(self):
         return f"{self.scenario_id}_{self.grid_size}x{self.grid_size}_{self.object_count}obj_s{self.seed}_{'spill' if self.use_spillage else 'nospill'}_{self.strategy.value}"
@@ -57,11 +63,14 @@ class BenchmarkConfig:
         }
         
         self.comprehensive_test_config = {
-            'grid_sizes': self.grid_sizes,
-            'object_counts': self.object_counts,
-            'seeds': self.seeds,
-            'iterations': 10
+            'grid_sizes': [25, 35,45,65,100],
+            'object_counts': [50,75,100,150],
+            'seeds': [31, 42, 123, 456, 789],
+            'iterations': 5
         }
+        
+        # Try to load custom config if available (after defaults are set)
+        self._load_custom_config_if_exists()
         
         self.stress_test_config = {
             'grid_sizes': [40, 50, 60],
@@ -105,10 +114,11 @@ class BenchmarkConfig:
         update_grid_sizes = [size for size in config['grid_sizes'] if size >= 25]
         update_object_counts = [count for count in config['object_counts'] if count >= 35]
         
-        for grid_size, object_count, seed in itertools.product(
+        for grid_size, object_count, seed, use_spillage in itertools.product(
             update_grid_sizes,
             update_object_counts,
-            config.get('seeds', self.seeds)[:3]  # Use fewer seeds for update tests
+            config.get('seeds', self.seeds)[:3],  # Use fewer seeds for update tests
+            [True, False]  # Test both spillage modes as requested
         ):
             scenario_id = f"update_{len(scenarios):03d}"
             scenarios.append(BenchmarkScenario(
@@ -116,7 +126,7 @@ class BenchmarkConfig:
                 grid_size=grid_size,
                 object_count=object_count,
                 seed=seed,
-                use_spillage=True,  # Updates are more complex with spillage
+                use_spillage=use_spillage,
                 strategy=StrategyType.GREEDY_NEAREST,
                 benchmark_type=BenchmarkType.ENVIRONMENT_UPDATE,
                 iterations=config['iterations'] * 2  # More iterations for update timing
@@ -200,6 +210,107 @@ class BenchmarkConfig:
         
         return scenarios
     
+    def generate_suffix_stitching_scenarios(self, config_type='comprehensive') -> List[BenchmarkScenario]:
+        """Generate scenarios comparing A* with and without suffix stitching"""
+        config = getattr(self, f'{config_type}_test_config')
+        scenarios = []
+        
+        for grid_size, object_count, seed, use_spillage in itertools.product(
+            config['grid_sizes'],
+            config['object_counts'],
+            config.get('seeds', self.seeds)[:3],  # Fewer seeds needed for optimization comparison
+            [True, False]  # Test both spillage modes
+        ):
+            # Create paired scenarios: one with suffix stitching, one without
+            for use_suffix_stitching in [True, False]:
+                scenario_id = f"suffix_stitch_{len(scenarios):03d}"
+                scenarios.append(BenchmarkScenario(
+                    scenario_id=scenario_id,
+                    grid_size=grid_size,
+                    object_count=object_count,
+                    seed=seed,
+                    use_spillage=use_spillage,
+                    strategy=StrategyType.GREEDY_NEAREST,  # Focus on one strategy for clear comparison
+                    benchmark_type=BenchmarkType.SUFFIX_STITCHING_COMPARISON,
+                    iterations=config['iterations'] * 2,  # More iterations for statistical significance
+                    use_suffix_stitching=use_suffix_stitching,
+                    use_affected_only_updates=True  # Keep other optimizations constant
+                ))
+        
+        return scenarios
+    
+    def generate_optimization_matrix_scenarios(self, config_type='comprehensive') -> List[BenchmarkScenario]:
+        """Generate complete optimization matrix: all combinations of optimizations"""
+        config = getattr(self, f'{config_type}_test_config')
+        scenarios = []
+        
+        # Use moderate complexity for matrix comparison
+        matrix_grid_sizes = [25, 30] if config_type == 'comprehensive' else [25]
+        matrix_object_counts = [55, 75] if config_type == 'comprehensive' else [55]
+        
+        for grid_size, object_count, seed, use_spillage, use_suffix_stitching, use_affected_only in itertools.product(
+            matrix_grid_sizes,
+            matrix_object_counts,
+            config.get('seeds', self.seeds)[:2],  # Fewer seeds for matrix
+            [True, False],  # Spillage on/off
+            [True, False],  # Suffix stitching on/off
+            [True, False]   # Affected-only updates on/off
+        ):
+            scenario_id = f"opt_matrix_{len(scenarios):03d}"
+            
+            # Create descriptive name for optimization combination
+            opt_name = []
+            if use_suffix_stitching:
+                opt_name.append("suffix")
+            if use_affected_only:
+                opt_name.append("affected_only")
+            if use_spillage:
+                opt_name.append("spillage")
+            opt_combination = "_".join(opt_name) if opt_name else "baseline"
+            
+            scenarios.append(BenchmarkScenario(
+                scenario_id=f"{scenario_id}_{opt_combination}",
+                grid_size=grid_size,
+                object_count=object_count,
+                seed=seed,
+                use_spillage=use_spillage,
+                strategy=StrategyType.GREEDY_NEAREST,
+                benchmark_type=BenchmarkType.OPTIMIZATION_MATRIX,
+                iterations=config['iterations'],
+                use_suffix_stitching=use_suffix_stitching,
+                use_affected_only_updates=use_affected_only
+            ))
+        
+        return scenarios
+    
+    def generate_a_star_optimization_scenarios(self, config_type='comprehensive') -> List[BenchmarkScenario]:
+        """Generate scenarios focused on A* algorithm optimization analysis"""
+        config = getattr(self, f'{config_type}_test_config')
+        scenarios = []
+        
+        # Focus on scenarios where A* optimization makes the most difference
+        for grid_size, object_count, seed in itertools.product(
+            [size for size in config['grid_sizes'] if size >= 25],  # Larger grids benefit more
+            [count for count in config['object_counts'] if count >= 35],  # More objects = more paths
+            config.get('seeds', self.seeds)[:3]
+        ):
+            for use_suffix_stitching in [True, False]:
+                scenario_id = f"astar_opt_{len(scenarios):03d}"
+                scenarios.append(BenchmarkScenario(
+                    scenario_id=scenario_id,
+                    grid_size=grid_size,
+                    object_count=object_count,
+                    seed=seed,
+                    use_spillage=False,  # Test A* optimization without spillage complexity
+                    strategy=StrategyType.GREEDY_NEAREST,
+                    benchmark_type=BenchmarkType.A_STAR_OPTIMIZATION,
+                    iterations=config['iterations'] * 3,  # More iterations for timing precision
+                    use_suffix_stitching=use_suffix_stitching,
+                    use_affected_only_updates=True  # Keep environment updates optimized
+                ))
+        
+        return scenarios
+    
     def generate_all_scenarios(self, config_type='comprehensive') -> Dict[BenchmarkType, List[BenchmarkScenario]]:
         """Generate complete benchmark suite"""
         all_scenarios = {
@@ -207,7 +318,10 @@ class BenchmarkConfig:
             BenchmarkType.ENVIRONMENT_UPDATE: self.generate_update_performance_scenarios(config_type),
             BenchmarkType.SPILLAGE_COMPARISON: self.generate_spillage_comparison_scenarios(config_type),
             BenchmarkType.STRATEGIC_ANALYSIS: self.generate_strategic_analysis_scenarios(config_type),
-            BenchmarkType.SAVE_LOAD_PERFORMANCE: self.generate_save_load_scenarios(config_type)
+            BenchmarkType.SAVE_LOAD_PERFORMANCE: self.generate_save_load_scenarios(config_type),
+            BenchmarkType.A_STAR_OPTIMIZATION: self.generate_a_star_optimization_scenarios(config_type),
+            BenchmarkType.SUFFIX_STITCHING_COMPARISON: self.generate_suffix_stitching_scenarios(config_type),
+            BenchmarkType.OPTIMIZATION_MATRIX: self.generate_optimization_matrix_scenarios(config_type)
         }
         
         return all_scenarios
@@ -265,7 +379,10 @@ class BenchmarkConfig:
             BenchmarkType.ENVIRONMENT_UPDATE: 0.1,  # 100ms per update
             BenchmarkType.SPILLAGE_COMPARISON: 1.5,  # 1.5s per comparison
             BenchmarkType.STRATEGIC_ANALYSIS: 0.3,  # 300ms per analysis
-            BenchmarkType.SAVE_LOAD_PERFORMANCE: 0.5  # 500ms per save/load
+            BenchmarkType.SAVE_LOAD_PERFORMANCE: 0.5,  # 500ms per save/load
+            BenchmarkType.A_STAR_OPTIMIZATION: 1.8,  # 1.8s per A* optimization test
+            BenchmarkType.SUFFIX_STITCHING_COMPARISON: 1.2,  # 1.2s per suffix stitching test
+            BenchmarkType.OPTIMIZATION_MATRIX: 2.5  # 2.5s per matrix combination test
         }
         
         # Simplified estimation using average
@@ -278,6 +395,44 @@ class BenchmarkConfig:
             return f"{total_seconds/60:.1f} minutes"
         else:
             return f"{total_seconds/3600:.1f} hours"
+    
+    def _load_custom_config_if_exists(self):
+        """Load custom configuration from file if it exists"""
+        config_file = "custom_benchmark_config.txt"
+        if os.path.exists(config_file):
+            try:
+                print(f"Loading custom benchmark config from {config_file}")
+                with open(config_file, 'r') as f:
+                    lines = f.readlines()
+                
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith('#') or not line:
+                        continue
+                    if '=' in line:
+                        key, value = line.split('=', 1)
+                        key = key.strip()
+                        value = value.strip()
+                        
+                        # Parse list values
+                        if value.startswith('[') and value.endswith(']'):
+                            # Parse list of numbers
+                            value = value[1:-1]  # Remove brackets
+                            if value:
+                                parsed_list = [int(x.strip()) for x in value.split(',')]
+                                if key == 'grid_sizes':
+                                    self.comprehensive_test_config['grid_sizes'] = parsed_list
+                                elif key == 'object_counts':
+                                    self.comprehensive_test_config['object_counts'] = parsed_list
+                                elif key == 'seeds':
+                                    self.comprehensive_test_config['seeds'] = parsed_list
+                        elif key == 'iterations':
+                            self.comprehensive_test_config['iterations'] = int(value)
+                
+                print("Custom config loaded successfully!")
+            except Exception as e:
+                print(f"Error loading custom config: {e}")
+                print("Using default comprehensive config")
 
 # Example usage
 if __name__ == "__main__":

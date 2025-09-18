@@ -95,7 +95,8 @@ class ComprehensiveDemo:
         
         print(">>> Comprehensive Interactive Demo Initialized")
     
-    def create_simulation_quick(self, use_spillage=False, grid_size=25, object_count=55, seed=31):
+    def create_simulation_quick(self, use_spillage=False, grid_size=25, object_count=55, seed=31, 
+                                use_suffix_stitching=True, use_affected_only_updates=True):
         """Create simulation quickly without heavy calculations"""
         print(f"\n=== Quick Earth Moving Simulation ===")
         print(f"Spillage model: {'ENABLED' if use_spillage else 'DISABLED'}")
@@ -118,6 +119,7 @@ class ComprehensiveDemo:
             highway_threshold_ratio=0.5,
             highway_heat_weight=0.7,
             highway_distance_weight=0.3,
+            use_suffix_stitching=use_suffix_stitching
         )
         
         print("Environment initialized!")
