@@ -1,0 +1,75 @@
+================================================================================
+EARTH MOVING ALGORITHM BENCHMARK REPORT
+Configuration: COMPREHENSIVE
+Generated: 2025-09-14 23:32:28
+================================================================================
+
+EXECUTION SUMMARY:
+  Total Execution Time: 2536.98 seconds
+  Scenarios Executed: 224/224
+  Success Rate: 100.0%
+  Failed Scenarios: 0
+
+PERFORMANCE RESULTS BY BENCHMARK TYPE:
+
+Full Calculation:
+  Total Runs: 32
+  Total Iterations: 160
+  Average Time: 674.56ms
+  Time Range: 204.28ms - 1660.74ms
+  Average Memory Usage: 0.47MB
+
+Environment Update:
+  Total Runs: 16
+  Total Iterations: 160
+  Average Time: 58.21ms
+  Time Range: 35.19ms - 85.37ms
+  Average Memory Usage: 0.02MB
+
+Spillage Comparison:
+  Total Runs: 48
+  Total Iterations: 96
+  Average Time: 2398.66ms
+  Time Range: 1062.92ms - 4266.63ms
+  Average Memory Usage: 0.39MB
+
+Strategic Analysis:
+  Total Runs: 8
+  Total Iterations: 120
+  Average Time: 2997.14ms
+  Time Range: 1979.46ms - 3996.05ms
+  Average Memory Usage: 0.30MB
+
+Save Load Performance:
+  Total Runs: 8
+  Total Iterations: 80
+  Average Time: 547.60ms
+  Time Range: 315.35ms - 1151.49ms
+  Average Memory Usage: 0.06MB
+
+A Star Optimization:
+  Total Runs: 16
+  Total Iterations: 240
+  Average Time: 225.04ms
+  Time Range: 111.53ms - 440.19ms
+  Average Memory Usage: 0.00MB
+
+Suffix Stitching Comparison:
+  Total Runs: 32
+  Total Iterations: 320
+  Average Time: 420.96ms
+  Time Range: 144.05ms - 908.96ms
+  Average Memory Usage: 0.00MB
+
+Optimization Matrix:
+  Total Runs: 64
+  Total Iterations: 320
+  Average Time: 626.10ms
+  Time Range: 245.56ms - 1448.01ms
+  Average Memory Usage: 0.00MB
+
+SYSTEM INFORMATION:
+  Python Version: 3.10.17 | packaged by conda-forge | (main, Apr 10 2025, 22:06:35) [MSC v.1943 64 bit (AMD64)]
+  CPU Count: 8
+  Total Memory: 15.9GB
+  Platform: win32

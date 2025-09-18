@@ -1,0 +1,20 @@
+=== BENCHMARK SUITE COMPLETED ===
+Total execution time: 29804.8 seconds
+Results saved to: benchmark_results
+
+Generate comprehensive HTML report? (Y/n): y
+Generating report from: benchmark_detailed_comprehensive_20250916_075417.json
+Loaded benchmark results: benchmark_detailed_comprehensive_20250916_075417
+  System: win32
+  Timestamp: 2025-09-16 07:54:17.317265
+  Operations: 46
+Warning: Filtered out 1920 rows with invalid grid_size (0)
+Performance report saved to: analysis_results\performance_report_benchmark_detailed_comprehensive_20250916_075417_20250916_075431.json
+Warning: Filtered out 1920 rows with invalid grid_size (0)
+
+📊 Individual plots saved to: benchmark_reports\individual_plots
+📋 Plot index created: benchmark_reports\individual_plots\PLOT_INDEX.md
+📝 Simple list created: benchmark_reports\individual_plots\plot_list.txt
+Comprehensive HTML report generated: benchmark_reports\performance_report_benchmark_detailed_comprehensive_20250916_075417_20250916_075505.html
+Comprehensive HTML report generated: benchmark_reports\performance_report_benchmark_detailed_comprehensive_20250916_075417_20250916_075505.html
+Open report in default browser? (Y/n): y
