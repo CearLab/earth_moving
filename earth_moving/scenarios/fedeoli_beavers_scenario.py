@@ -10,8 +10,7 @@ def fedeoli_beavers_scenario(config):
     Backend = Basebackend.initiate_backend(**config)    
     
     # number of steps
-    number_of_steps = int(config.get('simulation').get('number_of_steps')) * 24
-    # number_of_steps = 1
+    number_of_steps = int(config.get('simulation').get('number_of_steps')) * 24    
     downsampling = config.get('simulation').get('downsampling')
         
     # init agents    
@@ -24,5 +23,8 @@ def fedeoli_beavers_scenario(config):
                 
         Backend.step()
         clear_output(wait=True)
-    Backend.plot_environment_with_heatmap()
+    
+    # final plots
+    Backend.plot_environment_with_heatmap(plot_agents=False)    
+    Backend.plot_simulation_recap()
         

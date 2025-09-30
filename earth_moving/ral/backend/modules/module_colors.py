@@ -203,18 +203,18 @@ class ColorMaps():
         self._bluebrowngreen_colors_list = [(0.00, darkblue),
                                             (0.10, tanblue),
                                             (0.15, blue),
-                                            (0.20, mediumblue),
-                                            (0.25, lightblue),
-                                            (0.30, darkbrown),
-                                            (0.40, darkbrown),
-                                            (0.50, darkbrown),
-                                            (0.60, mediumbrown),
-                                            (0.70, mediumbrown),
-                                            (0.75, lightgreen),
-                                            (0.80, lightgreen),
-                                            (0.85, mediumgreen),
-                                            (0.90, tangreen),
-                                            (1.00, darkgreen)]        
+                                            (0.20, blue),
+                                            (0.25, mediumblue),
+                                            (0.30, mediumblue),
+                                            (0.40, lightblue),
+                                            (0.499, lightblue),
+                                            (0.501, lightgreen),
+                                            (0.60, lightgreen),
+                                            (0.70, mediumgreen),
+                                            (0.80, tangreen),
+                                            (0.85, darkgreen),
+                                            (0.90, mediumbrown),
+                                            (1.00, darkbrown)]        
         self._bluebrowngreen_colormap = cc.LinearSegmentedColormap.from_list("bluebrowngreen_colormap",self._bluebrowngreen_colors_list)
         self._bluebrowngreen_colormap_alpha = alpha_brown
         

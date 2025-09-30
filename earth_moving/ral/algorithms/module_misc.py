@@ -58,6 +58,8 @@ def DN_neighbourhood(position, limits, N=4, step=1) -> list:
         offset = const.D24_neighbours
     elif N == 40:
         offset = const.D40_neighbours
+    elif N == 80:
+        offset = const.D80_neighbours
     else:
         raise(ValueError('Neighbourhood not recognized'))
     
@@ -104,8 +106,7 @@ def matrix_gradient(matrix, neighbours) -> np.array:
                     values_matrix[center_x + dx, center_y + dy] = matrix[x, y]
                     if not np.isnan(matrix[global_center_x, global_center_y]):
                         gradient_matrix[center_x + dx, center_y + dy] = matrix[x, y] - matrix[global_center_x, global_center_y]
-                                            
-
+    
     return gradient_matrix, values_matrix
 
 # find monotonic indices

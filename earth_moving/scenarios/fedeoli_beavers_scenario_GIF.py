@@ -32,7 +32,7 @@ def fedeoli_beavers_scenario_GIF(config):
             Backend.plot_environment_with_heatmap()        
             
             # Set figure size
-            Backend._fig.set_size_inches(10, 10)  # Adjust the size as needed
+            # Backend._fig.set_size_inches(10, 10)  # Adjust the size as needed
             
             # Save the figure with tight bounding box
             image_path = os.path.join(output_dir_frames, f"frame_{i:04d}.png")
@@ -48,18 +48,9 @@ def fedeoli_beavers_scenario_GIF(config):
     # Create a GIF from the saved images
     file_name = f"DAYS{number_of_steps/24}\
         _NAGENTS{config.get('simulation').get('number_of_agents')}\
-        _SIZE{config.get('environment').get('width')}x{config.get('environment').get('height')}\
-        _MEAS{config.get('robot').get('measurement_mode')}\
-        _EXP{config.get('robot').get('exploration_mode')}\
-        _EXPMAP{config.get('robot').get('exploration_map')}\
-        _EXPETA{config.get('robot').get('exploration_eta')}\
-        _MAXLD{config.get('robot').get('maximum_load')}\
-        _CTRL{config.get('robot').get('controller').get('name')}\
-        _CTRLMAP{config.get('robot').get('controller').get('map_repulsive')}\
-        _STREAM{config.get('environment').get('streams_number')}\
         _SEED{config.get('simulation').get('seed')}.gif"
     gif_path = os.path.join(output_dir, file_name)
-    with imageio.get_writer(gif_path, mode="I", duration=0.1) as writer:
+    with imageio.get_writer(gif_path, mode="I", duration=1.0) as writer:
         for image_file in tqdm(image_files):
             writer.append_data(imageio.imread(image_file))            
     

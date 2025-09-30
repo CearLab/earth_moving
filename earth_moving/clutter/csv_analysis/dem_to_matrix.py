@@ -1,244 +1,530 @@
 #!/usr/bin/env python3
 """
-Script to convert exported_dem.csv into a 2D elevation matrix.
+Script to convert elevation.csv into a 2D elevation matrix using a simplified approach.
 
-The CSV file contains longitude, latitude, and elevation data.
-This script converts it into a 2D numpy array where:
-- Rows correspond to latitude values (y-axis)
-- Columns correspond to longitude values (x-axis)
-- Values are elevation measurements
+The approach:
+1. Load CSV data with x, y, elevation columns
+2. Create pivot table: df.pivot_table(index="y", columns="x", values="elevation")
+3. Create meshgrid and extract Z values
+4. Define polygon corners and transform coordinates
+5. Create polygon mask and clip the data
 """
-
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from pathlib import Path
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.path import Path
+from pyproj import Transformer
+import os
+import sys
+import importlib.util
 
-# Add geopandas and shapely for coordinate transformation
-import geopandas as gpd
-from shapely.geometry import Point
-from pyproj import Proj
-
-def convert_latlon_to_xy(df, lon_col='x', lat_col='y', crs_out="EPSG:32619"):
-    """
-    Convert latitude/longitude columns to projected x/y using geopandas.
-    Default output CRS is UTM zone 19N (EPSG:32619), suitable for Boston.
-    Adds 'x_proj' and 'y_proj' columns to the DataFrame.
-    """
-    gdf = gpd.GeoDataFrame(
-        df,
-        geometry=[Point(lon, lat) for lon, lat in zip(df[lon_col], df[lat_col])],
-        crs="EPSG:4326"
-    )
-    gdf = gdf.to_crs(crs_out)
-    df['x_proj'] = gdf.geometry.x
-    df['y_proj'] = gdf.geometry.y
-    return df
-
-def project_latlon_to_xy(df, lon_col='x', lat_col='y'):
-    """Project latitude/longitude columns to x/y using geopandas. Adds x_proj and y_proj columns."""
-    
-    # Define UTM projection (replace 'zone' with appropriate UTM zone, e.g., 10 for parts of North America)
-    utm = Proj(proj='utm', zone=10, ellps='WGS84')
-
-    # Convert lat/lon to x,y
-    df['x_proj'], df['y_proj'] = utm(df[lon_col].values, df[lat_col].values)
-    return df
-
-def load_dem_data(csv_path, x_col='x', y_col='y', elev_col='elevation'):
-    """Load DEM data from CSV file."""
-    print(f"Loading data from {csv_path}...")
-    
-    # Load the CSV file
-    df = pd.read_csv(csv_path)
-    print(f"Loaded {len(df)} data points")
-    print(f"Columns: {list(df.columns)}")
-    
-    # Display basic statistics
-    print("\nData ranges:")
-    print(f"{x_col}: {df[x_col].min():.6f} to {df[x_col].max():.6f}")
-    print(f"{y_col}: {df[y_col].min():.6f} to {df[y_col].max():.6f}")
-    print(f"{elev_col}: {df[elev_col].min():.2f} to {df[elev_col].max():.2f}")
-    
-    nan_elev_count = df[elev_col].isna().sum()
-    total_elev_count = len(df)
-    print(f"\nNumber of NaN {elev_col} values: {nan_elev_count} / {total_elev_count} ({100 * nan_elev_count / total_elev_count:.2f}%)")
-    
-    return df
-
-def create_elevation_matrix(df, x_col='x', y_col='y', scale=1):
-    """
-    Bin projected x/y data onto a regular grid using average dx/dy, assigning each measurement to the closest grid cell.
-    If multiple points fall in a cell, use the mean elevation.
-    """
-    print("Binning projected x/y data onto a regular grid...")
-    x_vals = df[x_col].values
-    y_vals = df[y_col].values
-
-    print('\nData shapes:')
-    print(f"x_vals shape: {x_vals.shape}")
-    print(f"y_vals shape: {y_vals.shape}")
-    
-    # dx_raw = abs(np.mean(np.diff(np.sort(np.unique(x_vals)))))
-    # dy_raw = abs(np.mean(np.diff(np.sort(np.unique(y_vals)))))
-    dx_raw = 1e-2
-    dy_raw = 1e-2
-    
-    dx = scale * dx_raw
-    dy = scale * dy_raw    
-    x_min, x_max = x_vals.min(), x_vals.max()
-    y_min, y_max = y_vals.min(), y_vals.max()
-    n_x = int(np.ceil(abs((x_max - x_min) / dx)) + 1)
-    n_y = int(np.ceil(abs((y_max - y_min) / dy)) + 1)
-    x_grid = x_min + np.arange(n_x) * dx
-    y_grid = y_min + np.arange(n_y) * dy
-    
-    print(f"\nGrid parameters:")
-    print(f"Estimated grid step: dx={dx:.6f} m (scale={scale}), dy={dy:.6f} m (scale={scale})")
-    print(f"x_min: {x_min:.6f}, x_max: {x_max:.6f}")
-    print(f"y_min: {y_min:.6f}, y_max: {y_max:.6f}")
-    print(f"n_x (columns): {n_x}, n_y (rows): {n_y}")
-    
-    # Shift grids so that they start from 0
-    x_grid_shifted = x_grid - x_min
-    y_grid_shifted = y_grid - y_min
-    
-    print(f"\nGrid shape:")
-    print(f"Grid shape: {len(y_grid_shifted)} rows x {len(x_grid_shifted)} cols (shifted to 0,0)")    
-    print(f"x_grid: min={x_grid.min():.6f}, max={x_grid.max():.6f}")
-    print(f"y_grid: min={y_grid.min():.6f}, max={y_grid.max():.6f}")
-    print(f"x_grid_shifted: min={x_grid_shifted.min():.6f}, max={x_grid_shifted.max():.6f}")
-    print(f"y_grid_shifted: min={y_grid_shifted.min():.6f}, max={y_grid_shifted.max():.6f}")
-    
-    # Assign each point to the closest grid cell (using shifted values)
-    x_idx = np.searchsorted(x_grid, x_vals, side='left')
-    y_idx = np.searchsorted(y_grid, y_vals, side='left')
-    x_idx = np.clip(x_idx, 0, len(x_grid_shifted)-1)
-    y_idx = np.clip(y_idx, 0, len(y_grid_shifted)-1)    
-    
-    print(f"\nIndexing:")
-    print(f"x_idx: min={x_idx.min()}, max={x_idx.max()}, unique={len(np.unique(x_idx))}")
-    print(f"y_idx: min={y_idx.min()}, max={y_idx.max()}, unique={len(np.unique(y_idx))}")
-    
-    # Bin elevations
-    elevation_matrix = np.full((len(y_grid_shifted), len(x_grid_shifted)), np.nan)
-    count_matrix = np.zeros((len(y_grid_shifted), len(x_grid_shifted)), dtype=int)
-    sum_matrix = np.zeros((len(y_grid_shifted), len(x_grid_shifted)), dtype=float)
-    for xi, yi, elev in zip(x_idx, y_idx, df['elevation'].values):        
-        if not np.isnan(elev):
-            sum_matrix[yi, xi] += elev
-            count_matrix[yi, xi] += 1
-    mask = count_matrix > 0
-    elevation_matrix[mask] = sum_matrix[mask] / count_matrix[mask]
-    nan_count = np.isnan(elevation_matrix).sum()
-    total_points = elevation_matrix.size
-    
-    print(f"\nBinned elevation matrix")
-    print(f"Matrix shape: {elevation_matrix.shape}")
-    print(f"NaN values: {nan_count} / {total_points} ({100*nan_count/total_points:.1f}%)")
-    return elevation_matrix, x_grid_shifted, y_grid_shifted
-
-def save_matrix(elevation_matrix, lon_coords, lat_coords, output_dir="outputs"):
-    """Save the elevation matrix and coordinates to files."""
-    output_path = Path(output_dir)
-    output_path.mkdir(exist_ok=True)
-    
-    # Save as numpy arrays
-    np.save(output_path / "elevation_matrix.npy", elevation_matrix)
-    np.save(output_path / "longitude_coords.npy", lon_coords)
-    np.save(output_path / "latitude_coords.npy", lat_coords)
-    
-    # Save as CSV (for smaller matrices)
-    if elevation_matrix.size < 10000000:  # Less than 10M elements
-        np.savetxt(output_path / "elevation_matrix.csv", elevation_matrix, delimiter=',')
-    
-    print(f"Matrix saved to {output_path}/")
-    return output_path
-
-def visualize_dem(elevation_matrix, x_coords, y_coords, output_dir="outputs"):
-    """Create visualizations of the DEM using projected x/y coordinates."""
-    plt.figure(figsize=(15, 10))
-
-    extent = [x_coords.min(), x_coords.max(), y_coords.min(), y_coords.max()]
-
-    plt.subplot(2, 2, 1)
-    plt.imshow(elevation_matrix, extent=extent, origin='lower', cmap='gray', aspect='auto')
-    plt.colorbar(label='Elevation (m)')
-    plt.title('DEM Elevation Map (UTM)')
-    plt.xlabel('X (meters, UTM)')
-    plt.ylabel('Y (meters, UTM)')
-
-    plt.subplot(2, 2, 2)
-    plt.hist(elevation_matrix[~np.isnan(elevation_matrix)].flatten(), bins=50, alpha=0.7)
-    plt.title('Elevation Distribution')
-    plt.xlabel('Elevation (m)')
-    plt.ylabel('Frequency')
-
-    plt.subplot(2, 2, 3)
-    coverage = ~np.isnan(elevation_matrix)
-    plt.imshow(coverage, extent=extent, origin='lower', cmap='gray', aspect='auto')
-    plt.title('Data Coverage (white = data, black = no data)')
-    plt.xlabel('X (meters, UTM)')
-    plt.ylabel('Y (meters, UTM)')
-
-    plt.subplot(2, 2, 4)
-    x_grid, y_grid = np.meshgrid(x_coords, y_coords)
-    contours = plt.contour(x_grid, y_grid, elevation_matrix, levels=20)
-    plt.clabel(contours, inline=True, fontsize=8)
-    plt.title('Elevation Contours (UTM)')
-    plt.xlabel('X (meters, UTM)')
-    plt.ylabel('Y (meters, UTM)')
-
-    plt.tight_layout()
-
-    output_path = Path(output_dir)
-    plt.savefig(output_path / "dem_visualization.png", dpi=300, bbox_inches='tight')
-    plt.show()
-
-    print(f"Visualization saved to {output_path}/dem_visualization.png")
-    
-def scatter_dem(df, output_dir="outputs", x_col='x_relative', y_col='y_relative', elev_col='elevation'):
-    """Scatter plot of DEM points colored by elevation."""    
-    plt.figure(figsize=(10, 8))
-    sc = plt.scatter(df[x_col], df[y_col], c=df[elev_col], cmap='viridis', s=5, alpha=0.7)
-    plt.colorbar(sc, label='Elevation (m)')
-    plt.xlabel('X (meters, relative)')
-    plt.ylabel('Y (meters, relative)')
-    plt.title('DEM Scatter Plot (Colored by Elevation)')
-    plt.tight_layout()
-    output_path = Path(output_dir)
-    plt.savefig(output_path / "dem_scatter.png", dpi=300, bbox_inches='tight')
-    # plt.show()
-    print(f"Scatter plot saved to {output_path}/dem_scatter.png")
+# Add the earth_moving path to import the environment backend
+sys.path.append('/home/fedeoli/Documents/Work/Projects/pushing_ws/earth_moving')
+from earth_moving.ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
 
 def main():
-    """Main function to process the DEM data."""
+    """Main function to process DEM data using the simplified approach."""
     
-    # Path to the CSV file
-    csv_path = "/home/fedeoli/Documents/Work/Projects/pushing_ws/earth_moving/earth_moving/utils/exported_dem_02.csv"
+    # Load the CSV file
+    csv_path = "/home/fedeoli/Documents/Work/Projects/pushing_ws/earth_moving/earth_moving/utils/elevation.csv"
+    df = pd.read_csv(csv_path)
+    
+    # Assign column names (assuming 3 columns: x, y, elevation)
+    df.columns = ["x", "y", "elevation"]
+    
+    # Create pivot table
+    pivot = df.pivot_table(index="y", columns="x", values="elevation")
+    
+    # Create meshgrid
+    x = np.sort(df["x"].unique())
+    y = np.sort(df["y"].unique())
+    X, Y = np.meshgrid(x, y)
+    Z = pivot.values
+    
+    # Define square corners in lat/lon (EPSG:4326)
+    NW = (-71.0033967, 42.4345814)
+    SW = (-71.0034071, 42.4328122)
+    SE = (-71.0010287, 42.4328093)
+    NE = (-71.0009986, 42.4345665)
+    
+    # Order the corners around the square (clockwise or CCW)
+    square = [NW, SW, SE, NE]
+    
+    # Transform coordinates
+    tf = Transformer.from_crs("EPSG:4326", "EPSG:2249", always_xy=True)
+    square_xy = [tf.transform(lon, lat) for lon, lat in square]
+    poly = Path(square_xy)
+    
+    # Create grid mask
+    XY = np.c_[X.ravel(), Y.ravel()]
+    inside_grid = poly.contains_points(XY).reshape(X.shape)
+    
+    # Create land mask (remove water/below sea level)
+    Z_land = np.where(Z > 0, Z, -1.0)
+    
+    # Apply both land mask and polygon mask
+    Z_clipped = np.where(inside_grid, Z_land, -1.0)
+    
+    # Show WITHOUT land mask first (to confirm overlap)
+    Z_clip_debug = np.where(inside_grid, Z, -1.0)
+    
+    # Rescale clipped values from 0 to 1 (using land-only data)
+    valid_mask = Z_clipped >= 0.0
+    if np.any(valid_mask):
+        valid_values = Z_clipped[valid_mask]
+        min_val = np.min(valid_values)
+        max_val = np.max(valid_values)
+        
+        print(f"Land-only elevation range: {min_val:.2f} to {max_val:.2f}")
+        
+        # Create rescaled version
+        Z_clip_rescaled = Z_clipped.copy()
+        if max_val > min_val:  # Avoid division by zero
+            Z_clip_rescaled[valid_mask] = (valid_values - min_val) / (max_val - min_val)
+        else:
+            Z_clip_rescaled[valid_mask] = 0.5  # If all values are the same, set to middle value
+            
+        # Keep -1.0 for invalid areas
+        Z_clip_rescaled[~valid_mask] = -1.0
+            
+        print(f"Rescaled elevation range: {np.min(Z_clip_rescaled[valid_mask]):.2f} to {np.max(Z_clip_rescaled[valid_mask]):.2f}")
+    else:
+        Z_clip_rescaled = Z_clipped.copy()
+        print("No valid land elevation data found in clipped region")
+    
+    # Get bounding box info for reference
+    xs = [p[0] for p in square_xy]
+    ys = [p[1] for p in square_xy]
+    xmin, xmax = min(xs), max(xs)
+    ymin, ymax = min(ys), max(ys)
+    
+    print(f"Original data shape: {Z.shape}")
+    print(f"Data ranges - x: [{df['x'].min():.2f}, {df['x'].max():.2f}], y: [{df['y'].min():.2f}, {df['y'].max():.2f}]")
+    print(f"Square bounds - x: [{xmin:.2f}, {xmax:.2f}], y: [{ymin:.2f}, {ymax:.2f}]")
+    print(f"Points inside polygon: {np.sum(inside_grid)} / {inside_grid.size}")
+    
+    # Create visualization
+    plt.figure(figsize=(15, 5))
+    
+    # Original data
+    plt.subplot(1, 3, 1)
+    plt.imshow(Z, extent=[X.min(), X.max(), Y.min(), Y.max()], origin='lower', cmap='terrain')
+    plt.title('Original DEM')
+    plt.colorbar(label='Elevation (m)')
+    
+    # Polygon mask
+    plt.subplot(1, 3, 2)
+    plt.imshow(inside_grid, extent=[X.min(), X.max(), Y.min(), Y.max()], origin='lower', cmap='gray')
+    plt.title('Polygon Mask')
+    
+    # Clipped data (rescaled 0-1) - cropped to polygon bounds
+    plt.subplot(1, 3, 3)
+    plt.imshow(Z_clip_rescaled, extent=[X.min(), X.max(), Y.min(), Y.max()], origin='lower', cmap='terrain')
+    plt.xlim(xmin, xmax)
+    plt.ylim(ymin, ymax)
+    plt.title('Clipped DEM (Rescaled 0-1)')
+    plt.colorbar(label='Normalized Elevation')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Save the clipped data
+    output_dir = "earth_moving/clutter/csv_analysis/output" 
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Create coordinate arrays that match the clipped region bounds
+    # Find indices within the bounding box
+    x_mask = (x >= xmin) & (x <= xmax)
+    y_mask = (y >= ymin) & (y <= ymax)
+    
+    x_clipped = x[x_mask]
+    y_clipped = y[y_mask]
+    X_clipped, Y_clipped = np.meshgrid(x_clipped, y_clipped)
+    
+    # Extract the corresponding clipped elevation data
+    y_indices = np.where(y_mask)[0]
+    x_indices = np.where(x_mask)[0]
+    Z_cropped = Z_clip_rescaled[np.ix_(y_indices, x_indices)]
+    
+    # Save rescaled clipped elevation matrix (0-1 range) - cropped to actual bounds
+    np.save(f"{output_dir}/elevation.npy", Z_cropped)
+    
+    # Save corresponding coordinates (cropped to match the elevation data)
+    np.save(f"{output_dir}/X_coordinates.npy", X_clipped)
+    np.save(f"{output_dir}/Y_coordinates.npy", Y_clipped)
+    
+    # Define tree positions (longitude, latitude) for vegetation clusters
+    trees = [
+        (-71.0023732, 42.4342306),
+        (-71.0022981, 42.4342667),
+        (-71.0021906, 42.4342576),
+        (-71.0023338, 42.4341820),
+        (-71.0022339, 42.4341919),
+        (-71.0023810, 42.4341250),
+        (-71.0023230, 42.4340780),
+        (-71.0022175, 42.4341122),
+        (-71.0022483, 42.4340604),
+        (-71.0020275, 42.4342362),
+        (-71.0019681, 42.4341905),
+        (-71.0020670, 42.4341710),
+        (-71.0019821, 42.4341208),
+        (-71.0020780, 42.4341045),
+        (-71.0020140, 42.4340533),
+        (-71.0021279, 42.4340349),
+        (-71.0020593, 42.4340025),
+        (-71.0019668, 42.4339677),
+        (-71.0021543, 42.4339098),
+        (-71.0020949, 42.4338566),
+        (-71.0020142, 42.4338449),
+        (-71.0020849, 42.4337932),
+        (-71.0019712, 42.4337882),
+        (-71.0020076, 42.4337352),
+        (-71.0021108, 42.4337290),
+        (-71.0022022, 42.4337216),
+        (-71.0020904, 42.4336690),
+        (-71.0019915, 42.4336875),
+        (-71.0018813, 42.4336161),
+        (-71.0018026, 42.4335459),
+        (-71.0019163, 42.4335420),
+        (-71.0022453, 42.4335938),
+        (-71.0021175, 42.4335351),
+        (-71.0022228, 42.4335263),
+        (-71.0023990, 42.4335306),
+        (-71.0022980, 42.4334734),
+        (-71.0021420, 42.4334536),
+        (-71.0021558, 42.4334090),
+        (-71.0022649, 42.4334137),
+        (-71.0024246, 42.4334385),
+        (-71.0023647, 42.4333808),
+        (-71.0022889, 42.4332805),
+        (-71.0021808, 42.4332686),
+        (-71.0020813, 42.4332633),
+        (-71.0020588, 42.4331979),
+        (-71.0020843, 42.4331193),
+        (-71.0021518, 42.4331848),
+        (-71.0021964, 42.4331169),
+        (-71.0022206, 42.4332092),
+        (-71.0023061, 42.4331649),
+        (-71.0023650, 42.4332255)
+    ]
+    
+    print(f"\nAdding vegetation clusters using BeaversEnvironmentBackend...")
+    
+    # Add vegetation clusters to the rescaled matrix using environment backend
+    Z_with_vegetation, env_backend = add_vegetation_clusters_with_environment_backend(
+        Z_clip_rescaled, X, Y, trees, 
+        cluster_radius=6  # 6-cell radius clusters
+    )
+    
+    # Create enhanced visualization including vegetation
+    plt.figure(figsize=(20, 5))
+    
+    # Original clipped data
+    plt.subplot(1, 4, 1)
+    plt.imshow(Z_clip_rescaled, extent=[X.min(), X.max(), Y.min(), Y.max()], 
+               origin='lower', cmap='terrain')
+    plt.xlim(xmin, xmax)
+    plt.ylim(ymin, ymax)
+    plt.title('Original Clipped DEM')
+    plt.colorbar(label='Elevation')
+    
+    # Data with vegetation
+    plt.subplot(1, 4, 2)
+    plt.imshow(Z_with_vegetation, extent=[X.min(), X.max(), Y.min(), Y.max()], 
+               origin='lower', cmap='terrain')
+    plt.xlim(xmin, xmax)
+    plt.ylim(ymin, ymax)
+    plt.title('DEM with Vegetation Clusters')
+    plt.colorbar(label='Elevation + Vegetation')
+    
+    # Difference (vegetation only)
+    vegetation_diff = Z_with_vegetation - Z_clip_rescaled
+    plt.subplot(1, 4, 3)
+    plt.imshow(vegetation_diff, extent=[X.min(), X.max(), Y.min(), Y.max()], 
+               origin='lower', cmap='Greens')
+    plt.xlim(xmin, xmax)
+    plt.ylim(ymin, ymax)
+    plt.title('Vegetation Layer Only')
+    plt.colorbar(label='Vegetation Height')
+    
+    # Tree positions overlay
+    plt.subplot(1, 4, 4)
+    plt.imshow(Z_clip_rescaled, extent=[X.min(), X.max(), Y.min(), Y.max()], 
+               origin='lower', cmap='terrain', alpha=0.7)
+    
+    # Transform and plot tree positions
+    tf = Transformer.from_crs("EPSG:4326", "EPSG:2249", always_xy=True)
+    tree_coords_xy = [tf.transform(lon, lat) for lon, lat in trees]
+    tree_x_coords = [coord[0] for coord in tree_coords_xy]
+    tree_y_coords = [coord[1] for coord in tree_coords_xy]
+    plt.scatter(tree_x_coords, tree_y_coords, c='red', s=50, alpha=0.8, marker='x')
+    
+    plt.xlim(xmin, xmax)
+    plt.ylim(ymin, ymax)
+    plt.title('Tree Positions on DEM')
+    plt.colorbar(label='Elevation')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Extract the vegetation-enhanced data for the cropped region
+    Z_vegetation_cropped = Z_with_vegetation[np.ix_(y_indices, x_indices)]
+    
+    # Save both original and vegetation-enhanced versions
+    np.save(f"{output_dir}/elevation.npy", Z_cropped)
+    np.save(f"{output_dir}/elevation_with_vegetation.npy", Z_vegetation_cropped)
+    
+    print(f"\nSaved cropped clipped data to {output_dir}:")
+    print(f"- elevation.npy: {Z_cropped.shape} (values 0-1, cropped to polygon bounds)")
+    print(f"- elevation_with_vegetation.npy: {Z_vegetation_cropped.shape} (with vegetation clusters)")
+    print(f"- X_coordinates.npy: {X_clipped.shape} (cropped coordinates)")
+    print(f"- Y_coordinates.npy: {Y_clipped.shape} (cropped coordinates)")
+    print(f"- Coordinate ranges: x[{x_clipped.min():.2f}, {x_clipped.max():.2f}], y[{y_clipped.min():.2f}, {y_clipped.max():.2f}]")
+    print(f"- Added vegetation using BeaversEnvironmentBackend with {len(trees)} tree positions")
+    print(f"- Vegetation parameters: radius=3, sigma={env_backend._vegetation_cluster_sigma}")
+    
+    return df, pivot, X, Y, Z, Z_clip_debug, Z_clip_rescaled, inside_grid, Z_with_vegetation, env_backend
+
+def add_vegetation_clusters_with_environment_backend(Z_matrix, X_coords, Y_coords, tree_positions, cluster_radius=3):
+    """
+    Add vegetation clusters (trees) using the BeaversEnvironmentBackend generate_cluster method.
+    
+    This function creates a temporary environment backend instance, loads the DEM data,
+    and uses the proper vegetation generation system to add realistic vegetation clusters.
+    
+    Parameters:
+    -----------
+    Z_matrix : numpy.ndarray
+        The elevation matrix to use as base
+    X_coords : numpy.ndarray
+        X coordinate meshgrid
+    Y_coords : numpy.ndarray
+        Y coordinate meshgrid  
+    tree_positions : list of tuples
+        List of (longitude, latitude) coordinates for tree positions
+    cluster_radius : int, optional
+        Radius of each vegetation cluster in grid cells (default: 3)
+        
+    Returns:
+    --------
+    numpy.ndarray
+        Modified elevation matrix with vegetation clusters added using the environment backend
+    BeaversEnvironmentBackend
+        The environment backend instance (for further use if needed)
+    """
+    # Transform tree coordinates from lat/lon to the same coordinate system
+    tf = Transformer.from_crs("EPSG:4326", "EPSG:2249", always_xy=True)
+    tree_coords_xy = [tf.transform(lon, lat) for lon, lat in tree_positions]
+    
+    # Get the coordinate arrays
+    x_coords = X_coords[0, :]  # First row contains all x coordinates
+    y_coords = Y_coords[:, 0]  # First column contains all y coordinates
+    
+    # Create environment configuration matching the DEM data
+    environment_config = {
+        'environment': {
+            'map_mode': 'generate',  # We'll override the map with our DEM data
+            'width': Z_matrix.shape[1],
+            'height': Z_matrix.shape[0],
+            'vegetation_quality_range': [0.0, 1.0],            
+            'vegetation_cluster_sigma': 4.0,
+            'vegetation_cluster_radius_range': [cluster_radius-1, cluster_radius+1],
+            'number_vegetation_clusters_init': 0,  # Start with no clusters, we'll add them manually
+            'number_vegetation_clusters_max': int(1e3),  # Allow space for tree positions
+            'streams_number': 0,  # No streams generation since we have real DEM data
+            'streams_width': 10,
+            'print': True
+        }
+    }
+    
+    # Create environment backend instance
+    env_backend = BeaversEnvironmentBackend()
+    env_backend.initiate_environment(**environment_config)
+    
+    # Replace the generated map with our DEM data
+    # Note: BeaversEnvironmentBackend uses (width, height) = (x, y) format
+    # Our Z_matrix is in (height, width) = (y, x) format, so we need to transpose
+    env_backend._map_original = Z_matrix.T.copy()
+    env_backend._width = Z_matrix.shape[1] 
+    env_backend._height = Z_matrix.shape[0]
+    
+    print(f"Environment backend initialized with original DEM elevation data")
+    print(f"Map dimensions: {env_backend._width} x {env_backend._height}")
+    print(f"Elevation range in map: {np.min(env_backend._map_original):.2f} to {np.max(env_backend._map_original):.2f}")
+    
+    # Convert tree coordinates to grid indices and add clusters
+    trees_added = 0
+    for tree_x, tree_y in tree_coords_xy:
+        # Find the closest grid indices
+        x_idx = np.argmin(np.abs(x_coords - tree_x))
+        y_idx = np.argmin(np.abs(y_coords - tree_y))
+        
+        # Check if the position is within the valid area and not in water
+        if (0 <= x_idx < env_backend._width and 
+            0 <= y_idx < env_backend._height and 
+            env_backend._map_original[x_idx, y_idx] >= 0):
+            
+            # Use the environment backend's generate_cluster method
+            # Note: environment backend uses (x, y) coordinates
+            env_backend.generate_cluster(x_idx, y_idx, cluster_radius)
+            trees_added += 1
+        else:
+            print(f"Skipping tree at coordinates ({tree_x:.2f}, {tree_y:.2f}) - outside valid area or in water")
+    
+    print(f"Added {trees_added} vegetation clusters using environment backend")
+    
+    # Get the modified map and transpose back to our format
+    Z_with_vegetation = env_backend._map_original.T.copy()
+    
+    return Z_with_vegetation, env_backend
+
+def process_dem_with_vegetation():
+    """
+    Process DEM data and add predefined vegetation clusters using BeaversEnvironmentBackend.
+    
+    This function combines the main DEM processing with vegetation placement using
+    the same vegetation generation system used in the earth-moving simulation.
+    This ensures consistency between the map preprocessing and simulation behavior.
+    
+    The vegetation clusters are generated using the environment backend's 
+    generate_cluster() method, which applies Gaussian-distributed vegetation
+    with proper scaling and clipping according to the simulation parameters.
+    """
+    
+    # Define tree positions (longitude, latitude)
+    trees = [
+        (-71.0023732, 42.4342306),
+        (-71.0022981, 42.4342667),
+        (-71.0021906, 42.4342576),
+        (-71.0023338, 42.4341820),
+        (-71.0022339, 42.4341919),
+        (-71.0023810, 42.4341250),
+        (-71.0023230, 42.4340780),
+        (-71.0022175, 42.4341122),
+        (-71.0022483, 42.4340604),
+        (-71.0020275, 42.4342362),
+        (-71.0019681, 42.4341905),
+        (-71.0020670, 42.4341710),
+        (-71.0019821, 42.4341208),
+        (-71.0020780, 42.4341045),
+        (-71.0020140, 42.4340533),
+        (-71.0021279, 42.4340349),
+        (-71.0020593, 42.4340025),
+        (-71.0019668, 42.4339677),
+        (-71.0021543, 42.4339098),
+        (-71.0020949, 42.4338566),
+        (-71.0020142, 42.4338449),
+        (-71.0020849, 42.4337932),
+        (-71.0019712, 42.4337882),
+        (-71.0020076, 42.4337352),
+        (-71.0021108, 42.4337290),
+        (-71.0022022, 42.4337216),
+        (-71.0020904, 42.4336690),
+        (-71.0019915, 42.4336875),
+        (-71.0018813, 42.4336161),
+        (-71.0018026, 42.4335459),
+        (-71.0019163, 42.4335420),
+        (-71.0022453, 42.4335938),
+        (-71.0021175, 42.4335351),
+        (-71.0022228, 42.4335263),
+        (-71.0023990, 42.4335306),
+        (-71.0022980, 42.4334734),
+        (-71.0021420, 42.4334536),
+        (-71.0021558, 42.4334090),
+        (-71.0022649, 42.4334137),
+        (-71.0024246, 42.4334385),
+        (-71.0023647, 42.4333808),
+        (-71.0022889, 42.4332805),
+        (-71.0021808, 42.4332686),
+        (-71.0020813, 42.4332633),
+        (-71.0020588, 42.4331979),
+        (-71.0020843, 42.4331193),
+        (-71.0021518, 42.4331848),
+        (-71.0021964, 42.4331169),
+        (-71.0022206, 42.4332092),
+        (-71.0023061, 42.4331649),
+        (-71.0023650, 42.4332255)
+    ]
+    
+    # Process the main DEM data
+    df, pivot, X, Y, Z, Z_clip_debug, Z_clip_rescaled, inside_grid = main()
+    
+    # Add vegetation clusters to the rescaled matrix using environment backend
+    Z_with_vegetation, env_backend = add_vegetation_clusters_with_environment_backend(
+        Z_clip_rescaled, X, Y, trees, 
+        cluster_radius=10  # 3-cell radius clusters
+    )
+    
+    # Create comparison visualization
+    plt.figure(figsize=(15, 5))
+    
+    # Original clipped data
+    plt.subplot(1, 3, 1)
+    plt.imshow(Z_clip_rescaled, extent=[X.min(), X.max(), Y.min(), Y.max()], 
+               origin='lower', cmap='terrain')
+    plt.title('Original Clipped DEM')
+    plt.colorbar(label='Elevation')
+    
+    # Data with vegetation
+    plt.subplot(1, 3, 2)
+    plt.imshow(Z_with_vegetation, extent=[X.min(), X.max(), Y.min(), Y.max()], 
+               origin='lower', cmap='terrain')
+    plt.title('DEM with Vegetation Clusters')
+    plt.colorbar(label='Elevation + Vegetation')
+    
+    # Difference (vegetation only)
+    vegetation_diff = Z_with_vegetation - Z_clip_rescaled
+    plt.subplot(1, 3, 3)
+    plt.imshow(vegetation_diff, extent=[X.min(), X.max(), Y.min(), Y.max()], 
+               origin='lower', cmap='Greens')
+    plt.title('Vegetation Layer Only')
+    plt.colorbar(label='Vegetation Height')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Save the result with vegetation
     output_dir = "earth_moving/clutter/csv_analysis/output"
+    os.makedirs(output_dir, exist_ok=True)
     
-    try:
-
-        # Load data
-        df = load_dem_data(csv_path, x_col='x_relative', y_col='y_relative', elev_col='elevation')
-
-        # Convert lat/lon to projected x/y coordinates        
-        # df = project_latlon_to_xy(df, lon_col='x', lat_col='y')
-        # df = convert_latlon_to_xy(df, lon_col='x', lat_col='y')
-        
-        # Scatter plot of raw points
-        scatter_dem(df, output_dir, x_col='x_relative', y_col='y_relative', elev_col='elevation')
-        # scatter_dem(df, output_dir, x_col='x_proj', y_col='y_proj', elev_col='elevation')
-
-        print("\nMatrix transformation complete!")        
-
-        return 0
-        
-    except Exception as e:
-        print(f"Error processing DEM data: {e}")
-        return None, None, None
+    # Create cropped version matching the original bounds
+    xs = [p[0] for p in [(-71.0033967, 42.4345814), (-71.0034071, 42.4328122), 
+                        (-71.0010287, 42.4328093), (-71.0009986, 42.4345665)]]
+    ys = [p[1] for p in [(-71.0033967, 42.4345814), (-71.0034071, 42.4328122), 
+                        (-71.0010287, 42.4328093), (-71.0009986, 42.4345665)]]
+    tf = Transformer.from_crs("EPSG:4326", "EPSG:2249", always_xy=True)
+    square_xy = [tf.transform(lon, lat) for lon, lat in [(-71.0033967, 42.4345814), (-71.0034071, 42.4328122), (-71.0010287, 42.4328093), (-71.0009986, 42.4345665)]]
+    xs_transformed = [p[0] for p in square_xy]
+    ys_transformed = [p[1] for p in square_xy]
+    xmin, xmax = min(xs_transformed), max(xs_transformed)
+    ymin, ymax = min(ys_transformed), max(ys_transformed)
+    
+    x = np.sort(df["x"].unique())
+    y = np.sort(df["y"].unique())
+    
+    x_mask = (x >= xmin) & (x <= xmax)
+    y_mask = (y >= ymin) & (y <= ymax)
+    
+    y_indices = np.where(y_mask)[0]
+    x_indices = np.where(x_mask)[0]
+    Z_vegetation_cropped = Z_with_vegetation[np.ix_(y_indices, x_indices)]
+    
+    # Save vegetation-enhanced elevation matrix
+    np.save(f"{output_dir}/elevation_with_vegetation.npy", Z_vegetation_cropped)
+    
+    print(f"\nSaved vegetation-enhanced data:")
+    print(f"- elevation_with_vegetation.npy: {Z_vegetation_cropped.shape}")
+    print(f"- Added vegetation clusters using BeaversEnvironmentBackend")
+    print(f"- Vegetation parameters: radius={3}, sigma={env_backend._vegetation_cluster_sigma}")
+    print(f"- Vegetation quality range: {env_backend._vegetation_quality_range}")
+    
+    return Z_with_vegetation, env_backend
 
 if __name__ == "__main__":
+    # Run the basic processing
     main()
+    
+    # Uncomment the line below to run with vegetation clusters
+    # process_dem_with_vegetation()
