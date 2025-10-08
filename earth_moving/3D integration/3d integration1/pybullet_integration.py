@@ -45,15 +45,15 @@ class PyBulletIntegration:
         # Rover control parameters
         self.control_threshold = 1e-2
         self.angle_threshold = 5
-        self.iter_limit = 1e2
+        self.iter_limit = 1e4
         self.Kp_vel = 0.0001
         self.Kphi_vel = 0.00001
         self.Kd_phi_vel = 0
-        self.K1 = 3
-        self.K2 = 20
-        self.K3 = 20
+        self.K1 = 5
+        self.K2 = 3
+        self.K3 = 1
         self.vmax = 0.5
-        self.phimax = 1
+        self.phimax = 0.5
         self.control_dt = 1/240
         
         # Coordinate converter for grid/cell calculations
@@ -515,7 +515,44 @@ class PyBulletIntegration:
                 [1, 0, 0],  # Red color
                 2.0,  # Line width
                 lifeTime=0  # Forever
-            )                    
+            )
+            
+        # Add markers at trajectory points
+        for point in trajectory_3d:
+            p.addUserDebugLine(
+                [point[0], point[1], 0.0],
+                [point[0], point[1], 0.02],
+                [1, 0, 0],  # Red color
+                2.0,  # Line width
+                lifeTime=0  # Forever
+            )
+            
+    # def execute_trajectory(self, trajectory_2d):
+    #     """Execute the trajectory movement in 3D."""
+    #     # Convert 2D grid coordinates to 3D world coordinates
+    #     trajectory_3d = []
+    #     for x, y in trajectory_2d:
+    #         world_x = (x - self.coord_converter.grid_size/2) * self.coord_converter.cell_size
+    #         world_y = (y - self.coord_converter.grid_size/2) * self.coord_converter.cell_size
+    #         trajectory_3d.append((world_x, world_y, 0.1))
+            
+    #     # Move objects along trajectory
+    #     for i in range(len(trajectory_3d) - 1):
+    #         start = trajectory_3d[i]
+    #         end = trajectory_3d[i + 1]
+            
+    #         # Find objects near the start point
+    #         for obj_id in self.object_ids:
+    #             pos, _ = p.getBasePositionAndOrientation(obj_id)
+    #             if (abs(pos[0] - start[0]) < self.coord_converter.cell_size/2 and 
+    #                 abs(pos[1] - start[1]) < self.coord_converter.cell_size/2):
+    #                 # Move object to end point
+    #                 p.resetBasePositionAndOrientation(obj_id, end, [0, 0, 0, 1])
+                    
+    #         # Step simulation to show movement
+    #         for _ in range(10):  # Multiple steps for smooth movement
+    #             p.stepSimulation()
+    #             t.sleep(1./240.)
                 
     def clear_trajectory(self):
         """Clear all trajectory visualizations."""
@@ -603,11 +640,11 @@ class PyBulletIntegration:
           smoother motion on very dense trajectories.
         """
         idx = 0
-        finished = False   
-        max_iter_0 = 200  # hard safety stop     
-        max_iter = max_iter_0     # hard safety stop
-        
-        while not finished:                        
+        finished = False
+        max_iter = len(trajectory) * 400          # hard safety stop
+
+        while not finished and max_iter > 0:
+            max_iter -= 1
 
             # ── Current pose ──────────────────────────────────────────────
             (x, y, _), q = self.get_robot_position()
@@ -619,10 +656,8 @@ class PyBulletIntegration:
             while idx < len(trajectory):
                 dx = trajectory[idx][0] - x
                 dy = trajectory[idx][1] - y
-                max_iter -= 1
-                if math.hypot(dx, dy) > pos_tol and max_iter > 0:
+                if math.hypot(dx, dy) > pos_tol:
                     break                      # this one still matters
-                max_iter = max_iter_0        # hard safety stop
                 idx += 1                       # already “there” → next
 
             if idx >= len(trajectory):
@@ -642,20 +677,20 @@ class PyBulletIntegration:
             ang  = abs(dθ)
 
             # ── Debug line (your “sanity check”) ─────────────────────────
-            print(f"idx={idx:3d}  dist={dist:5.3f}  ang={ang:5.3f}  iter={max_iter:4d}")
+            print(f"idx={idx:3d}  dist={dist:5.3f}  ang={ang:5.3f}")
 
             # ── Transform position error to body frame ───────────────────
             ex =  math.cos(theta) * dx + math.sin(theta) * dy   # fwd
             ey = -math.sin(theta) * dx + math.cos(theta) * dy   # left
 
             # ── Simple two-zone controller ───────────────────────────────
-            # if dist < 0.15:                       # close → emphasise rotation
-            #     V   = self.K1 * ex
-            #     φ   = self.K3 * dθ
-            #     V   = math.copysign(max(abs(V), min_speed), V)  # keep moving
-            # else:                                 # far  → move & steer
-            V   = self.K1 * ex
-            φ   = self.K2 * ey + self.K3 * dθ
+            if dist < 0.15:                       # close → emphasise rotation
+                V   = self.K1 * ex
+                φ   = self.K3 * dθ
+                V   = math.copysign(max(abs(V), min_speed), V)  # keep moving
+            else:                                 # far  → move & steer
+                V   = self.K1 * ex
+                φ   = self.K2 * ey + self.K3 * dθ
 
             ω_r, ω_l = self.compute_wheel_velocities(V, φ)
             self.control_rover_velocity(ω_l, ω_r, control_dt)
@@ -684,6 +719,59 @@ class PyBulletIntegration:
                 lineWidth=2.0,
                 lifeTime=life_time
             )
+
+
+def follow_smooth_trajectory(env, trajectory, control_dt=1/240, pos_tol=0.02, angle_tol=0.1):
+    """
+    Follow a trajectory of (x, y, theta) waypoints using feedback control.
+    Switches to orientation correction only when near each waypoint.
+    """
+    target_idx = 0
+
+    while target_idx < len(trajectory):
+        # Target waypoint
+        x_target, y_target, theta_target = trajectory[target_idx]
+
+        # Current robot pose
+        current_pos, current_quat = env.get_robot_position()
+        x, y = current_pos[0], current_pos[1]
+        theta = p.getEulerFromQuaternion(current_quat)[2]
+
+        # Compute world-frame errors
+        dx = x_target - x
+        dy = y_target - y
+        dtheta = env.normalize_angle(theta_target - theta)
+
+        dist_error = math.hypot(dx, dy)
+        angle_error = abs(dtheta)
+
+        # If close enough to waypoint, move to next
+        if dist_error < pos_tol and angle_error < angle_tol:
+            target_idx += 1
+            continue
+
+        # Transform position error to robot frame
+        ex = math.cos(theta) * dx + math.sin(theta) * dy
+        ey = -math.sin(theta) * dx + math.cos(theta) * dy
+
+        # Control logic:
+        if dist_error < 0.1:  # close → focus on heading but keep rolling
+            crawl = 0.04  # 4 cm/s always forward (or backward)
+            V = math.copysign(max(abs(env.K1 * ex), crawl), ex)
+            phi = env.K3 * dtheta
+        else:  # far → move and steer
+            V = env.K1 * ex
+            phi = env.K2 * ey + env.K3 * dtheta
+            phi = np.clip(phi, -env.phimax, env.phimax)
+
+        # Convert to wheel speeds
+        omega_r, omega_l = env.compute_wheel_velocities(V, phi)
+
+        # Debug info (optional)
+        # print(f"[CTRL] idx={target_idx} | ex={ex:.2f}, ey={ey:.2f}, dθ={dtheta:.2f} → V={V:.2f}, φ={phi:.2f}")
+
+        # Apply to robot
+        env.control_rover_velocity(omega_l, omega_r, time=control_dt)
 
 
 
