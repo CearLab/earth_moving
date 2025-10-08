@@ -96,7 +96,11 @@ class Controller:
             
             # attributes
             self._variance = 0
-            self._previous_control = np.zeros((1, self._dimension))                              
+            self._previous_control = np.zeros((1, self._dimension))
+            
+        self._Kp_init = self._Kp
+        self._Kd_init = self._Kd
+        self._Ki_init = self._Ki
                         
         self._status = 'IDLE'        
         self._dt = None       
@@ -199,7 +203,13 @@ class Controller:
             neighbourhood_values = neighbourhood[1]
             
             # normalize values                        
-            neighbourhood_values = neighbourhood_values
+            # Rescale all values within 0 and np.linalg.norm(error)
+            min_val = np.min(neighbourhood_values)
+            max_val = np.max(neighbourhood_values)
+            if max_val > min_val:
+                neighbourhood_values = (neighbourhood_values - min_val) / (max_val - min_val) * np.linalg.norm(error)
+            else:
+                neighbourhood_values = np.zeros_like(neighbourhood_values)
             
             # init
             value_list = []
@@ -218,10 +228,11 @@ class Controller:
 
                 # Find the position corresponding to the minimum value in the third column
                 value_array = np.array(value_list)
-                min_index = np.argmin(value_array[:, 2])
+                min_index = np.argmin(value_array[:, 2])                
                 control_repulsive = (value_array[min_index, :2] - self._current_value[-1])
             else:
                 control_repulsive = np.array((0.0, 0.0))
+                beta = 0.0
                 
             # if I'm in the river, my KP increases
             # Select D4 (4-connected) neighbors of the current position
@@ -247,9 +258,9 @@ class Controller:
             error_d = (error - self._error_old)
                 
             # control
-            control=  Kp * (beta * control_repulsive + (1 - beta) * error) \
+            control=  (beta * Kp * control_repulsive) + (1 - beta) * (Kp * error \
                 + Kd * error_d \
-                + Ki * self._error_integral
+                + Ki * self._error_integral)
                                     
         else:
             raise NotImplementedError()

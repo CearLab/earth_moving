@@ -87,11 +87,13 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         self._flow_strength = flow_info.get('strength', 0)         # scalar (0-1)
         self._streams_width = flow_info.get('streams_width', 10)   # stream width in grid cells
         self._river_growth_velocity = flow_info.get('river_growth_velocity', 0.0)
+        self._visits_reset = self._environment.get('visits_reset')
         
         # Growth rate calculation: 2.6% growth per day, 0.00107 per hour (3 weeks to grow grass)
-        # self._grass_growth_rate = 1 * 0.05 * 0.00107
-        self._grass_growth_rate = 1e-6 * self._vegetation_quality_range[1]
-        self._grass_mode = 'additive'  # 'additive' or 'percentage'
+        # self._grass_growth_rate = 1 * 0.01 * 0.00107
+        self._grass_growth_rate = self._environment.get('grass_growth_rate', 1e-5)        
+        self._grass_mode = 'percentage'  # 'additive' or 'percentage'
+        self._grass_growth_interval = self._environment.get('grass_growth_interval')
         
         # map generation mode
         self._map_mode = self._environment.get('map_mode', 'generate')  # 'generate' or 'csv'                
@@ -107,10 +109,11 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
             
             # maps init
             self._map = self._map_original.copy()
-            self._map_visits = self._map_original.copy()            
-            
-        elif self._map_mode == 'generate': 
-            # parse the config file        
+            self._map_visits = self.np.zeros(self._map_original.shape)
+            self._map_visits_roles = self.np.zeros(self._map_original.shape)
+
+        elif self._map_mode == 'generate':
+            # parse the config file
             self._width = self._environment.get('width')
             self._height = self._environment.get('height')                        
             
@@ -135,13 +138,14 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
                 self._vegetation_quality_init_range[0], self._vegetation_quality_init_range[1], size=(self._width, self._height)
             )
             
+            # generate map            
+            self.generate_vegetation()
+            
             # maps init
             self._map = self._map_original.copy()
-            self._map_visits = self._map_original.copy()            
-            
-            # generate map
-            self.generate_streams(n_points=12)
-            self.generate_vegetation()
+            self._map_visits = self.np.zeros(self._map_original.shape)     
+            self._map_visits_roles = self.np.zeros(self._map_original.shape)       
+                        
         else:
             raise ValueError(f"Invalid map mode: {self._map_mode}. Must be 'generate' or 'csv'.")                
         
@@ -176,7 +180,7 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         else:  
             self._time_of_day = 'night'   
     
-    def step_environment(self, dt, map_visits, home_base_position_store, grass_growth_interval) -> None:
+    def step_environment(self, dt, map, map_visits, home_base_position_store, grass_growth_interval, misc) -> None:
         """
         Advance the environment simulation by one time step.
         
@@ -200,26 +204,17 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         self.update_time_of_day()
         
         # update the map
-        self._map = self._map_original.copy()
-        self._map_visits = self._map_original.copy()
+        self._map = map.copy()
+        self._map_visits = map_visits.copy()
+        map_visits_roles = misc.get('map_visits_roles', self.np.zeros(self._map_original.shape))
+        self._map_visits_roles = map_visits_roles.copy()
         self._home_base_position_store = home_base_position_store
-        
-        # scale the map based on the visits
-        fade_thresh = 0
-        fade_speed = 1        
-        self._map_visits[self._map_original > fade_thresh] = self._map_original[self._map_original > fade_thresh] / \
-            (1 + fade_speed * map_visits[self._map_original > fade_thresh]) #! This is a simple scaling, it can be improved                    
-                        
-        # grow grass          
+
+        # grow grass
         self.grow_grass(grass_growth_interval, self._grass_growth_rate, mode=self._grass_mode)
             
         # grow rivers
-        self.grow_rivers()
-                    
-        # grow vegetation clusters
-        if self._map_mode == 'generate':
-            if (self._current_time % self._vegetation_growth_frequency == 0):
-                self.grow_vegetation()                     
+        self.grow_rivers()                            
             
         # prints
         if self._print:
@@ -267,41 +262,33 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         # Get dimensions from the processed data
         self._width, self._height = elevation_data.shape
         
-        # Handle NaN and -1.0 values (masked areas)
-        invalid_mask = (self.np.isnan(elevation_data)) | (elevation_data < 0.0)
-        valid_mask = ~invalid_mask
+        # Replace NaN values with a default value (0.0) for consistent processing
+        elevation_data = self.np.nan_to_num(elevation_data, nan=0.0)
         
-        if self.np.any(valid_mask):            
-            elevation_data[invalid_mask] = self.np.nan
-        else:
-            # If all values are invalid, fill with minimum vegetation quality
-            elevation_data[:] = self._vegetation_quality_range[0]
+        # Linear rescaling to target range
+        min_val = self.np.min(elevation_data)
+        max_val = self.np.max(elevation_data)
         
-        # Rescale data to vegetation quality range
-        min_val = self.np.min(elevation_data[valid_mask])
-        max_val = self.np.max(elevation_data[valid_mask])
-
+        target_min = -self._streams_width
+        target_max = self._vegetation_quality_range[1]
+        
+        # Linear rescaling: (data - data_min) / (data_max - data_min) * (target_max - target_min) + target_min
         if max_val > min_val:
-            # Rescale to vegetation quality range
-            self._map_original = (elevation_data - min_val) / (max_val - min_val) * \
-                               (self._vegetation_quality_range[1] - self._vegetation_quality_range[0]) + \
-                               self._vegetation_quality_range[0]
+            self._map_original = (elevation_data - min_val) / (max_val - min_val) * (target_max - target_min) + target_min
+            rescaling_info = f"Linear rescaling [{min_val:.3f}, {max_val:.3f}] -> [{target_min:.3f}, {target_max:.3f}]"
         else:
-            # If all values are the same, set to middle of range
-            self._map_original = self.np.full_like(elevation_data, 
-                                                 (self._vegetation_quality_range[0] + self._vegetation_quality_range[1]) / 2)
-            
-        # Ensure all negative values in _map_original are set to -self._streams_width
-        #! Here, the streams depth is constant. Maybe we should find a way to have variable
-        #! depth based on the distance from the stream center?
-        self._map_original[invalid_mask] = -self._streams_width
+            # All values are the same
+            self._map_original = elevation_data * 0 + (target_max + target_min) / 2
+            rescaling_info = f"All values are the same ({min_val:.3f}) -> {(target_max + target_min) / 2:.3f}"
                 
         if self._print:
             print(f"Loaded map from NPY: {self._elevation_file_path}")
             print(f"Map size: {self._width} x {self._height}")
             print(f"Original data range: {min_val:.3f} to {max_val:.3f}")
-            print(f"Rescaled to vegetation quality range: {self.np.min(self._map_original):.3f} to {self.np.max(self._map_original):.3f}")
+            print(f"Target range: [{target_min:.3f}, {target_max:.3f}]")
+            print(f"Final map range: {self.np.min(self._map_original):.3f} to {self.np.max(self._map_original):.3f}")
             print(f"Applied coordinate transformation: transpose + 180° rotation")
+            print(f"  {rescaling_info}")
             
                     
     def generate_vegetation(self) -> None:
@@ -357,165 +344,11 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
                     distance = self.np.sqrt(dx**2 + dy**2)
                     #! remark: base_map is increased because vegetation can overlap when generated
                     if self._map_original[nx, ny] >= 0:
-                        self._map_original[nx, ny] += self._vegetation_quality_range[1] * self.np.sqrt(2 * self.np.pi * sigma**2) \
-                                            * norm.pdf(distance, 0.0, sigma)
-                        self._map_original[nx, ny] = self.np.clip(self._map_original[nx, ny], self._vegetation_quality_range[0], 0.6 * self._vegetation_quality_range[1])
+                        start_point = self._map_original[nx, ny].copy()
+                        start_height = 0.01 * self._vegetation_quality_range[1]
+                        self._map_original[nx, ny] = start_point + start_height * self.np.sqrt(2 * self.np.pi * sigma**2) \
+                                            * norm.pdf(distance, 0.0, sigma)                        
                         self._map_original = self.np.clip(self._map_original, -self._streams_width, self._vegetation_quality_range[1])
-        
-        # store clusters
-        found = False
-        for i, cluster in enumerate(self._vegetation_clusters_store):
-            if cluster[1] == cx and cluster[2] == cy:
-                self._vegetation_clusters_store[i] = (cluster[0], cluster[1], cluster[2], cluster_radius)
-                found = True
-                break
-        if not found:
-            self._vegetation_clusters_store.append((self._number_vegetation_clusters  + 1, cx, cy, cluster_radius))
-        self._number_vegetation_clusters = len(self._vegetation_clusters_store)
-        
-    def grow_cluster(self, cx, cy, cluster_radius) -> None:
-        """
-        Expand an existing vegetation cluster by increasing its radius.
-        
-        Removes the existing cluster's vegetation contribution from the map,
-        increases the cluster radius by 1, and regenerates the cluster with
-        the new larger radius. This simulates natural vegetation expansion.
-        
-        Args:
-            cx (int): X-coordinate of the cluster center
-            cy (int): Y-coordinate of the cluster center
-            cluster_radius (int): Current radius of the cluster
-            
-        Side Effects:
-            - Temporarily removes vegetation from the original cluster area
-            - Increases cluster radius by 1
-            - Regenerates the cluster with the new radius
-            - Updates cluster information in storage
-        """
-        
-        # remove previous cluster
-        sigma = module_misc.scale_sigma(self._vegetation_cluster_sigma, cluster_radius)
-        for dx in range(-cluster_radius, cluster_radius + 1):
-            for dy in range(-cluster_radius, cluster_radius + 1):
-                nx, ny = cx + dx, cy + dy
-                if 0 <= nx < self._width and 0 <= ny < self._height:
-                    distance = self.np.sqrt(dx**2 + dy**2)
-                    if self._map_original[nx, ny] > 0:                        
-                        self._map_original[nx, ny] -= self._vegetation_quality_range[1] * self.np.sqrt(2 * self.np.pi * sigma**2) \
-                                            * norm.pdf(distance, 0.0, sigma)
-                        self._map_original[nx, ny] = self.np.clip(self._map_original[nx, ny], 0.05, self._vegetation_quality_range[1])
-        
-        # increase radius 
-        cluster_radius += 1
-        sigma = module_misc.scale_sigma(self._vegetation_cluster_sigma, cluster_radius)
-        self.generate_cluster(cx, cy, cluster_radius)
-        
-    def grow_vegetation(self) -> None:
-        """
-        Trigger growth for all existing vegetation clusters and potentially create new ones.
-        
-        Expands all existing vegetation clusters by calling grow_cluster for each
-        stored cluster. If the current number of clusters is below the maximum
-        allowed, creates a new cluster at a random location with minimum radius.
-        
-        Side Effects:
-            - Grows all existing vegetation clusters
-            - May create new vegetation clusters up to the maximum limit
-            - Updates vegetation cluster storage and counter
-        """                
-        
-        # grow previous clusters
-        for cluster in self._vegetation_clusters_store:
-            cx = cluster[1]
-            cy = cluster[2]
-            cluster_radius = cluster[3]
-            self.grow_cluster(cx, cy, cluster_radius)
-            
-        # generate new cluster   
-        if self._number_vegetation_clusters < self._number_vegetation_clusters_max:
-            cx, cy = self.random.randint(0, self._width - 1), self.random.randint(0, self._height - 1)            
-            self.generate_cluster(cx, cy, cluster_radius=self._vegetation_cluster_radius_range[0])
-            
-    def generate_streams(self, n_points=1) -> None:
-        """
-        Generate meandering water streams across the environment.
-        
-        Creates the specified number of streams that flow from the left side
-        to the right side of the environment. Each stream follows a path
-        defined by start, middle, and end points, creating natural-looking
-        meandering waterways.
-        
-        Args:
-            n_points (int): Number of intermediate control points for stream curvature.
-                Default is 1. Higher values create more complex meandering patterns.
-                
-        Side Effects:
-            - Modifies self._map_original by setting stream areas to negative values
-            - Each stream is generated with configurable width and smoothness
-        """
-        for _ in range(self._streams_number):            
-            
-            # start from the left side
-            bound = int(0.2 * self._height)
-            start = self.np.array((0, self.random.randint(bound, self._height - bound)))
-            end = self.np.array((self._width - 1, self.random.randint(bound, self._height - bound)))
-            
-            # middle points            
-            middle_points = []
-            for i in range(1, n_points + 1):
-                fraction = i / (n_points + 1)
-                x = int(start[0] + fraction * (end[0] - start[0]))                                
-                y = self.random.randint(bound, self._height - bound)
-                middle_points.append(self.np.array((x, y)))                            
-            
-            # generate stream
-            points = [start] + middle_points + [end]
-            self.generate_stream(points, degree=8)
-
-    def generate_stream(self, points, degree=3) -> None:
-        """
-        Generate a single stream following a path defined by control points.
-        
-        Creates a smooth stream path using polynomial interpolation between
-        the provided control points. The stream has a main channel with
-        negative stream width value and surrounding areas with Gaussian-
-        distributed depth values to create realistic riverbank gradients.
-        
-        Args:
-            points (list): List of numpy arrays representing control points
-                [(x1, y1), (x2, y2), ...] that define the stream path
-            degree (int): Polynomial degree for path interpolation. Default is 3
-                for cubic interpolation, providing smooth curves
-                
-        Side Effects:
-            - Sets main stream channel to -(self._streams_width + 1)
-            - Sets surrounding areas to negative values with Gaussian distribution
-            - All stream values are clipped to valid negative range
-            - Uses module_misc.generate_path_from_points for path creation
-        """
-        
-        sigma = 3        
-        num_points = 1000
-        path = module_misc.generate_path_from_points(points, degree, num_points, self._width-1, self._height-1)        
-        for position in path:
-            self._map_original[position[0], position[1]] = -(self._streams_width + 1)
-            
-        extended_path = []
-        for position in path:
-            x, y = position
-            for width in range(2, self._streams_width + 1):
-                limits = self.np.array([[0, self._width - 1], [0, self._height - 1]])                
-                neighbours = module_misc.DN_neighbourhood(position, limits, N=8, step=width-1)
-                for neighbour in neighbours:                    
-                    if not any((neighbour == self.np.array(points)).all() for points in path) and \
-                       not any((neighbour == self.np.array(points)).all() for points in extended_path) and \
-                       module_misc.is_within_limits(neighbour, self._width-1, self._height-1):  
-                            
-                            extended_path.append(neighbour)                         
-                            distance = self.np.sqrt((neighbour[0] - x)**2 + (neighbour[1] - y)**2)
-                            self._map_original[neighbour[0], neighbour[1]] = -self._streams_width * self.np.sqrt(2 * self.np.pi * sigma**2) \
-                                        * norm.pdf(distance, 0.0, sigma)
-                            self._map_original[neighbour[0], neighbour[1]] = self.np.clip(self._map_original[neighbour[0], neighbour[1]], -self._streams_width, -0.05)    
 
     def grow_grass(self, grass_growth_interval, rate, mode) -> None:
         """
@@ -535,19 +368,27 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         """        
         
         # Apply growth to vegetation within the specified interval
-        growth_mask = (self._map_original >= grass_growth_interval[0]) & \
-                      (self._map_original <= grass_growth_interval[1])
+        growth_mask = (self._map >= grass_growth_interval[0]) & \
+                      (self._map <= grass_growth_interval[1])
         
         if self.np.any(growth_mask):
             # Increase by rate, but if value is zero, set to a small positive value
             if mode == 'percentage':
-                self._map_original[growth_mask] = self._map_original[growth_mask] + (1 + rate)            
-                zero_mask = growth_mask & (self._map_original == 0)
+                self._map[growth_mask] = self._map[growth_mask] * (1 + rate)
+                zero_mask = growth_mask & (self._map == 0)
                 if self.np.any(zero_mask):
-                    self._map_original[zero_mask] = rate            
+                    self._map[zero_mask] = 0.1
+                # Clip the grown values between zero and the maximum vegetation quality
+                self._map[growth_mask] = self.np.clip(
+                    self._map[growth_mask], 0, 0.7 * self._vegetation_quality_range[1]
+                )
             # additive rate 
-            elif mode == 'additive':   
-                self._map_original[growth_mask] = self._map_original[growth_mask] + min(rate * self._vegetation_quality_range[1], self._vegetation_quality_range[1])
+            elif mode == 'additive':
+                self._map[growth_mask] = self._map[growth_mask] + min(rate * self._vegetation_quality_range[1], self._vegetation_quality_range[1])
+                    # Clip the grown values between zero and the maximum vegetation quality
+                self._map[growth_mask] = self.np.clip(
+                    self._map[growth_mask], 0, 0.7 * self._vegetation_quality_range[1]
+                )
             else:
                 raise ValueError(f"Invalid growth mode: {mode}. Must be 'percentage' or 'additive'.")
                             
@@ -567,14 +408,14 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         """
         if self._river_growth_velocity > 0:
             # Find all negative values (rivers/water)
-            negative_mask = self._map_original < 0
+            negative_mask = self._map < 0
             
             if self.np.any(negative_mask):
                 # Increase magnitude of negative values by the growth velocity percentage
                 # Since values are negative, we multiply by (1 + growth_velocity) to make them more negative
-                self._map_original[negative_mask] = self._map_original[negative_mask] * (1 + self._river_growth_velocity)
+                self._map[negative_mask] = self._map[negative_mask] * (1 + self._river_growth_velocity)
                 
                 # Saturate at -streams_width to prevent unlimited deepening
-                self._map_original[negative_mask] = self.np.clip(self._map_original[negative_mask], 
+                self._map[negative_mask] = self.np.clip(self._map[negative_mask], 
                                                                -self._streams_width, 0)
         

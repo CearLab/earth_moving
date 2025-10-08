@@ -43,11 +43,21 @@ def main():
     X, Y = np.meshgrid(x, y)
     Z = pivot.values
     
-    # Define square corners in lat/lon (EPSG:4326)
-    NW = (-71.0033967, 42.4345814)
-    SW = (-71.0034071, 42.4328122)
-    SE = (-71.0010287, 42.4328093)
-    NE = (-71.0009986, 42.4345665)
+    # Define square corners in lat/lon (EPSG:4326) - Top-left quarter of original map
+    # Original full map corners:
+    # NW = (-71.0033967, 42.4345814)
+    # SW = (-71.0034071, 42.4328122)
+    # SE = (-71.0010287, 42.4328093)
+    # NE = (-71.0009986, 42.4345665)
+    
+    # Calculate midpoints for top-left quarter
+    # Longitude midpoint: (-71.0033967 + -71.0009986) / 2 = -71.0021977
+    # Latitude midpoint: (42.4345814 + 42.4328122) / 2 = 42.4336968
+    
+    NW = (-71.0033967, 42.4345814)  # Keep original NW corner
+    SW = (-71.0034071, 42.4336968)  # Original SW longitude, midpoint latitude  
+    SE = (-71.0021977, 42.4336968)  # Midpoint longitude, midpoint latitude
+    NE = (-71.0021977, 42.4345814)  # Midpoint longitude, original N latitude
     
     # Order the corners around the square (clockwise or CCW)
     square = [NW, SW, SE, NE]
@@ -147,7 +157,7 @@ def main():
     y_indices = np.where(y_mask)[0]
     x_indices = np.where(x_mask)[0]
     Z_cropped = Z_clip_rescaled[np.ix_(y_indices, x_indices)]
-    
+
     # Save rescaled clipped elevation matrix (0-1 range) - cropped to actual bounds
     np.save(f"{output_dir}/elevation.npy", Z_cropped)
     
@@ -209,13 +219,14 @@ def main():
         (-71.0023061, 42.4331649),
         (-71.0023650, 42.4332255)
     ]
-    
+    # trees = []
     print(f"\nAdding vegetation clusters using BeaversEnvironmentBackend...")
     
     # Add vegetation clusters to the rescaled matrix using environment backend
     Z_with_vegetation, env_backend = add_vegetation_clusters_with_environment_backend(
-        Z_clip_rescaled, X, Y, trees, 
-        cluster_radius=6  # 6-cell radius clusters
+        Z_clip_rescaled, X, Y, trees,         
+        cluster_sigma=1e0,
+        cluster_radius=5
     )
     
     # Create enhanced visualization including vegetation
@@ -283,11 +294,11 @@ def main():
     print(f"- Y_coordinates.npy: {Y_clipped.shape} (cropped coordinates)")
     print(f"- Coordinate ranges: x[{x_clipped.min():.2f}, {x_clipped.max():.2f}], y[{y_clipped.min():.2f}, {y_clipped.max():.2f}]")
     print(f"- Added vegetation using BeaversEnvironmentBackend with {len(trees)} tree positions")
-    print(f"- Vegetation parameters: radius=3, sigma={env_backend._vegetation_cluster_sigma}")
-    
+    print(f"- Vegetation parameters: radius={env_backend._vegetation_cluster_radius_range}, sigma={env_backend._vegetation_cluster_sigma}")
+
     return df, pivot, X, Y, Z, Z_clip_debug, Z_clip_rescaled, inside_grid, Z_with_vegetation, env_backend
 
-def add_vegetation_clusters_with_environment_backend(Z_matrix, X_coords, Y_coords, tree_positions, cluster_radius=3):
+def add_vegetation_clusters_with_environment_backend(Z_matrix, X_coords, Y_coords, tree_positions, cluster_sigma, cluster_radius=3):
     """
     Add vegetation clusters (trees) using the BeaversEnvironmentBackend generate_cluster method.
     
@@ -329,12 +340,12 @@ def add_vegetation_clusters_with_environment_backend(Z_matrix, X_coords, Y_coord
             'width': Z_matrix.shape[1],
             'height': Z_matrix.shape[0],
             'vegetation_quality_range': [0.0, 1.0],            
-            'vegetation_cluster_sigma': 4.0,
+            'vegetation_cluster_sigma': cluster_sigma,
             'vegetation_cluster_radius_range': [cluster_radius-1, cluster_radius+1],
             'number_vegetation_clusters_init': 0,  # Start with no clusters, we'll add them manually
             'number_vegetation_clusters_max': int(1e3),  # Allow space for tree positions
             'streams_number': 0,  # No streams generation since we have real DEM data
-            'streams_width': 10,
+            'streams_width': 1,
             'print': True
         }
     }
@@ -380,151 +391,6 @@ def add_vegetation_clusters_with_environment_backend(Z_matrix, X_coords, Y_coord
     
     return Z_with_vegetation, env_backend
 
-def process_dem_with_vegetation():
-    """
-    Process DEM data and add predefined vegetation clusters using BeaversEnvironmentBackend.
-    
-    This function combines the main DEM processing with vegetation placement using
-    the same vegetation generation system used in the earth-moving simulation.
-    This ensures consistency between the map preprocessing and simulation behavior.
-    
-    The vegetation clusters are generated using the environment backend's 
-    generate_cluster() method, which applies Gaussian-distributed vegetation
-    with proper scaling and clipping according to the simulation parameters.
-    """
-    
-    # Define tree positions (longitude, latitude)
-    trees = [
-        (-71.0023732, 42.4342306),
-        (-71.0022981, 42.4342667),
-        (-71.0021906, 42.4342576),
-        (-71.0023338, 42.4341820),
-        (-71.0022339, 42.4341919),
-        (-71.0023810, 42.4341250),
-        (-71.0023230, 42.4340780),
-        (-71.0022175, 42.4341122),
-        (-71.0022483, 42.4340604),
-        (-71.0020275, 42.4342362),
-        (-71.0019681, 42.4341905),
-        (-71.0020670, 42.4341710),
-        (-71.0019821, 42.4341208),
-        (-71.0020780, 42.4341045),
-        (-71.0020140, 42.4340533),
-        (-71.0021279, 42.4340349),
-        (-71.0020593, 42.4340025),
-        (-71.0019668, 42.4339677),
-        (-71.0021543, 42.4339098),
-        (-71.0020949, 42.4338566),
-        (-71.0020142, 42.4338449),
-        (-71.0020849, 42.4337932),
-        (-71.0019712, 42.4337882),
-        (-71.0020076, 42.4337352),
-        (-71.0021108, 42.4337290),
-        (-71.0022022, 42.4337216),
-        (-71.0020904, 42.4336690),
-        (-71.0019915, 42.4336875),
-        (-71.0018813, 42.4336161),
-        (-71.0018026, 42.4335459),
-        (-71.0019163, 42.4335420),
-        (-71.0022453, 42.4335938),
-        (-71.0021175, 42.4335351),
-        (-71.0022228, 42.4335263),
-        (-71.0023990, 42.4335306),
-        (-71.0022980, 42.4334734),
-        (-71.0021420, 42.4334536),
-        (-71.0021558, 42.4334090),
-        (-71.0022649, 42.4334137),
-        (-71.0024246, 42.4334385),
-        (-71.0023647, 42.4333808),
-        (-71.0022889, 42.4332805),
-        (-71.0021808, 42.4332686),
-        (-71.0020813, 42.4332633),
-        (-71.0020588, 42.4331979),
-        (-71.0020843, 42.4331193),
-        (-71.0021518, 42.4331848),
-        (-71.0021964, 42.4331169),
-        (-71.0022206, 42.4332092),
-        (-71.0023061, 42.4331649),
-        (-71.0023650, 42.4332255)
-    ]
-    
-    # Process the main DEM data
-    df, pivot, X, Y, Z, Z_clip_debug, Z_clip_rescaled, inside_grid = main()
-    
-    # Add vegetation clusters to the rescaled matrix using environment backend
-    Z_with_vegetation, env_backend = add_vegetation_clusters_with_environment_backend(
-        Z_clip_rescaled, X, Y, trees, 
-        cluster_radius=10  # 3-cell radius clusters
-    )
-    
-    # Create comparison visualization
-    plt.figure(figsize=(15, 5))
-    
-    # Original clipped data
-    plt.subplot(1, 3, 1)
-    plt.imshow(Z_clip_rescaled, extent=[X.min(), X.max(), Y.min(), Y.max()], 
-               origin='lower', cmap='terrain')
-    plt.title('Original Clipped DEM')
-    plt.colorbar(label='Elevation')
-    
-    # Data with vegetation
-    plt.subplot(1, 3, 2)
-    plt.imshow(Z_with_vegetation, extent=[X.min(), X.max(), Y.min(), Y.max()], 
-               origin='lower', cmap='terrain')
-    plt.title('DEM with Vegetation Clusters')
-    plt.colorbar(label='Elevation + Vegetation')
-    
-    # Difference (vegetation only)
-    vegetation_diff = Z_with_vegetation - Z_clip_rescaled
-    plt.subplot(1, 3, 3)
-    plt.imshow(vegetation_diff, extent=[X.min(), X.max(), Y.min(), Y.max()], 
-               origin='lower', cmap='Greens')
-    plt.title('Vegetation Layer Only')
-    plt.colorbar(label='Vegetation Height')
-    
-    plt.tight_layout()
-    plt.show()
-    
-    # Save the result with vegetation
-    output_dir = "earth_moving/clutter/csv_analysis/output"
-    os.makedirs(output_dir, exist_ok=True)
-    
-    # Create cropped version matching the original bounds
-    xs = [p[0] for p in [(-71.0033967, 42.4345814), (-71.0034071, 42.4328122), 
-                        (-71.0010287, 42.4328093), (-71.0009986, 42.4345665)]]
-    ys = [p[1] for p in [(-71.0033967, 42.4345814), (-71.0034071, 42.4328122), 
-                        (-71.0010287, 42.4328093), (-71.0009986, 42.4345665)]]
-    tf = Transformer.from_crs("EPSG:4326", "EPSG:2249", always_xy=True)
-    square_xy = [tf.transform(lon, lat) for lon, lat in [(-71.0033967, 42.4345814), (-71.0034071, 42.4328122), (-71.0010287, 42.4328093), (-71.0009986, 42.4345665)]]
-    xs_transformed = [p[0] for p in square_xy]
-    ys_transformed = [p[1] for p in square_xy]
-    xmin, xmax = min(xs_transformed), max(xs_transformed)
-    ymin, ymax = min(ys_transformed), max(ys_transformed)
-    
-    x = np.sort(df["x"].unique())
-    y = np.sort(df["y"].unique())
-    
-    x_mask = (x >= xmin) & (x <= xmax)
-    y_mask = (y >= ymin) & (y <= ymax)
-    
-    y_indices = np.where(y_mask)[0]
-    x_indices = np.where(x_mask)[0]
-    Z_vegetation_cropped = Z_with_vegetation[np.ix_(y_indices, x_indices)]
-    
-    # Save vegetation-enhanced elevation matrix
-    np.save(f"{output_dir}/elevation_with_vegetation.npy", Z_vegetation_cropped)
-    
-    print(f"\nSaved vegetation-enhanced data:")
-    print(f"- elevation_with_vegetation.npy: {Z_vegetation_cropped.shape}")
-    print(f"- Added vegetation clusters using BeaversEnvironmentBackend")
-    print(f"- Vegetation parameters: radius={3}, sigma={env_backend._vegetation_cluster_sigma}")
-    print(f"- Vegetation quality range: {env_backend._vegetation_quality_range}")
-    
-    return Z_with_vegetation, env_backend
-
 if __name__ == "__main__":
     # Run the basic processing
     main()
-    
-    # Uncomment the line below to run with vegetation clusters
-    # process_dem_with_vegetation()

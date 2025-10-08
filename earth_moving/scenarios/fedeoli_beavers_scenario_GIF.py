@@ -9,7 +9,8 @@ def fedeoli_beavers_scenario_GIF(config):
     
     # Create a directory to store the images
     output_dir = config.get('simulation').get('output_dir')
-    output_dir_frames = os.path.join(output_dir, 'frames')    
+    output_dir_frames = os.path.join(output_dir, 'frames')   
+    save_path = config.get('simulation').get('save_path') 
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(output_dir_frames, exist_ok=True)
     
@@ -29,7 +30,7 @@ def fedeoli_beavers_scenario_GIF(config):
     for i in tqdm(range(number_of_steps)):
         
         if i % downsampling == 0:
-            Backend.plot_environment_with_heatmap()        
+            Backend.plot_environment_with_heatmap(plot_agents=False)        
             
             # Set figure size
             # Backend._fig.set_size_inches(10, 10)  # Adjust the size as needed
@@ -45,6 +46,7 @@ def fedeoli_beavers_scenario_GIF(config):
         Backend.step()
         clear_output(wait=True)
     
+    Backend.save_environment_map(save_path)
     # Create a GIF from the saved images
     file_name = f"DAYS{number_of_steps/24}\
         _NAGENTS{config.get('simulation').get('number_of_agents')}\

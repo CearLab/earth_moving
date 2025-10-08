@@ -101,11 +101,9 @@ def matrix_gradient(matrix, neighbours) -> np.array:
         x, y = neighbour
         if 0 <= x < matrix.shape[0] and 0 <= y < matrix.shape[1]:
             dx, dy = x - global_center_x, y - global_center_y
-            if -dd <= dx <= dd and -dd <= dy <= dd:  # Ensure neighbour fits in the 3x3 matrix
-                if not np.isnan(matrix[x, y]):
-                    values_matrix[center_x + dx, center_y + dy] = matrix[x, y]
-                    if not np.isnan(matrix[global_center_x, global_center_y]):
-                        gradient_matrix[center_x + dx, center_y + dy] = matrix[x, y] - matrix[global_center_x, global_center_y]
+            if -dd <= dx <= dd and -dd <= dy <= dd:
+                values_matrix[center_x + dx, center_y + dy] = matrix[x, y] 
+                gradient_matrix[center_x + dx, center_y + dy] = matrix[x, y] - matrix[global_center_x, global_center_y]
     
     return gradient_matrix, values_matrix
 

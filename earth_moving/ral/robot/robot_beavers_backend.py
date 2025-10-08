@@ -291,7 +291,8 @@ class BeaversRobotBackend(BaseRobotBackend):
         # parse _robot
         self._maximum_load = self._robot.get('maximum_load') 
         if self._maximum_load is None:
-            self._maximum_load = self.np.inf   
+            self._maximum_load = self.np.inf
+        self._maximum_load_init = self._maximum_load
         self._print = self._robot.get('print')
         
         # custom attributes                        
@@ -303,13 +304,29 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._exploration_N_recovery = self._robot.get('exploration_N_recovery')
         self._motion_consumption = self._robot.get('motion_consumption')
         self._load_consumption = self._robot.get('load_consumption')
-        self._harvest_consumption = self._robot.get('harvest_consumption')
-        self._harvest_threshold = self._robot.get('harvest_threshold')
+        self._harvest_consumption = self._robot.get('harvest_consumption')        
         self._sleep_recovery = self._robot.get('sleep_recovery')
         self._vegetation_removal = self._robot.get('vegetation_removal')
         self._measurement_mode = self._robot.get('measurement_mode')
         self._home_base_position = list(self._robot.get('home_base_position'))[0]
         self._home_base_position_store = list(self._robot.get('home_base_position'))
+        self._stomping_interval = self._robot.get('stomping_interval')
+        self._stomping_removal = self._robot.get('stomping_removal')
+        self._n_traces = self._robot.get('n_traces')
+        self._decay_values = self._robot.get('decay_values')
+        
+        self._harvest_threshold_list = self._robot.get('harvest_threshold')
+        means = self.np.mean(self._harvest_threshold_list, axis=0)
+        if isinstance(self._harvest_threshold_list, list) and len(self._harvest_threshold_list) > 0:
+                base = list(self.random.choice(self._harvest_threshold_list))
+                # Randomly select a position around the chosen home base within the allowed range
+                self._harvest_threshold = base
+                if base[0] > means[0]:
+                    self._role = 'explorer'
+                else:
+                    self._role = 'expander'
+        else:
+            raise ValueError('harvest_threshold must be a non-empty list for random_home initialization')
 
         # other attributes
         self._current_time = 0 #! this is a counter. Agent does not compute the hour/time of the day. It will be provided by the environment        
@@ -403,7 +420,10 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._task_store = []
         self._time_store = []
         self._exploration_eta_store = []        
+        self._harvest_threshold_store = []
+        self._maximum_load_store = []
         self._exploration_eta_init = self._exploration_eta
+        self._harvest_threshold_init = self._harvest_threshold.copy()
         self._wait_b4_explore_init = 1*24
         self._wait_b4_explore = 0
         return self
@@ -505,7 +525,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._map_quality_measure_position = self._map_quality_measure[1][-1] 
         
         # update the local_map according to the measurements
-        self.update_local_map(self._map_quality_measure)
+        self.update_local_map(self._map_quality_measure, misc)
         self._map_quality_update = False #! reset the flag
         
         if self._current_time % self._reset_integral == 0:
@@ -516,8 +536,9 @@ class BeaversRobotBackend(BaseRobotBackend):
         self.do_task(time_of_day, limits, misc)
         # update energy
         self.update_energy()
-        # self.select_exploration_eta(dt=self._wait_b4_explore_init)            
-        
+        #! decay order parameter: exploration_eta, harvest_threshold, maximum_load
+        self.select_exploration_eta(dt=self._wait_b4_explore_init, dt_percentage=0.1, decay=self._decay_values)
+
         #! this is where we change/actuate the environment
         if (self._current_task == 'harvest' and self._status_task == 'FINISHED') or \
             (self._current_task == 'store' and \
@@ -529,12 +550,12 @@ class BeaversRobotBackend(BaseRobotBackend):
         # update the local_map according to the action
         if self._map_quality_update == True:
             self._map_quality_measure = [[self._position], [self._map_quality_measure_position]]
-            self.update_local_map(self._map_quality_measure)
+            self.update_local_map(self._map_quality_measure, misc)
         #! here I also account for the stomping effect
-        if self._local_map[self._position[0], self._position[1]] > 0:
-            stomped_val = max(0,self._local_map[self._position[0], self._position[1]] - 0.02 * self._vegetation_quality_range[1])
-            self._local_map[self._position[0], self._position[1]] = stomped_val
-            self._map_quality_measure_position = stomped_val
+        if self._local_map[self._position[0], self._position[1]] > self._stomping_interval[0] \
+            and self._local_map[self._position[0], self._position[1]] < self._stomping_interval[1]:
+            stomped_val = max(0,self._local_map[self._position[0], self._position[1]] - self._stomping_removal)
+            self._local_map[self._position[0], self._position[1]] = stomped_val            
         self._map_quality_measure_position = self._local_map[self._position[0], self._position[1]]
             
 
@@ -548,6 +569,8 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._task_store.append(self._current_task)
         self._time_store.append(time_of_day)
         self._exploration_eta_store.append(self._exploration_eta)
+        self._harvest_threshold_store.append(self._harvest_threshold.copy())
+        self._maximum_load_store.append(self._maximum_load)
         
         # prints
         if self._print:
@@ -704,6 +727,7 @@ class BeaversRobotBackend(BaseRobotBackend):
             (self._load >= self.np.floor(self._maximum_load) or self._in_water_counter > 30):
             self._current_task = 'store'                
         elif cond_atomic and \
+            self._vegetation_removal > 0 and \
             self._map_quality_measure_position > 1 * self._harvest_threshold[0] and \
             self._map_quality_measure_position < self._harvest_threshold[1] and \
             self._harvesting_actions_counter < self._harvesting_actions_limit and \
@@ -1052,6 +1076,9 @@ class BeaversRobotBackend(BaseRobotBackend):
         
         # do the action        
         self._current_action = 'move'
+        self._controller._Kp = 0.5 * self._controller._Kp_init
+        self._controller._Kd = 0.5 * self._controller._Kd_init
+        self._controller._Ki = 0.5 * self._controller._Ki_init
         success = self.do_action(time_of_day, limits, misc)
         
         # close the task
@@ -1059,6 +1086,9 @@ class BeaversRobotBackend(BaseRobotBackend):
             # transfer the load to the home base
             if self._status_motion == 'FINISHED':                
                 self.store_vegetation(time_of_day, limits)                                
+                self._controller._Kp = self._controller._Kp_init
+                self._controller._Kd = self._controller._Kd_init
+                self._controller._Ki = self._controller._Ki_init
                 self._status_task = 'FINISHED'
                 self._current_action = 'idle'                
         
@@ -1078,21 +1108,21 @@ class BeaversRobotBackend(BaseRobotBackend):
             self._controller.step(setpoint, self._position)
         elif self._controller._name == 'P_repulsive':            
             setpoint = self._motion_destination
-            _neighbourhood = module_misc.DN_neighbourhood(self._position, limits, N=self._controller._neighbourhood_size)
+            _neighbourhood = module_misc.DN_neighbourhood(self._position, limits, N=self._controller._neighbourhood_size)                        
             
-            map_repulsive = self.np.zeros(self._local_map.shape)
-            map_repulsive[self.np.isnan(map_repulsive)] = 0
-            map_repulsive[self._local_map >= self._harvest_threshold[0]] = self._controller._vegetation_barrier[0]
-            map_repulsive[self._local_map > self._harvest_threshold[1]] = self._controller._vegetation_barrier[1]
-            map_repulsive[self._local_map < 0] = self._controller._river_barrier
-                        
+            map_repulsive = self._local_map.copy()            
+            map_repulsive = map_repulsive / self.np.max(map_repulsive)
+
+            # explore farther from home base
+            distance_from_home = self.np.linalg.norm(self.np.array(self._position) - self.np.array(self._home_base_position))
+            
             if self._controller._map_repulsive is 'vegetation_quality':
                 self._local_map_control = map_repulsive
             elif self._controller._map_repulsive is 'vegetation_visits':                
-                self._local_map_control = map_repulsive / (1 + self._local_map_visits)
+                self._local_map_control = 1 / (1 + (self._local_map_visits)/self.np.max(self._local_map_visits))            
             else:
-                raise ValueError('Invalid map_repulsive value: {}'.format(self._controller._map_repulsive))                                
-                        
+                raise ValueError('Invalid map_repulsive value: {}'.format(self._controller._map_repulsive))                                                                    
+
             # control - get base neighborhood values
             _neighbourhood_values = [self._local_map_control[int(pos[0]), int(pos[1])] for pos in _neighbourhood]                        
             
@@ -1187,6 +1217,9 @@ class BeaversRobotBackend(BaseRobotBackend):
             if available_space > 0:
                 removed_load = min(available_space, self._load)
                 self._map_quality_measure_position += removed_load
+                self._map_quality_measure_position = self.np.clip(self._map_quality_measure_position, 
+                                                                 self._vegetation_quality_range[0],
+                                                                 self._vegetation_quality_range[1])
                 self._load -= removed_load
                 return True
             else:
@@ -1312,17 +1345,15 @@ class BeaversRobotBackend(BaseRobotBackend):
                 
         position = self._position
 
-        #! BEHAVIORAL LOGIC MODEL
-        # exploration_map
-        if self._exploration_map is 'vegetation_quality':
-            local_map = self._local_map
-            # local_map = 1 / (1 + self._local_map)
+        #! BEHAVIORAL LOGIC MODEL 
+        eps = 1e-6       
+        threshold_mask = (self._local_map >= self._harvest_threshold[0]) & (self._local_map <= self._harvest_threshold[1])        
+        if self._exploration_map is 'vegetation_quality':            
+            local_map = (eps + self._local_map.copy())**2
+            local_map[~threshold_mask] = 0.0
         elif self._exploration_map is 'vegetation_visits':
-            # exploration cost function
-            # local_map = self._local_map / (1 + self._local_map_visits)
-            local_map = (self._local_map_visits) + 1 / (1 + self._local_map)
-            # local_map = (self._local_map_visits) + (self._local_map)
-            # local_map = 1 / ((self._local_map_visits) + (1 * self._local_map))            
+            local_map = (1 + self._local_map_visits.copy()) / (1 + self._local_map.copy())
+            local_map[~threshold_mask] = 0.0
         else:
             raise ValueError('Invalid exploration_map value: {}'.format(self._exploration_map))
         
@@ -1343,18 +1374,10 @@ class BeaversRobotBackend(BaseRobotBackend):
         if exploration_suffix not in [0, 4, 8, 24, 40, 80]:
             raise ValueError('Invalid exploration mode: {}'.format(self._exploration_mode))                
             
-        if exploration_prefix == 'D':
-            N, NF, NI = module_beaver.exploration_DN(position, limits, N=exploration_suffix, home_base_store=self._home_base_position_store)
-        elif exploration_prefix == 'random_D':
-            N, NF, NI = module_beaver.exploration_random_DN(position, limits, N=exploration_suffix, home_base_store=self._home_base_position_store)
-        elif exploration_prefix == 'gradient_D':
+        if exploration_prefix == 'gradient_D':
             N, NF, NI = module_beaver.exploration_gradient_DN(position, limits, local_map, N=exploration_suffix, \
-                home_base_store=self._home_base_position_store, max_vegetation=self._harvest_threshold, eta=self._exploration_eta, \
-                N_recovery=self._exploration_N_recovery)
-        elif exploration_prefix == 'softmax_D':            
-            N, NF, NI = module_beaver.exploration_softmax_DN(position, limits, local_map, N=exploration_suffix, \
-                home_base_store=self._home_base_position_store, max_vegetation=self._harvest_threshold, eta=self._exploration_eta,
-                N_recovery=self._exploration_N_recovery)
+                home_base_store=self._home_base_position_store, eta=self._exploration_eta, \
+                N_recovery=self._exploration_N_recovery)        
         else:
             raise ValueError('Invalid exploration mode: {}'.format(self._exploration_mode))            
         
@@ -1363,30 +1386,28 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._neighbourhood_current_index = NI
         
         
-    def update_local_map(self,map_quality) -> None:
-        
+    def update_local_map(self,map_quality, misc=None) -> None:                
+
         # Ensure the local map is initialized
         if self._local_map is None:
             self._local_map = self.np.ones((1, 1)) * self.np.nan            
-            if self._local_map_visits is None:
-                self._local_map_visits = self.np.zeros((1, 1))
             
         # positions
         measure_positions = map_quality[0]
         measure_values = map_quality[1]
-        
+
         # reset visits
-        N_reset = self._controller._visits_reset
-        increase = 1
+        bias = 1
+        delta_store = self.np.diff(self._load_store[-(self._n_traces+1):-1]) if len(self._load_store) > self._n_traces else 0
+        delta_load = bias + self.np.sum(delta_store)
+        increase = delta_load
             
         # if I see the whole map
         if map_quality[0] is 'all':            
-            self._local_map = measure_values[0]                                          
-                      
-            if self._local_map_visits.shape != self._local_map.shape:
-                self._local_map_visits = self.np.zeros(self._local_map.shape)
-            self._local_map_visits[self._position[0], self._position[1]] += increase
-            self._local_map_visits = self._local_map_visits * N_reset
+            self._local_map = measure_values[0]
+            global_map_visits = misc.get('visits', None)
+            self._local_map_visits = global_map_visits                                
+            self._local_map_visits[self._position[0], self._position[1]] += increase            
             return                    
 
         # Expand the matrix if the position is out of bounds
@@ -1395,26 +1416,16 @@ class BeaversRobotBackend(BaseRobotBackend):
         if x >= self._local_map.shape[0]:
             # local map
             self._local_map = self.np.pad(self._local_map, ((0, x - self._local_map.shape[0] + 1), (0, 0)), 
-                                                mode='constant', constant_values=self.np.nan)
-            
-            # local map visits
-            self._local_map_visits = self.np.pad(self._local_map_visits, ((0, x - self._local_map_visits.shape[0] + 1), (0, 0)), 
-                                                mode='constant', constant_values=0)                        
+                                                mode='constant', constant_values=self.np.nan)                        
             
         if y >= self._local_map.shape[1]:
             # local map
             self._local_map = self.np.pad(self._local_map, ((0, 0), (0, y - self._local_map.shape[1] + 1)), 
-                                                mode='constant', constant_values=self.np.nan)
-            
-            # local map visits
-            self._local_map_visits = self.np.pad(self._local_map_visits, ((0, 0), (0, y - self._local_map_visits.shape[1] + 1)), 
-                                                mode='constant', constant_values=0)                        
+                                                mode='constant', constant_values=self.np.nan)                        
 
         # Update the vegetation quality at the current position        
         for pos, val in zip(measure_positions, measure_values):            
-            self._local_map[pos[0], pos[1]] = val 
-        self._local_map_visits[self._position[0], self._position[1]] += increase    
-        self._local_map_visits = self._local_map_visits * N_reset
+            self._local_map[pos[0], pos[1]] = val        
         
         # remember how much I was in the water
         if self._local_map[self._position[0], self._position[1]] < 0:
@@ -1454,17 +1465,31 @@ class BeaversRobotBackend(BaseRobotBackend):
             )
         )
 
-    def select_exploration_eta(self, dt):
+    def select_exploration_eta(self, dt, dt_percentage, decay):
+        
+        decay_eta = decay[0]        
+        harvest_decay = decay[1]
+        load_decay = decay[2]
+        
         load_derivative = self.np.diff(self._load_store[-(dt+1):-1])
         self._wait_b4_explore += 1
         if len(load_derivative) >= dt-1 and self._wait_b4_explore >= dt:
-            self._wait_b4_explore = 0
-            load_derivative_mean = self.np.mean(load_derivative)
+            self._wait_b4_explore = 0            
             if any(load_derivative < 0) :
                 self._exploration_eta = self._exploration_eta_init
-            elif (load_derivative < 0).sum() < 5:
-                self._exploration_eta = min(max(0.01*self._exploration_eta_init, 0.5 * self._exploration_eta), 5*self._exploration_eta_init)
+                self._harvest_threshold = self._harvest_threshold_init
+                self._maximum_load = self._maximum_load_init
+            elif (load_derivative > 0).sum() < dt_percentage * dt:
+                self._exploration_eta = (1-decay_eta) * self._exploration_eta
+                self._maximum_load = (1-load_decay) * self._maximum_load
+                self._harvest_threshold = [(1-harvest_decay) * self._harvest_threshold[0], (1+harvest_decay) * self._harvest_threshold[1]]
             else:
-                self._exploration_eta = min(max(0.01*self._exploration_eta_init, 2 * self._exploration_eta), 5*self._exploration_eta_init)
-        else:
-            self._exploration_eta = self._exploration_eta_init
+                self._exploration_eta = (1+decay_eta) * self._exploration_eta
+                self._maximum_load = (1+load_decay) * self._maximum_load
+                self._harvest_threshold = [(1+harvest_decay) * self._harvest_threshold[0], (1-harvest_decay) * self._harvest_threshold[1]]
+
+            self._exploration_eta = self.np.clip(self._exploration_eta, 1e-2, 10)
+            self._maximum_load = self.np.clip(self._maximum_load, 0.0, self.np.inf)
+            self._harvest_threshold[0] = self.np.clip(self._harvest_threshold[0], 0.0, self._vegetation_quality_range[1])
+            self._harvest_threshold[1] = self.np.clip(self._harvest_threshold[1], 0.0, self._vegetation_quality_range[1])
+            self._harvest_threshold = sorted(self._harvest_threshold)

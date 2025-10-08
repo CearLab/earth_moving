@@ -113,7 +113,7 @@ class ColorMaps():
         self._agent_markersize_night = 20
         self._agent_markersize_small_night = 10
         self._agent_markerfacecolor_night = '#f8f9fa' # light grey
-        self._agent_markeredgecolor_night = self._light_gray # light grey
+        self._agent_markeredgecolor_night = self._black # black
         self._agent_markeredgewidth_night = 1
         self._agent_markeralpha_night = 1.0                                               
         
@@ -129,7 +129,9 @@ class ColorMaps():
         self._battery_markersize = 20
         self._battery_markeredgecolor = self._light_gray # light grey
         self._battery_markeredgewidth = 1
-        self._battery_markeralpha = 1.0                
+        self._battery_markeralpha = 1.0   
+        
+        self._visits_colormap = cc.LinearSegmentedColormap.from_list("visits_colormap", ['blue', self._light_gray, 'red'])             
         
         # green colormap - daylight
         self._green_colors_list = [(0, self._background_color),
@@ -212,9 +214,9 @@ class ColorMaps():
                                             (0.60, lightgreen),
                                             (0.70, mediumgreen),
                                             (0.80, tangreen),
-                                            (0.85, darkgreen),
-                                            (0.90, mediumbrown),
-                                            (1.00, darkbrown)]        
+                                            (0.85, tangreen),
+                                            (0.95, darkgreen),
+                                            (1.00, mediumbrown)]        
         self._bluebrowngreen_colormap = cc.LinearSegmentedColormap.from_list("bluebrowngreen_colormap",self._bluebrowngreen_colors_list)
         self._bluebrowngreen_colormap_alpha = alpha_brown
         

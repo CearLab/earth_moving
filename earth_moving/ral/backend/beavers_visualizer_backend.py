@@ -113,7 +113,7 @@ class BeaversVisualizerBackend(BaseBackend, Model):
         self._height = self._environment._height                 
         self._grid = MultiGrid(self._width, self._height, torus=False) #! why are the dimension set in the opposite order?        
         
-        # generate beavers
+        # generate beaversBeaversVisualizerBackend
         for i in range(self._N_agents):            
             agent = BeaversVisualizerAgent(i, self, **kwargs)
             self._grid.place_agent(agent, (agent._position[0], agent._position[1]))
@@ -205,7 +205,8 @@ class BeaversVisualizerBackend(BaseBackend, Model):
         vmax = self._environment._vegetation_quality_range[1]        
         
         # always same color (regardless river)
-        v_normalizer = vmax              
+        v_normalizer = vmax         
+        # v_normalizer = 1     
         # different colors
         # v_normalizer = vmax - vmin
         
@@ -251,101 +252,158 @@ class BeaversVisualizerBackend(BaseBackend, Model):
         battery_markeredgewidth = self._color_maps._battery_markeredgewidth
         battery_markeralpha = self._color_maps._battery_markeralpha
                                         
-        ## FIG1 - ENVIRONMENT
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+        ## FIG1 - LOCAL MAPS (1x3 subplots: local_map_init, local_map, local_map_visits)
+        fig = plt.figure(figsize=(25, 8))
+        ax1 = plt.subplot(1, 3, 1)  # Left
+        ax2 = plt.subplot(1, 3, 2)  # Middle  
+        ax3 = plt.subplot(1, 3, 3)  # Right
+        
+        # Get first agent for local map visualization
+        first_agent = None
+        for agent in self._schedule.agents:
+            if isinstance(agent, BeaversVisualizerAgent):
+                first_agent = agent
+                break
+        
+        if first_agent is None:
+            print("No agents found for local map visualization")
+            return
                 
-        # box around the environment        
+        # box around the local maps        
         box_margin = 0.5
-        box_left = plt.Rectangle((0, 0), self._width-1, self._height-1, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
-        box_right = plt.Rectangle((0, 0), self._width-1, self._height-1, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
+        map_width = first_agent._local_map.shape[0] if first_agent._local_map is not None else self._width
+        map_height = first_agent._local_map.shape[1] if first_agent._local_map is not None else self._height
+        
+        box_left = plt.Rectangle((0, 0), map_width-1, map_height-1, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
+        box_middle = plt.Rectangle((0, 0), map_width-1, map_height-1, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
+        box_right = plt.Rectangle((0, 0), map_width-1, map_height-1, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
         ax1.add_patch(box_left)
-        ax2.add_patch(box_right)
+        ax2.add_patch(box_middle)
+        ax3.add_patch(box_right)
 
-        # Normalize maps
-        map_normalized = self._environment._map / v_normalizer
-        initial_map_normalized = self._environment._initial_map / v_normalizer
+        # Get local maps from first agent
+        if first_agent._local_map is not None:
+            local_map = self._environment._map
+            local_map_visits = self._environment._map_visits_roles
+            
+            # Create initial local map (use environment's initial map cropped to local map size)
+            local_map_init = self._environment._initial_map[:map_width, :map_height]
+            
+            # Normalize maps
+            local_map_init_normalized = local_map_init / v_normalizer
+            local_map_normalized = local_map / v_normalizer
+            
+            # For visits map, use different normalization            
+            max_visits = first_agent._maximum_load_init
+            local_map_visits_normalized = local_map_visits / max_visits
 
-        # Plot initial map on the left (ax1)
-        im1 = ax1.imshow(initial_map_normalized.transpose(), origin='lower', 
-                         cmap=map_colormap, alpha=alpha_map,
-                         vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
+            # Plot local_map_init on the left (ax1)
+            im1 = ax1.imshow(local_map_init_normalized.transpose(), origin='lower', 
+                             cmap=map_colormap, alpha=alpha_map,
+                             vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
+            
+            # Plot current local_map in the middle (ax2)
+            im2 = ax2.imshow(local_map_normalized.transpose(), origin='lower', 
+                             cmap=map_colormap, alpha=alpha_map,
+                             vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
+            
+            # Plot local_map_visits on the right (ax3)            
+            im3 = ax3.imshow(local_map_visits_normalized.transpose(), origin='lower', 
+                             cmap=self._color_maps._visits_colormap, alpha=0.8,
+                             vmin=-1, vmax=1)
+        else:
+            # Fallback to environment maps if local maps not available
+            map_normalized = self._environment._map_original / v_normalizer
+            initial_map_normalized = self._environment._map_original / v_normalizer
+            visits_normalized = self.np.zeros_like(map_normalized)
+            
+            im1 = ax1.imshow(initial_map_normalized.transpose(), origin='lower', 
+                             cmap=map_colormap, alpha=alpha_map,
+                             vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
+            im2 = ax2.imshow(map_normalized.transpose(), origin='lower', 
+                             cmap=map_colormap, alpha=alpha_map,
+                             vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
+            im3 = ax3.imshow(visits_normalized.transpose(), origin='lower', 
+                             cmap=self._color_maps._visits_colormap, alpha=0.8,
+                             vmin=-1, vmax=1)
         
-        # Plot current map on the right (ax2) with agents and overlays
-        im2 = ax2.imshow(map_normalized.transpose(), origin='lower', 
-                         cmap=map_colormap, alpha=alpha_map,
-                         vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
-        
-        # Add shared colorbar that doesn't affect subplot sizes
-        # Create space for colorbar by adjusting subplot positions
+        # Add shared colorbar for vegetation quality (for ax1 and ax2) - positioned with more spacing
+        # Create space for colorbars by adjusting subplot positions
         plt.subplots_adjust(right=0.85)
-        cbar_ax = fig.add_axes([0.87, 0.15, 0.03, 0.7])  # [left, bottom, width, height]
-        cbar = plt.colorbar(im2, cax=cbar_ax)
-        cbar.set_label('Vegetation Quality / Elevation', rotation=270, labelpad=20)
-        # Set colorbar ticks to show actual values (not normalized)
-        cbar_ticks = [vmin/v_normalizer, 0, vmax/v_normalizer]
-        cbar_labels = [f'{vmin:.1f}', '0.0', f'{vmax:.1f}']
-        cbar.set_ticks(cbar_ticks)
-        cbar.set_ticklabels(cbar_labels)                                
+        cbar_ax1 = fig.add_axes([0.86, 0.15, 0.02, 0.7])  # [left, bottom, width, height] for vegetation quality
+        cbar1 = plt.colorbar(im2, cax=cbar_ax1)
+        cbar1.set_label('Vegetation Quality / Elevation', rotation=270, labelpad=20)
+        # Set colorbar ticks to show actual values (not normalized) - more detailed ticks        
+        n_ticks = 9  # Number of ticks (including min and max)
+        tick_values = self.np.linspace(vmin, vmax, n_ticks)
+        cbar_ticks = tick_values / v_normalizer  # Normalize for colorbar
+        cbar_labels = [f'{val:.1f}' for val in tick_values]
+        cbar1.set_ticks(cbar_ticks)
+        cbar1.set_ticklabels(cbar_labels)
+        
+        # Add separate colorbar for visits map (ax3) - positioned with more spacing from first colorbar
+        cbar_ax2 = fig.add_axes([0.92, 0.15, 0.02, 0.7])  # [left, bottom, width, height] for visits - more spaced
+        cbar2 = plt.colorbar(im3, cax=cbar_ax2)
+        cbar2.set_label('Visit Frequency', rotation=270, labelpad=20)                               
 
-        # Overlay agent positions (only on current map - ax2)
+        # Overlay agent positions (on local map - ax2)
         if plot_agents:
             for agent in self._schedule.agents:
                 if isinstance(agent, BeaversVisualizerAgent):
-                    # Use pixel coordinates directly (simple approach)
-                    ax2.plot(agent._position[0], agent._position[1], 
-                        agent_marker, 
-                        markersize=      agent_markersize, 
-                        markeredgecolor= agent_markeredgecolor,
-                        markerfacecolor= self._color_maps._black,
-                        markeredgewidth= agent_markeredgewidth,
-                        alpha=           agent_markeralpha)                                        
+                    # Convert global position to local map coordinates
+                    local_x = agent._position[0]
+                    local_y = agent._position[1]
+                    
+                    # plot by color based on role
+                    if agent._role == 'explorer':
+                        agentcolor = 'red'
+                    else:
+                        agentcolor = 'black'
+                        
+                    # Only plot if within local map bounds
+                    if (0 <= local_x < map_width and 0 <= local_y < map_height):
+                        ax2.plot(local_x, local_y, 
+                            agent_marker, 
+                            markersize=      agent_markersize, 
+                            markeredgecolor= agent_markeredgecolor,
+                            markerfacecolor= agentcolor,
+                            markeredgewidth= agent_markeredgewidth,
+                            alpha=           agent_markeralpha)                                        
                     
         for agent in self._schedule.agents:
-            # add a box around home_position (only on current map - ax2)
+            # add a box around home_position (on local map - ax2)
             if agent._home_base_position_store is not None:
                 for home_base_position in agent._home_base_position_store:
-                    # Use pixel coordinates (simple approach)
-                    box = plt.Rectangle((home_base_position[0] - 2, home_base_position[1] - 2), 3, 3, 
-                                        fill=True, edgecolor=self._color_maps._black, facecolor=self._color_maps._gray, linestyle='-', linewidth=2)
-                    ax2.add_patch(box)
+                    local_x = home_base_position[0]
+                    local_y = home_base_position[1]
+                    # Only plot if within local map bounds
+                    if (0 <= local_x < map_width and 0 <= local_y < map_height):
+                        box = plt.Rectangle((local_x - 2, local_y - 2), 3, 3, 
+                                            fill=True, edgecolor=self._color_maps._black, facecolor=self._color_maps._gray, linestyle='-', linewidth=2)
+                        ax2.add_patch(box)
         
-        # Configure both axes
-        for ax, title in [(ax1, "Initial Environment"), (ax2, "Current Environment")]:
+        # Configure all three axes
+        titles = ["Vegetation Quality (Initial)", "Vegetation Quality (Current)", "Visits (Current)"]
+        for i, (ax, title) in enumerate([(ax1, titles[0]), (ax2, titles[1]), (ax3, titles[2])]):
             ax.set_aspect('equal')
             ax.grid(False)
             
-            # Set custom tick labels with latitude/longitude if available
-            if hasattr(self._environment, 'x_axis') and hasattr(self._environment, 'y_axis'):
-                # Show geographic coordinate labels
-                ax.set_xlabel('X [m]', fontsize=12)
-                ax.set_ylabel('Y [m]', fontsize=12)
-
-                # Create custom tick positions and labels
-                # Sample 6 points across each axis for reasonable tick spacing
-                n_ticks = 6
-                x_tick_positions = self.np.linspace(0, len(self._environment.x_axis)-1, n_ticks, dtype=int)
-                y_tick_positions = self.np.linspace(0, len(self._environment.y_axis)-1, n_ticks, dtype=int)
-
-                # Get corresponding geographic coordinates
-                x_tick_labels = [f'{self._environment.x_axis[pos]:.4f}' for pos in x_tick_positions]
-                y_tick_labels = [f'{self._environment.y_axis[pos]:.4f}' for pos in y_tick_positions]
-                
-                # Set the ticks
-                ax.set_xticks(x_tick_positions)
-                ax.set_xticklabels(x_tick_labels)
-                ax.set_yticks(y_tick_positions)
-                ax.set_yticklabels(y_tick_labels)
-            else:
-                ax.set_axis_off()
+            # For local maps, use simpler coordinate system
+            if i < 2:  # For vegetation quality maps (ax1, ax2)
+                ax.set_xlabel('X [pixels]', fontsize=12)
+                ax.set_ylabel('Y [pixels]', fontsize=12)
+            else:  # For visits map (ax3)
+                ax.set_xlabel('X [pixels]', fontsize=12)
+                ax.set_ylabel('Y [pixels]', fontsize=12)
             
-            # Set axis limits in pixel coordinates
-            ax.set_xlim(0 - box_margin, self._width + box_margin)
-            ax.set_ylim(0 - box_margin, self._height + box_margin)
+            # Set axis limits in pixel coordinates for local maps
+            ax.set_xlim(0 - box_margin, map_width + box_margin)
+            ax.set_ylim(0 - box_margin, map_height + box_margin)
             ax.set_title(title)
         
-        # Add time information to the right plot
-        ax2.text(0.5, 1, f"DAY: {self._environment._current_day} HOUR: {self._environment._current_hour}h", 
-                 fontsize=14, color=self._color_maps._white, font=fontname)                        
+        # Add time information to the middle plot
+        ax3.text(0.5, 1, f"DAY: {self._environment._current_day} HOUR: {self._environment._current_hour}h", 
+                 fontsize=14, color=self._color_maps._black, font=fontname)                         
                                 
         self._fig = fig
         if self._gui:
@@ -411,6 +469,7 @@ class BeaversVisualizerBackend(BaseBackend, Model):
             positions = agent._position_store
             loads = agent._load_store
             errors = agent._error_store
+            exploration_eta_values = agent._exploration_eta_store
             
             if len(positions) > 0:
                 # Calculate distances from initial position
@@ -472,14 +531,27 @@ class BeaversVisualizerBackend(BaseBackend, Model):
                 axes[i, 1].plot(time_steps, loads,
                                color=colors[i],
                                linewidth=2,
-                               alpha=0.8)
+                               alpha=0.8,
+                               label='Current Load')
+                
+                # Plot maximum load capacity if available
+                if hasattr(agent, '_maximum_load_store') and len(agent._maximum_load_store) > 0:
+                    max_loads = agent._maximum_load_store
+                    axes[i, 1].plot(time_steps[:len(max_loads)], max_loads,
+                                   color='red',
+                                   linewidth=1.5,
+                                   alpha=0.7,
+                                   linestyle='--',
+                                   label='Maximum Load Capacity')
+                
                 axes[i, 1].set_xlabel('Time Steps')
                 axes[i, 1].set_ylabel('Load Amount')
                 axes[i, 1].set_title(f'Agent {agent_id}: Load Variation')
                 axes[i, 1].grid(True, alpha=0.3)
-                axes[i, 1].set_ylim(0, agent._maximum_load + 1)
+                axes[i, 1].set_ylim(0, agent._maximum_load_init + 1)
+                axes[i, 1].legend()
                 
-                # Right plot: Error norm over time
+                # Third plot: Error norm over time
                 if len(error_norms) > 0:
                     axes[i, 2].plot(time_steps[:len(error_norms)], error_norms,
                                    color=colors[i],
@@ -494,6 +566,46 @@ class BeaversVisualizerBackend(BaseBackend, Model):
                                    ha='center', va='center', transform=axes[i, 2].transAxes)
                     axes[i, 2].set_title(f'Agent {agent_id}: Control Error Norm')
                 
+                # Fourth plot: Exploration eta and harvest thresholds over time
+                if len(exploration_eta_values) > 0:
+                    # Plot exploration eta
+                    axes[i, 3].plot(time_steps[:len(exploration_eta_values)], exploration_eta_values,
+                                   color=colors[i],
+                                   linewidth=2,
+                                   alpha=0.8,
+                                   label='Exploration Eta')
+                    
+                    # Plot harvest thresholds if available
+                    if hasattr(agent, '_harvest_threshold_store') and len(agent._harvest_threshold_store) > 0:
+                        harvest_thresholds = agent._harvest_threshold_store
+                        # Extract lower and upper bounds
+                        lower_bounds = [th[0] for th in harvest_thresholds if len(th) >= 2]
+                        upper_bounds = [th[1] for th in harvest_thresholds if len(th) >= 2]
+                        
+                        if len(lower_bounds) > 0 and len(upper_bounds) > 0:
+                            axes[i, 3].plot(time_steps[:len(lower_bounds)], lower_bounds,
+                                           color='red',
+                                           linewidth=1.5,
+                                           alpha=0.7,
+                                           linestyle='--',
+                                           label='Harvest Threshold Min')
+                            axes[i, 3].plot(time_steps[:len(upper_bounds)], upper_bounds,
+                                           color='orange',
+                                           linewidth=1.5,
+                                           alpha=0.7,
+                                           linestyle='--',
+                                           label='Harvest Threshold Max')
+                    
+                    axes[i, 3].set_xlabel('Time Steps')
+                    axes[i, 3].set_ylabel('Values')
+                    axes[i, 3].set_title(f'Agent {agent_id}: Exploration Eta & Harvest Thresholds')
+                    axes[i, 3].grid(True, alpha=0.3)
+                    axes[i, 3].legend()
+                else:
+                    axes[i, 3].text(0.5, 0.5, 'No exploration eta data available', 
+                                   ha='center', va='center', transform=axes[i, 3].transAxes)
+                    axes[i, 3].set_title(f'Agent {agent_id}: Exploration Eta & Harvest Thresholds')
+                
                 # Add horizontal line at y=0 for distance plot
                 axes[i, 0].axhline(y=0, color='gray', linestyle='--', alpha=0.5)
                 
@@ -505,15 +617,104 @@ class BeaversVisualizerBackend(BaseBackend, Model):
                                ha='center', va='center', transform=axes[i, 1].transAxes)
                 axes[i, 2].text(0.5, 0.5, 'No data available', 
                                ha='center', va='center', transform=axes[i, 2].transAxes)
+                axes[i, 3].text(0.5, 0.5, 'No data available', 
+                               ha='center', va='center', transform=axes[i, 3].transAxes)
                 axes[i, 0].set_title(f'Agent {agent_id}: Distance from Initial Position')
                 axes[i, 1].set_title(f'Agent {agent_id}: Load Variation')
                 axes[i, 2].set_title(f'Agent {agent_id}: Control Error Norm')
+                axes[i, 3].set_title(f'Agent {agent_id}: Exploration Eta & Harvest Thresholds')
         
         # Adjust layout
         plt.tight_layout()                
         
         if self._gui:
             plt.show()
+    
+    def save_environment_map(self, file_path: str) -> None:
+        """
+        Save the current environment map to a .npy file.
+        
+        This method saves the current state of the environment map (_map) to a numpy
+        binary file format (.npy). This is useful for:
+        - Saving simulation states for later analysis
+        - Creating snapshots of environment evolution
+        - Exporting maps for use in other applications
+        - Backup and restoration of simulation states
+        
+        Args:
+            file_path (str): The path where to save the .npy file. Should include
+                           the .npy extension. If the directory doesn't exist,
+                           it will be created automatically.
+        
+        Side Effects:
+            - Creates the specified file with the environment map data
+            - Creates parent directories if they don't exist
+            
+        Raises:
+            FileNotFoundError: If the environment is not initialized
+            PermissionError: If write permissions are insufficient
+            OSError: If there are issues with file system operations
+            
+        Example:
+            >>> visualizer.save_environment_map('/path/to/output/environment_map.npy')
+            >>> visualizer.save_environment_map('output/simulation_state_t100.npy')
+        
+        Note:
+            The saved map represents the current vegetation quality and elevation
+            data as modified by agent activities during the simulation.
+        """
+        import os
+        import numpy as np
+        
+        if self._environment is None:
+            raise ValueError("Environment not initialized. Call generate_agents() first.")
+        
+        if self._environment._map is None:
+            raise ValueError("Environment map not available.")
+        
+        # Create directory if it doesn't exist
+        directory = os.path.dirname(file_path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+        
+        # Add .npy extension if not present
+        if not file_path.endswith('.npy'):
+            file_path += '.npy'
+        
+        # Linear rescaling to [-1, 1]
+        map_data = self._environment._map.copy().astype(float)
+        
+        # Get min and max values
+        data_min = map_data.min()
+        data_max = map_data.max()
+        
+        # Linear rescaling: (data - data_min) / (data_max - data_min) * 2 - 1
+        if data_max > data_min:
+            map_data = (map_data - data_min) / (data_max - data_min) * 2 - 1
+            normalization_info = f"Linear rescaling [{data_min:.3f}, {data_max:.3f}] -> [-1.0, 1.0]"
+        else:
+            # All values are the same
+            map_data = map_data * 0  # Set all values to 0
+            normalization_info = f"All values are the same ({data_min:.3f}) -> 0.0"                
+        
+        # Apply inverse coordinate transformation to match original DEM format
+        # Environment format -> DEM format: reverse the transformations applied in load_map_from_npy
+        # Original: flipud() + rot90(-1) 
+        # Inverse: rot90(1) + flipud()
+        map_to_save = np.rot90(map_data, 1)  # Rotate 90° clockwise (inverse of -90°)
+        map_to_save = np.flipud(map_to_save)  # Flip vertically (inverse of flipud)
+        
+        # Save the normalized and transformed map
+        np.save(file_path, map_to_save)
+        
+        if self._print:
+            print(f"Environment map saved to: {file_path}")
+            print(f"Original map shape (environment format): {self._environment._map.shape}")
+            print(f"Saved map shape (DEM format): {map_to_save.shape}")
+            print(f"Original value range: [{self._environment._map.min():.3f}, {self._environment._map.max():.3f}]")
+            print(f"Saved value range: [{map_to_save.min():.3f}, {map_to_save.max():.3f}]")
+            print(f"{normalization_info}")
+            print(f"Applied inverse coordinate transformation for DEM compatibility")
         
 
 class BeaversVisualizerAgent(BeaversRobotBackend, Agent):
@@ -618,7 +819,8 @@ class BeaversVisualizerAgent(BeaversRobotBackend, Agent):
         # link flow information from environment to the agent
         misc = {
             'direction': self.model._environment._flow_direction,
-            'strength': self.model._environment._flow_strength
+            'strength': self.model._environment._flow_strength,
+            'visits': self.model._environment._map_visits            
         }
         
         # step the agent
@@ -720,22 +922,27 @@ class EnvironmentVisualizerAgent(BeaversEnvironmentBackend, Agent):
         """     
         
         # get the map_visits of all agents and sum them
-        map_visits = self.np.zeros((self._width, self._height))
+        map_visits = self._map_visits.copy()
+        map_visits_roles = self._map_visits_roles.copy()
+        map = self._map.copy()
         home_base_position_store = []
         for agents in self.model._schedule.agents:
             if isinstance(agents, BeaversVisualizerAgent):
-                if agents._local_map_visits is not None:
-                    x_end = agents._local_map_visits.shape[0]
-                    y_end = agents._local_map_visits.shape[1]
-                    map_visits[:x_end, :y_end] += agents._local_map_visits
+                if agents._local_map_visits is not None:                                        
+                    map_visits[agents._position[0], agents._position[1]] = agents._local_map_visits[agents._position[0], agents._position[1]]
+                    map[agents._position[0], agents._position[1]] = agents._map_quality_measure_position
+                    if agents._role == 'explorer':
+                        map_visits_roles[agents._position[0], agents._position[1]] = map_visits[agents._position[0], agents._position[1]]
+                    else:
+                        map_visits_roles[agents._position[0], agents._position[1]] = -map_visits[agents._position[0], agents._position[1]]
                 if agents._home_base_position_store is not None:
                     for pos in agents._home_base_position_store:
                         home_base_position_store.append(pos)
-        # Remove duplicates in home_base_position_store        
+        map_visits = map_visits * self._visits_reset
+        map_visits_roles = map_visits_roles * self._visits_reset
+        misc = {'map_visits_roles': map_visits_roles}
+        # Remove duplicates in home_base_position_store
         home_base_position_store = list(set(tuple(pos) for pos in self.np.array(home_base_position_store)))
 
-        # grass growth interval        
-        grass_growth_interval = [agents._harvest_threshold[0], agents._harvest_threshold[1]]
-        
         # step the environment
-        self.step_environment(self._timedelta, map_visits, home_base_position_store, grass_growth_interval)        
+        self.step_environment(self._timedelta, map, map_visits, home_base_position_store, self._grass_growth_interval, misc)
