@@ -6,7 +6,7 @@ from scipy.interpolate import CubicSpline
 import earth_moving.constants as const
 
 # general measure mode
-def measure(map, position, mode):
+def measure(map, position, mode, step=1):
     
     if mode is 'full_map':
         measure_positions = 'all'
@@ -15,20 +15,16 @@ def measure(map, position, mode):
     
     # Split exploration_mode into two parts: prefix and suffix
     if len(mode) > 2:
-        _prefix = mode[:-2]
-        _suffix = int(mode[-2:])
+        _prefix = mode[:-3]
+        _suffix = int(mode[-3:])
     else:
         _prefix = mode
-        _suffix = None
-        
-    # Check if the suffix is a valid number
-    if _suffix not in [4, 8, 24, 40]:
-        raise ValueError('Invalid exploration mode: {}'.format(mode))
+        _suffix = None            
     
     if _prefix == 'D':
-        measure_positions = measure_DN(map, position, N=_suffix)
+        measure_positions = measure_DN(map, position, N=_suffix, step=step)
     elif _prefix == 'gradient_D':
-        measure_positions = measure_DN(map, position, N=_suffix)
+        measure_positions = measure_DN(map, position, N=_suffix, step=step)
         gradient_matrix, values_matrix = matrix_gradient(map, measure_positions)
         measure_positions, _ = find_monotonic_indices(values_matrix, position)
         measure_positions = np.clip(measure_positions, [0, 0], [map.shape[0] - 1, map.shape[1] - 1])            
@@ -42,26 +38,15 @@ def measure(map, position, mode):
     return measure_positions, measure_values
     
 # Generalized DN measure
-def measure_DN(map, position, N=4):
+def measure_DN(map, position, N=4, step=1):
     limits = get_map_limits(map)
-    neighbourhood = DN_neighbourhood(position, limits, N)
+    neighbourhood = DN_neighbourhood(position, limits, N, step)
     return neighbourhood
     
 # Generalized DN neighbourhood
 def DN_neighbourhood(position, limits, N=4, step=1) -> list:
     
-    if N == 4:
-        offset = const.D4_neighbours
-    elif N == 8:
-        offset = const.D8_neighbours    
-    elif N == 24:
-        offset = const.D24_neighbours
-    elif N == 40:
-        offset = const.D40_neighbours
-    elif N == 80:
-        offset = const.D80_neighbours
-    else:
-        raise(ValueError('Neighbourhood not recognized'))
+    offset = const.DN_box(side=N+1, step=step)        
     
     neighbourhood = [tuple(np.add(position, o)) for o in offset]
     

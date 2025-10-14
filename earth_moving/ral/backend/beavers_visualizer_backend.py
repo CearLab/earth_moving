@@ -799,7 +799,7 @@ class BeaversVisualizerAgent(BeaversRobotBackend, Agent):
         # get data from engine/environment (can't pass input to _schedule.step() method)
         dt = self._timedelta
         time_of_day = self.model._environment._time_of_day
-        measure_positions, measure_values = module_misc.measure(self.model._environment._map, self._position, self._measurement_mode)
+        measure_positions, measure_values = module_misc.measure(self.model._environment._map, self._position, self._measurement_mode, self._measure_step)
         map_quality = [measure_positions, measure_values]
                 
         if self._measurement_mode is 'full_map':

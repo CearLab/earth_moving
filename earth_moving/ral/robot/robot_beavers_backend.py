@@ -308,6 +308,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._sleep_recovery = self._robot.get('sleep_recovery')
         self._vegetation_removal = self._robot.get('vegetation_removal')
         self._measurement_mode = self._robot.get('measurement_mode')
+        self._measure_step = self._robot.get('measure_step', 1)
         self._home_base_position = list(self._robot.get('home_base_position'))[0]
         self._home_base_position_store = list(self._robot.get('home_base_position'))
         self._stomping_interval = self._robot.get('stomping_interval')
@@ -1108,8 +1109,8 @@ class BeaversRobotBackend(BaseRobotBackend):
             self._controller.step(setpoint, self._position)
         elif self._controller._name == 'P_repulsive':            
             setpoint = self._motion_destination
-            _neighbourhood = module_misc.DN_neighbourhood(self._position, limits, N=self._controller._neighbourhood_size)                        
-            
+            _neighbourhood = module_misc.DN_neighbourhood(self._position, limits, N=self._controller._neighbourhood_size, step=self._measure_step)                        
+
             map_repulsive = self._local_map.copy()            
             map_repulsive = map_repulsive / self.np.max(map_repulsive)
 
@@ -1173,8 +1174,8 @@ class BeaversRobotBackend(BaseRobotBackend):
             # Check if there's a river (negative value) in D8 neighborhood
             if limits is not None:
                 # Get D8 neighborhood around current position
-                d8_neighborhood = module_misc.DN_neighbourhood(self._position, limits, N=8)
-                
+                d8_neighborhood = module_misc.DN_neighbourhood(self._position, limits, N=2, step=self._measure_step)
+
                 # Check if any neighboring cell has negative values (is water/river)
                 river_nearby = False
                 for neighbor_pos in d8_neighborhood:
@@ -1346,13 +1347,13 @@ class BeaversRobotBackend(BaseRobotBackend):
         position = self._position
 
         #! BEHAVIORAL LOGIC MODEL 
-        eps = 1e-6       
+        eps = 1e0       
         threshold_mask = (self._local_map >= self._harvest_threshold[0]) & (self._local_map <= self._harvest_threshold[1])        
         if self._exploration_map is 'vegetation_quality':            
-            local_map = (eps + self._local_map.copy())**2
+            local_map = 1/(eps + self._local_map.copy())**2
             local_map[~threshold_mask] = 0.0
         elif self._exploration_map is 'vegetation_visits':
-            local_map = (1 + self._local_map_visits.copy()) / (1 + self._local_map.copy())
+            local_map = (eps + self._local_map_visits.copy()) * (eps + self._local_map.copy())**2
             local_map[~threshold_mask] = 0.0
         else:
             raise ValueError('Invalid exploration_map value: {}'.format(self._exploration_map))
@@ -1364,20 +1365,16 @@ class BeaversRobotBackend(BaseRobotBackend):
             
         # Split exploration_mode into two parts: prefix and suffix
         if len(self._exploration_mode) > 2:
-            exploration_prefix = self._exploration_mode[:-2]
-            exploration_suffix = int(self._exploration_mode[-2:])
+            exploration_prefix = self._exploration_mode[:-3]
+            exploration_suffix = int(self._exploration_mode[-3:])
         else:
             exploration_prefix = self._exploration_mode
-            exploration_suffix = None
-            
-        # Check if the suffix is a valid number
-        if exploration_suffix not in [0, 4, 8, 24, 40, 80]:
-            raise ValueError('Invalid exploration mode: {}'.format(self._exploration_mode))                
+            exploration_suffix = None                    
             
         if exploration_prefix == 'gradient_D':
             N, NF, NI = module_beaver.exploration_gradient_DN(position, limits, local_map, N=exploration_suffix, \
                 home_base_store=self._home_base_position_store, eta=self._exploration_eta, \
-                N_recovery=self._exploration_N_recovery)        
+                N_recovery=self._exploration_N_recovery, step=self._measure_step)        
         else:
             raise ValueError('Invalid exploration mode: {}'.format(self._exploration_mode))            
         
@@ -1447,7 +1444,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         # if too far, find a new home base position        
         if distance_to_home > self._min_home_distance:    
             _limits = [[0, self._local_map.shape[0] - 1], [0, self._local_map.shape[1] - 1]]
-            _local_neighbourhood = module_misc.DN_neighbourhood(self._position, _limits, N=80) 
+            _local_neighbourhood = module_misc.DN_neighbourhood(self._position, _limits, N=80, step=self._measure_step)
             valid_positions = [
                 pos for pos in _local_neighbourhood
                 if (self._local_map[int(pos[0] - 1), int(pos[1] - 1)] <= 0.5 * self._vegetation_quality_range[1]) \

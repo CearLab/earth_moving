@@ -61,7 +61,7 @@ import numpy as np
 # module imports
 import earth_moving.ral.algorithms.module_misc as module_misc
 
-def exploration_gradient_DN(position, limits, local_map, N=4, home_base_store=None, eta=1, N_recovery=4):
+def exploration_gradient_DN(position, limits, local_map, N=4, home_base_store=None, eta=1, N_recovery=4, step=1):
     """
     Generate gradient-based exploration targets optimized for vegetation quality.
     
@@ -214,8 +214,8 @@ def exploration_gradient_DN(position, limits, local_map, N=4, home_base_store=No
             N = N_recovery
             
     if not _neighbourhood_valid:
-        _neighbourhood = module_misc.DN_neighbourhood(position, limits, N)
-            
+        _neighbourhood = module_misc.DN_neighbourhood(position, limits, N, step=step)
+
         #! GRADIENT CALCULATION
         gradient_matrix, values_matrix = module_misc.matrix_gradient(local_map, _neighbourhood)
         
@@ -248,21 +248,23 @@ def exploration_gradient_DN(position, limits, local_map, N=4, home_base_store=No
             if len(gradient_values) > 1:                
                    
                 # Convert gradient magnitudes to probabilities using softmax
-                # scaled_values = eta * np.array(gradient_values)                
-                # scaled_values = scaled_values - np.max(scaled_values)                
-                # gradient_probs = np.exp(scaled_values)
-                # gradient_probs = gradient_probs / np.sum(gradient_probs)                                
-                # selected_idx = np.random.choice(len(new_position), p=gradient_probs)
+                scaled_values = eta * np.array(gradient_values)                
+                scaled_values = scaled_values - np.max(scaled_values)                
+                gradient_probs = np.exp(scaled_values)
+                gradient_probs = gradient_probs / np.sum(gradient_probs)                                
+                selected_idx = np.random.choice(len(new_position), p=gradient_probs)
                 
                 # Select the closest position among those with maximum gradient value
-                max_value = np.max(gradient_values)
-                max_indices = [i for i, v in enumerate(gradient_values) if v == max_value]
-                max_positions = [new_position[i] for i in max_indices]
-                distances = [np.linalg.norm(np.array(pos) - np.array(position)) for pos in max_positions]
-                min_distance = np.min(distances)
-                closest_indices = [i for i, d in enumerate(distances) if d == min_distance]
-                selected_idx_in_max = np.random.choice(closest_indices)
-                selected_idx = max_indices[selected_idx_in_max]
+                # max_value = np.max(gradient_values)
+                # max_indices = [i for i, v in enumerate(gradient_values) if v == max_value]
+                # max_positions = [new_position[i] for i in max_indices]
+                # distances = [np.linalg.norm(np.array(pos) - np.array(position)) for pos in max_positions]
+                # min_distance = np.min(distances)
+                # closest_indices = [i for i, d in enumerate(distances) if d == min_distance]
+                # selected_idx_in_max = np.random.choice(closest_indices)
+                # selected_idx = max_indices[selected_idx_in_max]
+                
+                # def _neighbourhood
                 _neighbourhood = [new_position[selected_idx]]
             else:
                 # Select the neighbourhood position closest to current position
