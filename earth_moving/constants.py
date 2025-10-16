@@ -8,6 +8,8 @@ def DN_box(side, step=1):
     
     for i in range(-half_side, half_side + 1, step):
         for j in range(-half_side, half_side + 1, step):
-            neighbours.append([i, j])
+            # Always exclude (0,0) - the center point
+            if not (i == 0 and j == 0):
+                neighbours.append([i, j])
     
     return neighbours

@@ -52,6 +52,7 @@ def DN_neighbourhood(position, limits, N=4, step=1) -> list:
     
     # Ensure all positions in the neighbourhood are within the map limits    
     neighbourhood = [pos for pos in neighbourhood if limits[0][0] <= pos[0] <= limits[0][1] and limits[1][0] <= pos[1] <= limits[1][1]]
+    neighbourhood.append(tuple(position)) # ensure the center is included
 
     return neighbourhood
 

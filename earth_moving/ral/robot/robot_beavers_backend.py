@@ -1,4 +1,5 @@
 # general imports
+from scipy.ndimage import gaussian_filter
 
 # backend imports
 from earth_moving.ral.robot.robot_backend import BaseRobotBackend
@@ -220,6 +221,12 @@ class BeaversRobotBackend(BaseRobotBackend):
                 Learning rate for gradient-based exploration
             - exploration_N_recovery : int
                 Visit count reset factor
+            - exploration_gaussian_locality_sigma : float, optional
+                Sigma for distance-based Gaussian weighting (default: 5.0)
+                Smaller values create stronger preference for nearby high-quality points
+            - exploration_gaussian_smooth_sigma : float, optional
+                Sigma for Gaussian smoothing filter (default: 1.5)
+                Controls smoothness of exploration gradients
                 
             Energy Parameters:
             - motion_consumption : float
@@ -302,6 +309,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._exploration_map = self._robot.get('exploration_map')
         self._exploration_eta = self._robot.get('exploration_eta')
         self._exploration_N_recovery = self._robot.get('exploration_N_recovery')
+        self._exploration_gaussian_locality_sigma = self._robot.get('exploration_gaussian_locality_sigma', 5.0)
         self._motion_consumption = self._robot.get('motion_consumption')
         self._load_consumption = self._robot.get('load_consumption')
         self._harvest_consumption = self._robot.get('harvest_consumption')        
@@ -1109,20 +1117,16 @@ class BeaversRobotBackend(BaseRobotBackend):
             self._controller.step(setpoint, self._position)
         elif self._controller._name == 'P_repulsive':            
             setpoint = self._motion_destination
-            _neighbourhood = module_misc.DN_neighbourhood(self._position, limits, N=self._controller._neighbourhood_size, step=self._measure_step)                        
-
-            map_repulsive = self._local_map.copy()            
-            map_repulsive = map_repulsive / self.np.max(map_repulsive)
-
-            # explore farther from home base
-            distance_from_home = self.np.linalg.norm(self.np.array(self._position) - self.np.array(self._home_base_position))
+            _neighbourhood = module_misc.DN_neighbourhood(self._position, limits, N=self._controller._neighbourhood_size, step=self._measure_step)
             
             if self._controller._map_repulsive is 'vegetation_quality':
-                self._local_map_control = map_repulsive
-            elif self._controller._map_repulsive is 'vegetation_visits':                
-                self._local_map_control = 1 / (1 + (self._local_map_visits)/self.np.max(self._local_map_visits))            
+                map_repulsive = (self._local_map.copy())
+            elif self._controller._map_repulsive is 'vegetation_visits':
+                map_repulsive = self._local_map.copy()/(self._local_map_visits.copy())
             else:
-                raise ValueError('Invalid map_repulsive value: {}'.format(self._controller._map_repulsive))                                                                    
+                raise ValueError('Invalid map_repulsive value: {}'.format(self._controller._map_repulsive))
+            
+            self._local_map_control = map_repulsive
 
             # control - get base neighborhood values
             _neighbourhood_values = [self._local_map_control[int(pos[0]), int(pos[1])] for pos in _neighbourhood]                        
@@ -1149,6 +1153,8 @@ class BeaversRobotBackend(BaseRobotBackend):
 
                         # Apply flow bias: reduce cost for downstream movement, increase for upstream
                         flow_modifier = -flow_strength * flow_alignment
+                        if self.np.isnan(flow_modifier):
+                            flow_modifier = 0
                         _neighbourhood_values[i] += flow_modifier
             
             self._controller.step(setpoint, self._position, [_neighbourhood, _neighbourhood_values])
@@ -1167,9 +1173,12 @@ class BeaversRobotBackend(BaseRobotBackend):
         
     # action: remove_vegetation
     def remove_vegetation(self, time_of_day=None, limits=None, misc=None) -> None:
-        # Check if removal would result in negative values (water creation)
+        # cannot harvest from water        
+        if self._map_quality_measure_position < 0:
+            return  # Cannot harvest from water, do nothing
         potential_new_value = self._map_quality_measure_position - self._vegetation_removal
         
+        # Check if removal would result in negative values (water creation)
         if potential_new_value < 0:
             # Check if there's a river (negative value) in D8 neighborhood
             if limits is not None:
@@ -1327,6 +1336,23 @@ class BeaversRobotBackend(BaseRobotBackend):
         All strategies consider home base positions to avoid unnecessary
         revisiting of storage locations during exploration phases.
         
+        Gaussian Smoothing:
+        The method applies distance-weighted Gaussian smoothing to create
+        locality preference in target selection:
+        
+        1. **Distance Weighting**: Points closer to current position receive
+           higher preference weights using Gaussian decay function
+        2. **Smoothing Filter**: Additional Gaussian filter reduces noise
+           and creates smoother gradients for better pathfinding
+        
+        Configuration parameters:
+        - exploration_gaussian_locality_sigma: Controls locality preference
+          (smaller = stronger preference for nearby points)
+        - exploration_gaussian_smooth_sigma: Controls gradient smoothness
+        
+        This prevents excessive long-distance movement while still allowing
+        the robot to discover high-quality distant resources when beneficial.
+        
         Examples
         --------
         >>> # Configure gradient-based exploration with 8-neighborhood
@@ -1347,10 +1373,10 @@ class BeaversRobotBackend(BaseRobotBackend):
         position = self._position
 
         #! BEHAVIORAL LOGIC MODEL 
-        eps = 1e0       
+        eps = 1e0      
         threshold_mask = (self._local_map >= self._harvest_threshold[0]) & (self._local_map <= self._harvest_threshold[1])        
         if self._exploration_map is 'vegetation_quality':            
-            local_map = 1/(eps + self._local_map.copy())**2
+            local_map = (eps + self._local_map.copy())**2
             local_map[~threshold_mask] = 0.0
         elif self._exploration_map is 'vegetation_visits':
             local_map = (eps + self._local_map_visits.copy()) * (eps + self._local_map.copy())**2
@@ -1358,6 +1384,23 @@ class BeaversRobotBackend(BaseRobotBackend):
         else:
             raise ValueError('Invalid exploration_map value: {}'.format(self._exploration_map))
         
+        # gaussian smooth centered in the current position on local_map
+        # This creates a distance-weighted preference for closer high-quality points
+        if not self.np.all(self.np.isnan(local_map)):
+            # Create a distance-based weighting centered on current position
+            y_coords, x_coords = self.np.ogrid[:local_map.shape[0], :local_map.shape[1]]
+            
+            # Calculate distance from current position to each cell
+            distance_from_position = self.np.sqrt((x_coords - position[1])**2 + (y_coords - position[0])**2)
+            
+            # Create Gaussian weight matrix (closer points have higher weight)
+            # Sigma determines the "locality preference" - smaller values = stronger preference for nearby points
+            distance_weight = self.np.exp(-(distance_from_position**2) / (2 * self._exploration_gaussian_locality_sigma**2))
+            
+            # Apply distance weighting to the local map
+            # This makes closer high-quality points more attractive than distant ones
+            local_map = local_map * distance_weight
+          
         if self._local_map is not None:
             limits = [[0, self._local_map.shape[0] - 1], [0, self._local_map.shape[1] - 1]]
         else:

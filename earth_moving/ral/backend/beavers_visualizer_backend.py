@@ -311,6 +311,13 @@ class BeaversVisualizerBackend(BaseBackend, Model):
             im3 = ax3.imshow(local_map_visits_normalized.transpose(), origin='lower', 
                              cmap=self._color_maps._visits_colormap, alpha=0.8,
                              vmin=-1, vmax=1)
+            
+            # Overlay negative values from local_map_normalized in very light gray
+            negative_mask = local_map_normalized < 0
+            if self.np.any(negative_mask):
+                negative_overlay = self.np.where(negative_mask, local_map_normalized, self.np.nan)
+                ax3.imshow(negative_overlay.transpose(), origin='lower', 
+                          cmap='gray', alpha=0.05, vmin=vmin/v_normalizer, vmax=0)
         else:
             # Fallback to environment maps if local maps not available
             map_normalized = self._environment._map_original / v_normalizer
@@ -326,6 +333,13 @@ class BeaversVisualizerBackend(BaseBackend, Model):
             im3 = ax3.imshow(visits_normalized.transpose(), origin='lower', 
                              cmap=self._color_maps._visits_colormap, alpha=0.8,
                              vmin=-1, vmax=1)
+            
+            # Overlay negative values from map_normalized in very light gray (fallback case)
+            negative_mask = map_normalized < 0
+            if self.np.any(negative_mask):
+                negative_overlay = self.np.where(negative_mask, map_normalized, self.np.nan)
+                ax3.imshow(negative_overlay.transpose(), origin='lower', 
+                          cmap='gray', alpha=0.05, vmin=vmin/v_normalizer, vmax=0)
         
         # Add shared colorbar for vegetation quality (for ax1 and ax2) - positioned with more spacing
         # Create space for colorbars by adjusting subplot positions

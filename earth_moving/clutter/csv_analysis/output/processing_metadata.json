@@ -1,0 +1,19 @@
+{
+  "target_resolution_m": 1.0,
+  "interpolation_method": "linear",
+  "matrix_shape": [
+    325,
+    327
+  ],
+  "coordinate_ranges": {
+    "x_min": 790225.75,
+    "x_max": 790551.75,
+    "y_min": 2983460.75,
+    "y_max": 2983784.75
+  },
+  "pixel_area_m2": 1.0,
+  "total_area_m2": 105624.0,
+  "coordinate_system": "EPSG:2249 (NAD83 Massachusetts State Plane)",
+  "elevation_normalization": "Values normalized 0-1, invalid areas marked as -1.0",
+  "processing_timestamp": "2025-10-15T10:27:21.183854"
+}

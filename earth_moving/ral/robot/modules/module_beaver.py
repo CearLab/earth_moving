@@ -200,12 +200,12 @@ def exploration_gradient_DN(position, limits, local_map, N=4, home_base_store=No
     
     max_vegetation = np.nanmax(local_map)  
     local_map = np.nan_to_num(local_map, nan=0.0)
-    local_map[local_map > max_vegetation] = 0.0
 
     _neighbourhood_valid = False
+    max_threshold = 0.9
 
     if N == 0:
-        _neighbourhood = np.argwhere(local_map >= 0.9 * max_vegetation)
+        _neighbourhood = np.argwhere(local_map >= max_threshold * max_vegetation)
         if len(_neighbourhood) > 1:
             _neighbourhood_valid = True            
             selected_idx = np.random.choice(len(_neighbourhood))
@@ -219,51 +219,42 @@ def exploration_gradient_DN(position, limits, local_map, N=4, home_base_store=No
         #! GRADIENT CALCULATION
         gradient_matrix, values_matrix = module_misc.matrix_gradient(local_map, _neighbourhood)
         
-        # Remove threshold filtering - consider ALL positive gradients
-        all_indices = np.argwhere(~np.isnan(gradient_matrix))
+        # define values
+        matrix = values_matrix.copy()
+        all_indices = np.argwhere(~np.isnan(matrix))
         direction = all_indices.tolist()
         
         #! CREATE A PROBABILISTIC DISRIBUTION BASED ON GRADIENT MAGNITUDE
-        dir_matrix = [[[] for _ in range(values_matrix.shape[1])] for _ in range(values_matrix.shape[0])]
-        cx = values_matrix.shape[0] // 2
-        cy = values_matrix.shape[1] // 2
+        dir_matrix = [[[] for _ in range(matrix.shape[1])] for _ in range(matrix.shape[0])]
+        cx = matrix.shape[0] // 2
+        cy = matrix.shape[1] // 2
         for dir in direction:
-            dir_matrix[dir[0]][dir[1]] = [dir[1] - cx, cy - dir[0]]  # column index - center column, row index - center row                
-            
-        new_position_matrix = [[[] for _ in range(values_matrix.shape[1])] for _ in range(values_matrix.shape[0])]
+            dir_matrix[dir[0]][dir[1]] = [dir[1] - cx, cy - dir[0]]  # column index - center column, row index - center row
+
+        new_position_matrix = [[[] for _ in range(matrix.shape[1])] for _ in range(matrix.shape[0])]
         new_position = []
-        gradient_values = []  # Store corresponding gradient values for probabilistic selection
-        
-        for i in range(values_matrix.shape[0]):
-            for j in range(values_matrix.shape[1]):
+        matrix_values = []  # Store corresponding gradient values for probabilistic selection
+
+        for i in range(matrix.shape[0]):
+            for j in range(matrix.shape[1]):
                 if dir_matrix[i][j]:  # Check if the direction is not empty
                     possible_position = [position[0] + dir_matrix[i][j][0], position[1] + dir_matrix[i][j][1]]
                     if possible_position[0] != position[0] or possible_position[1] != position[1] : 
                         new_position_matrix[i][j] = possible_position
                         new_position.append(possible_position)
-                        gradient_values.append(gradient_matrix[i][j])  # Store gradient magnitude            
-        
+                        matrix_values.append(matrix[i][j])  # Store gradient magnitude
+
         if new_position:
             # Probabilistic selection based on gradient magnitudes
-            if len(gradient_values) > 1:                
-                   
+            if len(matrix_values) > 1:
+
                 # Convert gradient magnitudes to probabilities using softmax
-                scaled_values = eta * np.array(gradient_values)                
-                scaled_values = scaled_values - np.max(scaled_values)                
-                gradient_probs = np.exp(scaled_values)
-                gradient_probs = gradient_probs / np.sum(gradient_probs)                                
-                selected_idx = np.random.choice(len(new_position), p=gradient_probs)
-                
-                # Select the closest position among those with maximum gradient value
-                # max_value = np.max(gradient_values)
-                # max_indices = [i for i, v in enumerate(gradient_values) if v == max_value]
-                # max_positions = [new_position[i] for i in max_indices]
-                # distances = [np.linalg.norm(np.array(pos) - np.array(position)) for pos in max_positions]
-                # min_distance = np.min(distances)
-                # closest_indices = [i for i, d in enumerate(distances) if d == min_distance]
-                # selected_idx_in_max = np.random.choice(closest_indices)
-                # selected_idx = max_indices[selected_idx_in_max]
-                
+                scaled_values = np.array(matrix_values)**eta
+                scaled_values = scaled_values - np.max(scaled_values)
+                matrix_probs = np.exp(scaled_values)
+                matrix_probs = matrix_probs / np.sum(matrix_probs)
+                selected_idx = np.random.choice(len(new_position), p=matrix_probs)
+
                 # def _neighbourhood
                 _neighbourhood = [new_position[selected_idx]]
             else:

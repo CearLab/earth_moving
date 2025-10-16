@@ -214,25 +214,29 @@ class Controller:
             # init
             value_list = []
             
-            # balance between attractive and repulsive potential
-            beta = self._beta_repulsive
+            # balance between attractive and repulsive potential            
             # far, repulsive potential
-            if beta != 0 and np.linalg.norm(error) > 4.0:
+            if np.linalg.norm(error) > 4.0:
                 for pos, val in zip(neighbourhood_pos, neighbourhood_values):
                     if not(pos[0] == self._current_value[-1][0] and pos[1] == self._current_value[-1][1]):
                         value_rep = val
                         value_list.append([pos[0], pos[1], value_rep])
                     else:
-                        value_rep = np.inf                        
+                        value_rep = np.inf
+                        value_pos = val
                         value_list.append([pos[0], pos[1], value_rep])
 
                 # Find the position corresponding to the minimum value in the third column
                 value_array = np.array(value_list)
-                min_index = np.argmin(value_array[:, 2])                
-                control_repulsive = (value_array[min_index, :2] - self._current_value[-1])
+                # Filter out rows where the third column is inf
+                finite_mask = np.isfinite(value_array[:, 2])
+                finite_array = value_array[finite_mask]
+                potential_array = []
+                for i in range(finite_array.shape[0]):
+                    potential = (value_pos - finite_array[i, 2]) * (self._current_value[-1] - finite_array[i, :2])
+                    potential_array.append(potential)
             else:
-                control_repulsive = np.array((0.0, 0.0))
-                beta = 0.0
+                potential_array = np.array((0.0, 0.0))                
                 
             # if I'm in the river, my KP increases
             # Select D4 (4-connected) neighbors of the current position
@@ -249,6 +253,7 @@ class Controller:
                         d4_values.append(val)
             
             # gains
+            beta = self._beta_repulsive
             Kp = self._Kp
             Kd = self._Kd
             Ki = self._Ki
@@ -257,11 +262,11 @@ class Controller:
             # derivative
             error_d = (error - self._error_old)
                 
-            # control
-            control=  (beta * Kp * control_repulsive) + (1 - beta) * (Kp * error \
-                + Kd * error_d \
-                + Ki * self._error_integral)
-                                    
+            # control            
+            control_attractive = Kp * error + Kd * error_d + Ki * self._error_integral
+            control_repulsive = Kp * np.sum(potential_array, axis=0)
+            control=  beta * control_repulsive + (1 - beta) * control_attractive
+
         else:
             raise NotImplementedError()
             

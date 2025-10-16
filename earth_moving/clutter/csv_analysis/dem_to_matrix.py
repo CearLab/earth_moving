@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.path import Path
 from pyproj import Transformer
+from scipy.interpolate import griddata
 import os
 import sys
 import importlib.util
@@ -24,8 +25,95 @@ import importlib.util
 sys.path.append('/home/fedeoli/Documents/Work/Projects/pushing_ws/earth_moving')
 from earth_moving.ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
 
-def main():
-    """Main function to process DEM data using the simplified approach."""
+def resample_dem_to_target_resolution(df, target_resolution_m=1.0, interpolation_method='linear'):
+    """
+    Resample DEM data to a target resolution using interpolation.
+    
+    Parameters:
+    -----------
+    df : pandas.DataFrame
+        DataFrame with columns ['x', 'y', 'elevation']
+    target_resolution_m : float
+        Target resolution in meters (default: 1.0m)
+    interpolation_method : str
+        Interpolation method: 'linear', 'nearest', 'cubic' (default: 'linear')
+        
+    Returns:
+    --------
+    tuple: (X_resampled, Y_resampled, Z_resampled)
+        Resampled coordinate meshgrids and elevation matrix
+    """
+    print(f"Resampling DEM to {target_resolution_m}m resolution using {interpolation_method} interpolation...")
+    
+    # Get original data bounds
+    x_min, x_max = df['x'].min(), df['x'].max()
+    y_min, y_max = df['y'].min(), df['y'].max()
+    
+    print(f"Original data bounds: x[{x_min:.2f}, {x_max:.2f}], y[{y_min:.2f}, {y_max:.2f}]")
+    
+    # Calculate original resolution
+    x_unique = np.sort(df['x'].unique())
+    y_unique = np.sort(df['y'].unique())
+    
+    if len(x_unique) > 1 and len(y_unique) > 1:
+        original_x_res = np.mean(np.diff(x_unique))
+        original_y_res = np.mean(np.diff(y_unique))
+        print(f"Original resolution: {original_x_res:.2f}m x {original_y_res:.2f}m")
+    
+    # Create target grid at desired resolution
+    x_new = np.arange(x_min, x_max + target_resolution_m, target_resolution_m)
+    y_new = np.arange(y_min, y_max + target_resolution_m, target_resolution_m)
+    
+    # Ensure we don't exceed the bounds
+    x_new = x_new[x_new <= x_max]
+    y_new = y_new[y_new <= y_max]
+    
+    X_new, Y_new = np.meshgrid(x_new, y_new)
+    
+    print(f"Target grid shape: {X_new.shape} ({len(y_new)} x {len(x_new)})")
+    print(f"Target resolution: {target_resolution_m:.2f}m x {target_resolution_m:.2f}m")
+    
+    # Remove invalid elevation data (e.g., -999999 for water)
+    valid_mask = df['elevation'] > -1000  # Threshold to exclude invalid data
+    df_valid = df[valid_mask].copy()
+    
+    print(f"Using {len(df_valid)} valid points out of {len(df)} total points")
+    
+    # Perform interpolation
+    points = df_valid[['x', 'y']].values
+    values = df_valid['elevation'].values
+    
+    # Interpolate to new grid
+    Z_new = griddata(
+        points, 
+        values, 
+        (X_new, Y_new), 
+        method=interpolation_method,
+        fill_value=np.nan
+    )
+    
+    # Handle NaN values (areas with no nearby data)
+    nan_count = np.sum(np.isnan(Z_new))
+    total_pixels = Z_new.size
+    print(f"Interpolation complete. {nan_count}/{total_pixels} pixels have no data (NaN)")
+    
+    return X_new, Y_new, Z_new
+
+def main(target_resolution_m=1.0, interpolation_method='linear'):
+    """
+    Main function to process DEM data using the simplified approach.
+    
+    Parameters:
+    -----------
+    target_resolution_m : float
+        Target resolution in meters (default: 1.0m)
+    interpolation_method : str
+        Interpolation method: 'linear', 'nearest', 'cubic' (default: 'linear')
+    """
+    
+    print(f"Processing DEM with target resolution: {target_resolution_m}m")
+    print(f"Interpolation method: {interpolation_method}")
+    print("="*50)
     
     # Load the CSV file
     csv_path = "/home/fedeoli/Documents/Work/Projects/pushing_ws/earth_moving/earth_moving/utils/elevation.csv"
@@ -34,14 +122,11 @@ def main():
     # Assign column names (assuming 3 columns: x, y, elevation)
     df.columns = ["x", "y", "elevation"]
     
-    # Create pivot table
-    pivot = df.pivot_table(index="y", columns="x", values="elevation")
+    # Resample to target resolution
+    X, Y, Z = resample_dem_to_target_resolution(df, target_resolution_m, interpolation_method)
     
-    # Create meshgrid
-    x = np.sort(df["x"].unique())
-    y = np.sort(df["y"].unique())
-    X, Y = np.meshgrid(x, y)
-    Z = pivot.values
+    print(f"\nResampled data shape: {Z.shape}")
+    print(f"Data ranges - x: [{X.min():.2f}, {X.max():.2f}], y: [{Y.min():.2f}, {Y.max():.2f}]")
     
     # Define square corners in lat/lon (EPSG:4326) - Top-left quarter of original map
     # Original full map corners:
@@ -71,8 +156,11 @@ def main():
     XY = np.c_[X.ravel(), Y.ravel()]
     inside_grid = poly.contains_points(XY).reshape(X.shape)
     
-    # Create land mask (remove water/below sea level)
-    Z_land = np.where(Z > 0, Z, -1.0)
+    # Handle NaN values from interpolation (areas with insufficient data)
+    Z_clean = np.where(np.isnan(Z), -1.0, Z)
+    
+    # Create land mask (remove water/below sea level and NaN areas)
+    Z_land = np.where(Z_clean > 0, Z_clean, -1.0)
     
     # Apply both land mask and polygon mask
     Z_clipped = np.where(inside_grid, Z_land, -1.0)
@@ -145,12 +233,16 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
     
     # Create coordinate arrays that match the clipped region bounds
-    # Find indices within the bounding box
-    x_mask = (x >= xmin) & (x <= xmax)
-    y_mask = (y >= ymin) & (y <= ymax)
+    # Extract coordinate arrays from the meshgrid
+    x_coords = X[0, :]  # First row contains all x coordinates
+    y_coords = Y[:, 0]  # First column contains all y coordinates
     
-    x_clipped = x[x_mask]
-    y_clipped = y[y_mask]
+    # Find indices within the bounding box
+    x_mask = (x_coords >= xmin) & (x_coords <= xmax)
+    y_mask = (y_coords >= ymin) & (y_coords <= ymax)
+    
+    x_clipped = x_coords[x_mask]
+    y_clipped = y_coords[y_mask]
     X_clipped, Y_clipped = np.meshgrid(x_clipped, y_clipped)
     
     # Extract the corresponding clipped elevation data
@@ -287,16 +379,55 @@ def main():
     np.save(f"{output_dir}/elevation.npy", Z_cropped)
     np.save(f"{output_dir}/elevation_with_vegetation.npy", Z_vegetation_cropped)
     
+    # Save processing metadata for reference
+    import json
+    metadata = {
+        'target_resolution_m': target_resolution_m,
+        'interpolation_method': interpolation_method,
+        'matrix_shape': Z_cropped.shape,
+        'coordinate_ranges': {
+            'x_min': float(x_clipped.min()),
+            'x_max': float(x_clipped.max()),
+            'y_min': float(y_clipped.min()),
+            'y_max': float(y_clipped.max())
+        },
+        'pixel_area_m2': target_resolution_m * target_resolution_m,
+        'total_area_m2': float((x_clipped.max() - x_clipped.min()) * (y_clipped.max() - y_clipped.min())),
+        'coordinate_system': 'EPSG:2249 (NAD83 Massachusetts State Plane)',
+        'elevation_normalization': 'Values normalized 0-1, invalid areas marked as -1.0',
+        'processing_timestamp': pd.Timestamp.now().isoformat()
+    }
+    
+    with open(f"{output_dir}/processing_metadata.json", 'w') as f:
+        json.dump(metadata, f, indent=2)
+    
+    print(f"- processing_metadata.json: Processing parameters and grid information")
+    
     print(f"\nSaved cropped clipped data to {output_dir}:")
     print(f"- elevation.npy: {Z_cropped.shape} (values 0-1, cropped to polygon bounds)")
     print(f"- elevation_with_vegetation.npy: {Z_vegetation_cropped.shape} (with vegetation clusters)")
     print(f"- X_coordinates.npy: {X_clipped.shape} (cropped coordinates)")
     print(f"- Y_coordinates.npy: {Y_clipped.shape} (cropped coordinates)")
     print(f"- Coordinate ranges: x[{x_clipped.min():.2f}, {x_clipped.max():.2f}], y[{y_clipped.min():.2f}, {y_clipped.max():.2f}]")
+    print(f"- Target resolution: {target_resolution_m}m x {target_resolution_m}m per pixel")
+    print(f"- Interpolation method: {interpolation_method}")
     print(f"- Added vegetation using BeaversEnvironmentBackend with {len(trees)} tree positions")
     print(f"- Vegetation parameters: radius={env_backend._vegetation_cluster_radius_range}, sigma={env_backend._vegetation_cluster_sigma}")
 
-    return df, pivot, X, Y, Z, Z_clip_debug, Z_clip_rescaled, inside_grid, Z_with_vegetation, env_backend
+    # Create a summary dictionary with processing parameters
+    processing_info = {
+        'target_resolution_m': target_resolution_m,
+        'interpolation_method': interpolation_method,
+        'final_shape': Z_cropped.shape,
+        'coordinate_ranges': {
+            'x_min': x_clipped.min(),
+            'x_max': x_clipped.max(),
+            'y_min': y_clipped.min(),
+            'y_max': y_clipped.max()
+        }
+    }
+    
+    return df, X, Y, Z, Z_clip_debug, Z_clip_rescaled, inside_grid, Z_with_vegetation, env_backend, processing_info
 
 def add_vegetation_clusters_with_environment_backend(Z_matrix, X_coords, Y_coords, tree_positions, cluster_sigma, cluster_radius=3):
     """
@@ -392,5 +523,19 @@ def add_vegetation_clusters_with_environment_backend(Z_matrix, X_coords, Y_coord
     return Z_with_vegetation, env_backend
 
 if __name__ == "__main__":
-    # Run the basic processing
-    main()
+    import argparse
+    
+    # Set up command line argument parsing
+    parser = argparse.ArgumentParser(description='Process DEM data with configurable resolution')
+    parser.add_argument('--resolution', '-r', type=float, default=1.0,
+                       help='Target resolution in meters (default: 1.0)')
+    parser.add_argument('--interpolation', '-i', type=str, default='linear',
+                       choices=['linear', 'nearest', 'cubic'],
+                       help='Interpolation method (default: linear)')
+    
+    args = parser.parse_args()
+    
+    # Run the processing with specified parameters
+    print(f"Starting DEM processing with {args.resolution}m resolution using {args.interpolation} interpolation")
+    result = main(target_resolution_m=args.resolution, interpolation_method=args.interpolation)
+    print("Processing complete!")
