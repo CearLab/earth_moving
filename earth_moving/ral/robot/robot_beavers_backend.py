@@ -222,8 +222,10 @@ class BeaversRobotBackend(BaseRobotBackend):
             - exploration_N_recovery : int
                 Visit count reset factor
             - exploration_gaussian_locality_sigma : float, optional
-                Sigma for distance-based Gaussian weighting (default: 5.0)
+                Normalized sigma for distance-based Gaussian weighting (default: 0.2)
+                Expressed as fraction of map diagonal distance (0.0-1.0)
                 Smaller values create stronger preference for nearby high-quality points
+                e.g., 0.1 = 10% of map diagonal, 0.3 = 30% of map diagonal
             - exploration_gaussian_smooth_sigma : float, optional
                 Sigma for Gaussian smoothing filter (default: 1.5)
                 Controls smoothness of exploration gradients
@@ -293,7 +295,42 @@ class BeaversRobotBackend(BaseRobotBackend):
         ...     harvest_consumption=5.0
         ... )
         """
-        super().initiate_robot(**kwargs)                
+        super().initiate_robot(**kwargs)     
+        
+        self._harvest_threshold_list = self._robot.get('harvest_threshold')
+        means = self.np.mean(self._harvest_threshold_list, axis=0)
+        if isinstance(self._harvest_threshold_list, list) and len(self._harvest_threshold_list) > 0:
+                base = list(self.random.choice(self._harvest_threshold_list))
+                # Randomly select a position around the chosen home base within the allowed range
+                self._harvest_threshold = base
+                if len(self._harvest_threshold_list) == 1:
+                    self._role = 'normal'
+                else:
+                    if base[0] > means[0]:
+                        self._role = 'explorer'
+                    else:
+                        self._role = 'expander'
+        else:
+            raise ValueError('harvest_threshold must be a non-empty list')
+        
+        self._exploration_gaussian_locality_sigma = self._robot.get('exploration_gaussian_locality_sigma')
+        self._exploration_eta_list = self._robot.get('exploration_eta')
+        if isinstance(self._exploration_eta_list, list) and len(self._exploration_eta_list) > 0:
+                if self._role == 'explorer':
+                    self._exploration_eta = self.np.min(self._exploration_eta_list)
+                else:
+                    self._exploration_eta = self.np.max(self._exploration_eta_list)       
+        else:
+            raise ValueError('exploration_eta must be a non-empty list')
+        
+        self._exploration_map_list = self._robot.get('exploration_map')
+        if isinstance(self._exploration_map_list, list) and len(self._exploration_map_list) > 0:
+                if self._role == 'explorer':
+                    self._exploration_map = self._exploration_map_list[1]
+                else:
+                    self._exploration_map = self._exploration_map_list[0]
+        else:
+            raise ValueError('exploration_map must be a non-empty list')           
         
         # parse _robot
         self._maximum_load = self._robot.get('maximum_load') 
@@ -306,10 +343,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._range_x = self._robot.get('range_x')
         self._range_y = self._robot.get('range_y')
         self._exploration_mode = self._robot.get('exploration_mode')
-        self._exploration_map = self._robot.get('exploration_map')
-        self._exploration_eta = self._robot.get('exploration_eta')
         self._exploration_N_recovery = self._robot.get('exploration_N_recovery')
-        self._exploration_gaussian_locality_sigma = self._robot.get('exploration_gaussian_locality_sigma', 5.0)
         self._motion_consumption = self._robot.get('motion_consumption')
         self._load_consumption = self._robot.get('load_consumption')
         self._harvest_consumption = self._robot.get('harvest_consumption')        
@@ -323,19 +357,6 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._stomping_removal = self._robot.get('stomping_removal')
         self._n_traces = self._robot.get('n_traces')
         self._decay_values = self._robot.get('decay_values')
-        
-        self._harvest_threshold_list = self._robot.get('harvest_threshold')
-        means = self.np.mean(self._harvest_threshold_list, axis=0)
-        if isinstance(self._harvest_threshold_list, list) and len(self._harvest_threshold_list) > 0:
-                base = list(self.random.choice(self._harvest_threshold_list))
-                # Randomly select a position around the chosen home base within the allowed range
-                self._harvest_threshold = base
-                if base[0] > means[0]:
-                    self._role = 'explorer'
-                else:
-                    self._role = 'expander'
-        else:
-            raise ValueError('harvest_threshold must be a non-empty list for random_home initialization')
 
         # other attributes
         self._current_time = 0 #! this is a counter. Agent does not compute the hour/time of the day. It will be provided by the environment        
@@ -353,6 +374,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         self._in_water_counter = 0
         self._reset_integral = 50
         self._min_home_distance = 500
+        self._delta_load = 0.0
         
         # from environment
         self._vegetation_quality_range = None        
@@ -665,7 +687,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         # (atomic execution)
         cond_atomic = self._status_task == 'IDLE'
         # Uncomment this to always allow new task decisions (for debugging or testing)        
-        # cond_atomic = True
+        cond_atomic = True
         
         """
         TASK SELECTION FINITE STATE MACHINE (FSM)
@@ -730,10 +752,15 @@ class BeaversRobotBackend(BaseRobotBackend):
         future harvesting opportunities while preventing robots from repeatedly
         harvesting the same location during a single exploration cycle.
         """
-        
+
+        max_stuck_period = 24*1
+        delta_store = self.np.diff(self._load_store[-(max_stuck_period+2):-1]) if len(self._load_store) > max_stuck_period else 0
+        self._delta_load = self.np.sum(delta_store == 0)
+
         # decide the task
         if  cond_atomic and \
-            (self._load >= self.np.floor(self._maximum_load) or self._in_water_counter > 30):
+            (self._load >= self.np.floor(self._maximum_load) or \
+                self._in_water_counter >= 0.5*max_stuck_period):
             self._current_task = 'store'                
         elif cond_atomic and \
             self._vegetation_removal > 0 and \
@@ -974,7 +1001,7 @@ class BeaversRobotBackend(BaseRobotBackend):
         1. IDLE: Select next unvisited target destination
         2. ACTIVE: Continue moving toward current destination  
         3. FINISHED: Mark current target as visited, prepare for next
-        
+        5
         Exploration completes when all neighborhood targets have been visited,
         transitioning the task status to FINISHED.
         
@@ -1122,7 +1149,7 @@ class BeaversRobotBackend(BaseRobotBackend):
             if self._controller._map_repulsive is 'vegetation_quality':
                 map_repulsive = (self._local_map.copy())
             elif self._controller._map_repulsive is 'vegetation_visits':
-                map_repulsive = self._local_map.copy()/(self._local_map_visits.copy())
+                map_repulsive = self._local_map.copy()/(1 + self._local_map_visits.copy())
             else:
                 raise ValueError('Invalid map_repulsive value: {}'.format(self._controller._map_repulsive))
             
@@ -1341,17 +1368,18 @@ class BeaversRobotBackend(BaseRobotBackend):
         locality preference in target selection:
         
         1. **Distance Weighting**: Points closer to current position receive
-           higher preference weights using Gaussian decay function
+           higher preference weights using normalized Gaussian PDF
         2. **Smoothing Filter**: Additional Gaussian filter reduces noise
            and creates smoother gradients for better pathfinding
         
         Configuration parameters:
         - exploration_gaussian_locality_sigma: Controls locality preference
-          (smaller = stronger preference for nearby points)
+          as fraction of map diagonal (0.2 = 20% of map diagonal)
         - exploration_gaussian_smooth_sigma: Controls gradient smoothness
         
-        This prevents excessive long-distance movement while still allowing
-        the robot to discover high-quality distant resources when beneficial.
+        The distance weighting uses proper PDF normalization, ensuring
+        consistent behavior across different map sizes while preserving
+        intuitive sigma interpretation relative to map dimensions.
         
         Examples
         --------
@@ -1369,33 +1397,64 @@ class BeaversRobotBackend(BaseRobotBackend):
         
         #! step to be used in the neighbourhood, it makes sense to have 
         #! it = 1 as long as the current cell is the only one observed by the beaver
-                
+
+        if self.np.any(self._neighbourhood_reached_flag) == False and self._neighbourhood is not None:
+            # already have a neighborhood, no need to recompute
+            return
+        
+         # current position                 
         position = self._position
 
         #! BEHAVIORAL LOGIC MODEL 
         eps = 1e0      
-        threshold_mask = (self._local_map >= self._harvest_threshold[0]) & (self._local_map <= self._harvest_threshold[1])        
-        if self._exploration_map is 'vegetation_quality':            
-            local_map = (eps + self._local_map.copy())**2
-            local_map[~threshold_mask] = 0.0
-        elif self._exploration_map is 'vegetation_visits':
-            local_map = (eps + self._local_map_visits.copy()) * (eps + self._local_map.copy())**2
-            local_map[~threshold_mask] = 0.0
+        threshold_mask = (self._local_map >= self._harvest_threshold[0]) & (self._local_map <= self._harvest_threshold[1])
+        local_map = self._local_map.copy()
+        local_visits_map = self._local_map_visits.copy()
+        
+        # Rescale local_visits_map between 0 and self._vegetation_quality_range[1]
+        visits_min = self.np.nanmin(local_visits_map)
+        visits_max = self.np.nanmax(local_visits_map)
+        if visits_max > visits_min:  # Avoid division by zero
+            local_visits_map = (local_visits_map - visits_min) / (visits_max - visits_min) * self._vegetation_quality_range[1]
+        else:
+            local_visits_map = self.np.zeros_like(local_visits_map)
+            
+        if self._exploration_map is 'vegetation_quality':                        
+            local_map[~threshold_mask] = self.np.nan
+            local_map[threshold_mask] = 1/(eps + local_map[threshold_mask])**2
+        elif self._exploration_map is 'vegetation_visits':            
+            local_map[~threshold_mask] = self.np.nan
+            local_map[threshold_mask] = (eps + local_visits_map[threshold_mask])**4 / (eps + local_map[threshold_mask])**2
         else:
             raise ValueError('Invalid exploration_map value: {}'.format(self._exploration_map))
         
         # gaussian smooth centered in the current position on local_map
         # This creates a distance-weighted preference for closer high-quality points
-        if not self.np.all(self.np.isnan(local_map)):
+        if not self.np.all(self.np.isnan(local_map)) and (self._exploration_gaussian_locality_sigma > 0):
             # Create a distance-based weighting centered on current position
             y_coords, x_coords = self.np.ogrid[:local_map.shape[0], :local_map.shape[1]]
             
             # Calculate distance from current position to each cell
             distance_from_position = self.np.sqrt((x_coords - position[1])**2 + (y_coords - position[0])**2)
             
-            # Create Gaussian weight matrix (closer points have higher weight)
-            # Sigma determines the "locality preference" - smaller values = stronger preference for nearby points
-            distance_weight = self.np.exp(-(distance_from_position**2) / (2 * self._exploration_gaussian_locality_sigma**2))
+            # Calculate maximum possible distance in the map for normalization
+            max_distance = self.np.sqrt(local_map.shape[0]**2 + local_map.shape[1]**2)
+            
+            # Scale sigma relative to maximum distance (sigma is now a fraction of max distance)
+            # This makes the parameter more intuitive: sigma=0.1 means 10% of map diagonal
+            effective_sigma = self._exploration_gaussian_locality_sigma * max_distance
+            
+            # Create normalized Gaussian weight matrix (proper PDF normalization)
+            # The 1/(sigma*sqrt(2*pi)) factor normalizes the Gaussian PDF
+            normalization_factor = 1.0 / (effective_sigma * self.np.sqrt(2 * self.np.pi))
+            distance_weight = normalization_factor * self.np.exp(-(distance_from_position**2) / (2 * effective_sigma**2))
+            
+            # Normalize weights to sum to 1 across valid (non-NaN) regions
+            valid_mask = ~self.np.isnan(local_map)
+            if self.np.any(valid_mask):
+                weight_sum = self.np.sum(distance_weight[valid_mask])
+                if weight_sum > 0:
+                    distance_weight = distance_weight / weight_sum
             
             # Apply distance weighting to the local map
             # This makes closer high-quality points more attractive than distant ones

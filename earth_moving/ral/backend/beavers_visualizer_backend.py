@@ -459,8 +459,20 @@ class BeaversVisualizerBackend(BaseBackend, Model):
             distance, load, and error analysis side by side.
         """
         
-        # Get number of agents
-        agent_list = [agent for agent in self._schedule.agents if isinstance(agent, BeaversVisualizerAgent)]
+        # Get agents and sort by role (explorers first, then expanders)
+        all_agents = [agent for agent in self._schedule.agents if isinstance(agent, BeaversVisualizerAgent)]
+        
+        # Separate agents by role
+        explorer_agents = [agent for agent in all_agents if hasattr(agent, '_role') and agent._role == 'explorer']
+        expander_agents = [agent for agent in all_agents if hasattr(agent, '_role') and agent._role == 'expander']
+
+        # If no agents were categorized by role, fall back to using all agents
+        if len(explorer_agents) == 0 and len(expander_agents) == 0:
+            explorer_agents = list(all_agents)
+            expander_agents = []
+        
+        # Combine with explorers first, then expanders
+        agent_list = explorer_agents + expander_agents
         n_agents = len(agent_list)
         
         if n_agents == 0:
@@ -480,6 +492,7 @@ class BeaversVisualizerBackend(BaseBackend, Model):
         # Process each agent
         for i, agent in enumerate(agent_list):
             agent_id = agent.unique_id
+            agent_role = getattr(agent, '_role', 'unknown')  # Get role, default to 'unknown'
             positions = agent._position_store
             loads = agent._load_store
             errors = agent._error_store
@@ -540,6 +553,17 @@ class BeaversVisualizerBackend(BaseBackend, Model):
                 axes[i, 0].set_ylabel('Distance from Start')
                 axes[i, 0].set_title(f'Agent {agent_id}: Distance from Initial Position')
                 axes[i, 0].grid(True, alpha=0.3)
+                
+                # Add role textbox in top-right corner of first subplot
+                axes[i, 0].text(0.95, 0.95, f'Role: {agent_role.capitalize()}',
+                               transform=axes[i, 0].transAxes,
+                               fontsize=10,
+                               verticalalignment='top',
+                               horizontalalignment='right',
+                               bbox=dict(boxstyle='round,pad=0.3', 
+                                        facecolor='lightgray', 
+                                        alpha=0.8,
+                                        edgecolor='black'))
                 
                 # Middle plot: Load over time
                 axes[i, 1].plot(time_steps, loads,
@@ -637,6 +661,17 @@ class BeaversVisualizerBackend(BaseBackend, Model):
                 axes[i, 1].set_title(f'Agent {agent_id}: Load Variation')
                 axes[i, 2].set_title(f'Agent {agent_id}: Control Error Norm')
                 axes[i, 3].set_title(f'Agent {agent_id}: Exploration Eta & Harvest Thresholds')
+                
+                # Add role textbox even when no data available
+                axes[i, 0].text(0.95, 0.95, f'Role: {agent_role.capitalize()}',
+                               transform=axes[i, 0].transAxes,
+                               fontsize=10,
+                               verticalalignment='top',
+                               horizontalalignment='right',
+                               bbox=dict(boxstyle='round,pad=0.3', 
+                                        facecolor='lightgray', 
+                                        alpha=0.8,
+                                        edgecolor='black'))
         
         # Adjust layout
         plt.tight_layout()                
@@ -946,9 +981,9 @@ class EnvironmentVisualizerAgent(BeaversEnvironmentBackend, Agent):
                     map_visits[agents._position[0], agents._position[1]] = agents._local_map_visits[agents._position[0], agents._position[1]]
                     map[agents._position[0], agents._position[1]] = agents._map_quality_measure_position
                     if agents._role == 'explorer':
-                        map_visits_roles[agents._position[0], agents._position[1]] = map_visits[agents._position[0], agents._position[1]]
-                    else:
                         map_visits_roles[agents._position[0], agents._position[1]] = -map_visits[agents._position[0], agents._position[1]]
+                    else:
+                        map_visits_roles[agents._position[0], agents._position[1]] = map_visits[agents._position[0], agents._position[1]]
                 if agents._home_base_position_store is not None:
                     for pos in agents._home_base_position_store:
                         home_base_position_store.append(pos)

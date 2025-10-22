@@ -198,8 +198,7 @@ def exploration_gradient_DN(position, limits, local_map, N=4, home_base_store=No
         if limits[0][1] >= home_base[0] and limits[1][1] >= home_base[1]:
             local_map[home_base[0]][home_base[1]] = 0    
     
-    max_vegetation = np.nanmax(local_map)  
-    local_map = np.nan_to_num(local_map, nan=0.0)
+    max_vegetation = np.nanmax(local_map)      
 
     _neighbourhood_valid = False
     max_threshold = 0.9
@@ -220,7 +219,10 @@ def exploration_gradient_DN(position, limits, local_map, N=4, home_base_store=No
         gradient_matrix, values_matrix = module_misc.matrix_gradient(local_map, _neighbourhood)
         
         # define values
-        matrix = values_matrix.copy()
+        # matrix = values_matrix.copy()
+        matrix = gradient_matrix.copy()
+        
+        # indices
         all_indices = np.argwhere(~np.isnan(matrix))
         direction = all_indices.tolist()
         
@@ -243,27 +245,32 @@ def exploration_gradient_DN(position, limits, local_map, N=4, home_base_store=No
                         new_position_matrix[i][j] = possible_position
                         new_position.append(possible_position)
                         matrix_values.append(matrix[i][j])  # Store gradient magnitude
+                        
+        try:
+            # Filter out NaN values and corresponding positions
+            finite_mask = ~np.isnan(matrix_values)
+            finite_values = np.array(matrix_values)[finite_mask]
+            finite_positions = [new_position[i] for i in range(len(new_position)) if finite_mask[i]]
+                            
+            # Convert gradient magnitudes to probabilities using softmax
+            scaled_values = finite_values*eta
+            scaled_values = scaled_values - np.max(scaled_values)
+            matrix_probs = np.exp(scaled_values)
+            matrix_probs = matrix_probs / np.sum(matrix_probs)
+            selected_idx = np.random.choice(len(finite_positions), p=matrix_probs)
 
-        if new_position:
-            # Probabilistic selection based on gradient magnitudes
-            if len(matrix_values) > 1:
+            # def _neighbourhood
+            _neighbourhood = [finite_positions[selected_idx]]                                    
 
-                # Convert gradient magnitudes to probabilities using softmax
-                scaled_values = np.array(matrix_values)**eta
-                scaled_values = scaled_values - np.max(scaled_values)
-                matrix_probs = np.exp(scaled_values)
-                matrix_probs = matrix_probs / np.sum(matrix_probs)
-                selected_idx = np.random.choice(len(new_position), p=matrix_probs)
-
-                # def _neighbourhood
-                _neighbourhood = [new_position[selected_idx]]
-            else:
-                # Select the neighbourhood position closest to current position
-                distances = [np.linalg.norm(np.array(pos) - np.array(position)) for pos in _neighbourhood]
-                min_distance = np.min(distances)
-                closest_indices = [i for i, d in enumerate(distances) if d == min_distance]
-                selected_idx = np.random.choice(closest_indices)
-                _neighbourhood = [_neighbourhood[selected_idx]]        
+        except:
+            # Select the neighbourhood position closest to current position
+            distances = [np.linalg.norm(np.array(pos) - np.array(position)) for pos in _neighbourhood]
+            idx_zero = [i for i, d in enumerate(distances) if d == 0.0]
+            distances[idx_zero[0]] = np.inf  # Exclude current position
+            max_distance = 2 * np.min(distances)
+            closest_indices = [i for i, d in enumerate(distances) if (d <= max_distance)]
+            selected_idx = np.random.choice(closest_indices)
+            _neighbourhood = [_neighbourhood[selected_idx]]        
             
                 
     _neighbourhood_reached_flag = [False] * len(_neighbourhood)

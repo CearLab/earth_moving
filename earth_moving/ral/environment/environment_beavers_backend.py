@@ -375,9 +375,9 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
             # Increase by rate, but if value is zero, set to a small positive value
             if mode == 'percentage':
                 self._map[growth_mask] = self._map[growth_mask] * (1 + rate)
-                zero_mask = growth_mask & (self._map == 0)
+                zero_mask = ((self._map >= 0) & (self._map <= 0.05))
                 if self.np.any(zero_mask):
-                    self._map[zero_mask] = 0.1
+                    self._map[zero_mask] = 0.05
                 # Clip the grown values between zero and the maximum vegetation quality
                 self._map[growth_mask] = self.np.clip(
                     self._map[growth_mask], 0, 0.7 * self._vegetation_quality_range[1]
