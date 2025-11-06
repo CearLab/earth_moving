@@ -134,11 +134,11 @@ def handle_2d_events(visualizer, env, integration):
 
                     # Build → spline → thin
                     world_path = approach_trajectory + trajectory_3d  # as before
-                    bspline_path = make_bspline(world_path, ds=0.5)
+                    bspline_path = make_bspline(world_path, ds=0.05)
 
                     integration.draw_trajectory([(x, y) for x, y, _ in bspline_path], color=[0, 0, 0])
                     integration.follow_smooth_trajectory(bspline_path,
-                                                         lookahead=4,
+                                                         lookahead=2,
                                                          pos_tol=0.05,  # 5 cm
                                                          angle_tol=0.25)
                     
