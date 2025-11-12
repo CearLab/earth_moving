@@ -25,6 +25,9 @@ import importlib.util
 sys.path.append('/home/fedeoli/Documents/Work/Projects/pushing_ws/earth_moving')
 from earth_moving.ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
 
+EPSG_X = 'EPSG:4326'
+EPSG_Y = 'EPSG:6483'  # 2249
+
 def resample_dem_to_target_resolution(df, target_resolution_m=1.0, interpolation_method='linear'):
     """
     Resample DEM data to a target resolution using interpolation.
@@ -99,7 +102,7 @@ def resample_dem_to_target_resolution(df, target_resolution_m=1.0, interpolation
     
     return X_new, Y_new, Z_new
 
-def main(target_resolution_m=1.0, interpolation_method='linear'):
+def main(target_resolution_m=1.0, interpolation_method='linear', output_dir='earth_moving/clutter/csv_analysis/output', input_csv='/home/fedeoli/Documents/Work/Projects/pushing_ws/earth_moving/earth_moving/utils/Acadia2010.csv'):
     """
     Main function to process DEM data using the simplified approach.
     
@@ -116,11 +119,31 @@ def main(target_resolution_m=1.0, interpolation_method='linear'):
     print("="*50)
     
     # Load the CSV file
-    csv_path = "/home/fedeoli/Documents/Work/Projects/pushing_ws/earth_moving/earth_moving/utils/elevation.csv"
+    csv_path = input_csv
     df = pd.read_csv(csv_path)
     
-    # Assign column names (assuming 3 columns: x, y, elevation)
-    df.columns = ["x", "y", "elevation"]
+    # Check if this is Acadia2023.csv with projected coordinates
+    if 'X_m' in df.columns and 'Y_m' in df.columns:
+        # Use projected coordinates (already in projected - meters)
+        df = df[['X_m', 'Y_m', 'elevation']].copy()
+        df.columns = ["x", "y", "elevation"]
+        print("Using projected coordinates (X_m, Y_m)")
+        coordinates_are_projected = True
+    else:
+        # Keep only first 3 columns if more than 3 columns exist (for Acadia2010.csv)
+        if df.shape[1] > 3:
+            df = df.iloc[:, :3]  # Keep only first 3 columns
+        
+        # Assign column names (assuming 3 columns: x, y, elevation)
+        df.columns = ["x", "y", "elevation"]
+        print("Using geographic coordinates (lon, lat)")
+        coordinates_are_projected = False    
+    
+    # Debug: Show original lat/lon bounds from the CSV file
+    print(f"\nOriginal CSV data bounds:")
+    print(f"Longitude (x): [{df['x'].min():.6f}, {df['x'].max():.6f}]")
+    print(f"Latitude (y): [{df['y'].min():.6f}, {df['y'].max():.6f}]")
+    print(f"Elevation: [{df['elevation'].min():.2f}, {df['elevation'].max():.2f}]")
     
     # Resample to target resolution
     X, Y, Z = resample_dem_to_target_resolution(df, target_resolution_m, interpolation_method)
@@ -128,7 +151,8 @@ def main(target_resolution_m=1.0, interpolation_method='linear'):
     print(f"\nResampled data shape: {Z.shape}")
     print(f"Data ranges - x: [{X.min():.2f}, {X.max():.2f}], y: [{Y.min():.2f}, {Y.max():.2f}]")
     
-    # Define square corners in lat/lon (EPSG:4326) - Top-left quarter of original map
+    #! BOSTON AREA
+    # Define square corners in lat/lon - Top-left quarter of original map
     # Original full map corners:
     # NW = (-71.0033967, 42.4345814)
     # SW = (-71.0034071, 42.4328122)
@@ -138,70 +162,164 @@ def main(target_resolution_m=1.0, interpolation_method='linear'):
     # Calculate midpoints for top-left quarter
     # Longitude midpoint: (-71.0033967 + -71.0009986) / 2 = -71.0021977
     # Latitude midpoint: (42.4345814 + 42.4328122) / 2 = 42.4336968
+        
+    # NW = (-71.0033967, 42.4345814)  # Keep original NW corner
+    # SW = (-71.0034071, 42.4336968)  # Original SW longitude, midpoint latitude  
+    # SE = (-71.0021977, 42.4336968)  # Midpoint longitude, midpoint latitude
+    # NE = (-71.0021977, 42.4345814)  # Midpoint longitude, original N latitude
     
-    NW = (-71.0033967, 42.4345814)  # Keep original NW corner
-    SW = (-71.0034071, 42.4336968)  # Original SW longitude, midpoint latitude  
-    SE = (-71.0021977, 42.4336968)  # Midpoint longitude, midpoint latitude
-    NE = (-71.0021977, 42.4345814)  # Midpoint longitude, original N latitude
+    #! ACADIA AREA
+    NW = (-68.273583, 44.366088)
+    SW = (-68.273583, 44.365399)  #fixed
+    SE = (-68.272327, 44.365399)
+    NE = (-68.272327, 44.366088)  #fixed
+
+    # Food cache: 44.365899°, -68.272928° (lat, lon)
+    food_cache_latlon = (44.365899, -68.272928)
     
     # Order the corners around the square (clockwise or CCW)
+    # If square is empty, consider the whole map
+    square = []  # Define polygon corners here, or leave empty to use whole map
     square = [NW, SW, SE, NE]
     
-    # Transform coordinates
-    tf = Transformer.from_crs("EPSG:4326", "EPSG:2249", always_xy=True)
-    square_xy = [tf.transform(lon, lat) for lon, lat in square]
-    poly = Path(square_xy)
+    # Handle coordinate transformation and polygon mask creation
+    if len(square) == 0:
+        # Use the whole map - create a mask that includes everything
+        print("No polygon defined, using entire map extent")
+        inside_grid = np.ones(X.shape, dtype=bool)
+        
+        # Set food cache coordinates (transform if needed)
+        if coordinates_are_projected:
+            tf = Transformer.from_crs(EPSG_X, EPSG_Y, always_xy=True)
+            food_cache_x, food_cache_y = tf.transform(food_cache_latlon[1], food_cache_latlon[0])
+        else:
+            # Data is in geographic coordinates, need to transform everything to projected
+            tf = Transformer.from_crs(EPSG_X, EPSG_Y, always_xy=True)
+            print("Transforming DEM coordinates")
+            df['x'], df['y'] = tf.transform(df['x'].values, df['y'].values)
+            food_cache_x, food_cache_y = tf.transform(food_cache_latlon[1], food_cache_latlon[0])
+        
+        print(f"Food cache coordinates: ({food_cache_x:.2f}, {food_cache_y:.2f})")
+        
+    else:
+        # Use the defined polygon corners
+        print(f"Using polygon with {len(square)} corners")
+        
+        # Transform coordinates based on input data type
+        if coordinates_are_projected:
+            # Data is already in projected, but polygon corners are still in lat/lon
+            tf = Transformer.from_crs(EPSG_X, EPSG_Y, always_xy=True)
+            square_xy = [tf.transform(lon, lat) for lon, lat in square]
+            
+            # Transform food cache coordinates to projected system
+            food_cache_x, food_cache_y = tf.transform(food_cache_latlon[1], food_cache_latlon[0])  # lon, lat order
+            print(f"Food cache coordinates: ({food_cache_x:.2f}, {food_cache_y:.2f})")
+        else:
+            # Data is in geographic coordinates, need to transform everything to projected
+            tf = Transformer.from_crs(EPSG_X, EPSG_Y, always_xy=True)
+            square_xy = [tf.transform(lon, lat) for lon, lat in square]
+            
+            # Also transform the DEM data coordinates
+            print("Transforming DEM coordinates")
+            df['x'], df['y'] = tf.transform(df['x'].values, df['y'].values)
+            
+            # Transform food cache coordinates to projected system
+            food_cache_x, food_cache_y = tf.transform(food_cache_latlon[1], food_cache_latlon[0])  # lon, lat order
+            print(f"Food cache coordinates: ({food_cache_x:.2f}, {food_cache_y:.2f})")
+        
+        # Create polygon mask
+        poly = Path(square_xy)
+        XY = np.c_[X.ravel(), Y.ravel()]
+        inside_grid = poly.contains_points(XY).reshape(X.shape)
     
-    # Create grid mask
-    XY = np.c_[X.ravel(), Y.ravel()]
-    inside_grid = poly.contains_points(XY).reshape(X.shape)
-    
+    valid_mask = Z >= 0.0
+    max_val = 1 / np.min(Z[valid_mask]) if np.any(valid_mask) else 0.0
+
     # Handle NaN values from interpolation (areas with insufficient data)
-    Z_clean = np.where(np.isnan(Z), -1.0, Z)
-    
+    Z_clean = np.where(np.isnan(Z), -max_val, Z)
+
     # Create land mask (remove water/below sea level and NaN areas)
-    Z_land = np.where(Z_clean > 0, Z_clean, -1.0)
+    Z_land = np.where(Z_clean >= 0, Z_clean, -max_val)
     
     # Apply both land mask and polygon mask
-    Z_clipped = np.where(inside_grid, Z_land, -1.0)
-    
+    Z_clipped = np.where(inside_grid, Z_land, -max_val)
+
     # Show WITHOUT land mask first (to confirm overlap)
-    Z_clip_debug = np.where(inside_grid, Z, -1.0)
+    Z_clip_debug = np.where(inside_grid, Z, -max_val)
+
+    # Extract stream areas based on high elevation percentiles
+    valid_mask = Z_clipped >= 0.0
+    threshold_percentile = 9 # Adjust 90-99 as needed
     
+    # Check if there are any valid points before computing percentile
+    if np.sum(valid_mask) > 0:
+        threshold = np.percentile(Z_clipped[valid_mask], threshold_percentile)
+        print(f"Stream removal threshold (percentile {threshold_percentile}): {threshold:.4f}")
+        land_mask = (Z_clipped > threshold)
+        stream_mask = ~land_mask
+        Z_clipped[stream_mask] = -1/Z_clipped[stream_mask]
+    else:
+        print(f"Warning: No valid points found after clipping. Skipping stream removal.")
+        threshold = 0.0
+
     # Rescale clipped values from 0 to 1 (using land-only data)
     valid_mask = Z_clipped >= 0.0
     if np.any(valid_mask):
         valid_values = Z_clipped[valid_mask]
         min_val = np.min(valid_values)
         max_val = np.max(valid_values)
-        
-        print(f"Land-only elevation range: {min_val:.2f} to {max_val:.2f}")
-        
+
+        print(f"Land-only elevation range: {min_val:.5f} to {max_val:.5f}")
+
         # Create rescaled version
         Z_clip_rescaled = Z_clipped.copy()
         if max_val > min_val:  # Avoid division by zero
             Z_clip_rescaled[valid_mask] = (valid_values - min_val) / (max_val - min_val)
         else:
-            Z_clip_rescaled[valid_mask] = 0.5  # If all values are the same, set to middle value
+            Z_clip_rescaled[valid_mask] = 0.5  # If all values are the same, set to middle value                
+        
+        # Scale negative values (water/streams) from -1 to 0 based on their depth
+        negative_mask = ~valid_mask
+        if np.any(negative_mask):
+            negative_values = Z_clipped[negative_mask]
+            # Find the range of negative values
+            min_negative = np.min(negative_values)
+            max_negative = np.max(negative_values)
             
-        # Keep -1.0 for invalid areas
-        Z_clip_rescaled[~valid_mask] = -1.0
-            
+            if min_negative < max_negative:
+                # Scale negative values from -1 (deepest) to 0 (shallowest negative)
+                scaled_negatives = -1.0 + (negative_values - min_negative) / (max_negative - min_negative)
+                Z_clip_rescaled[negative_mask] = scaled_negatives
+                print(f"Scaled negative values from {min_negative:.5f} to {max_negative:.5f} → [-1.0, 0.0]")
+            else:
+                # All negative values are the same, set to -0.5 (middle depth)
+                Z_clip_rescaled[negative_mask] = -1
+                print(f"All negative values identical ({min_negative:.2f}) → set to -0.5")
+        else:
+            print("No negative values found to scale")
+
         print(f"Rescaled elevation range: {np.min(Z_clip_rescaled[valid_mask]):.2f} to {np.max(Z_clip_rescaled[valid_mask]):.2f}")
     else:
         Z_clip_rescaled = Z_clipped.copy()
         print("No valid land elevation data found in clipped region")
     
     # Get bounding box info for reference
-    xs = [p[0] for p in square_xy]
-    ys = [p[1] for p in square_xy]
-    xmin, xmax = min(xs), max(xs)
-    ymin, ymax = min(ys), max(ys)
+    if len(square) == 0:
+        # Use the entire map bounds
+        xmin, xmax = X.min(), X.max()
+        ymin, ymax = Y.min(), Y.max()
+        print(f"Using entire map bounds - x: [{xmin:.2f}, {xmax:.2f}], y: [{ymin:.2f}, {ymax:.2f}]")
+    else:
+        # Use polygon bounds
+        xs = [p[0] for p in square_xy]
+        ys = [p[1] for p in square_xy]
+        xmin, xmax = min(xs), max(xs)
+        ymin, ymax = min(ys), max(ys)
+        print(f"Polygon bounds - x: [{xmin:.2f}, {xmax:.2f}], y: [{ymin:.2f}, {ymax:.2f}]")
     
     print(f"Original data shape: {Z.shape}")
     print(f"Data ranges - x: [{df['x'].min():.2f}, {df['x'].max():.2f}], y: [{df['y'].min():.2f}, {df['y'].max():.2f}]")
-    print(f"Square bounds - x: [{xmin:.2f}, {xmax:.2f}], y: [{ymin:.2f}, {ymax:.2f}]")
-    print(f"Points inside polygon: {np.sum(inside_grid)} / {inside_grid.size}")
+    print(f"Points inside region: {np.sum(inside_grid)} / {inside_grid.size}")
     
     # Create visualization
     plt.figure(figsize=(15, 5))
@@ -229,7 +347,7 @@ def main(target_resolution_m=1.0, interpolation_method='linear'):
     plt.show()
     
     # Save the clipped data
-    output_dir = "earth_moving/clutter/csv_analysis/output" 
+    # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
     # Create coordinate arrays that match the clipped region bounds
@@ -244,6 +362,20 @@ def main(target_resolution_m=1.0, interpolation_method='linear'):
     x_clipped = x_coords[x_mask]
     y_clipped = y_coords[y_mask]
     X_clipped, Y_clipped = np.meshgrid(x_clipped, y_clipped)
+    
+    # Convert food cache coordinates to matrix indices in the final clipped matrix
+    # Find the closest indices in the clipped coordinate arrays
+    food_cache_x_idx = np.argmin(np.abs(x_clipped - food_cache_x))
+    food_cache_y_idx = np.argmin(np.abs(y_clipped - food_cache_y))
+    
+    # Check if food cache is within the clipped bounds
+    food_cache_in_bounds = (
+        x_clipped.min() <= food_cache_x <= x_clipped.max() and
+        y_clipped.min() <= food_cache_y <= y_clipped.max()
+    )
+    
+    print(f"Food cache matrix indices: ({food_cache_x_idx}, {food_cache_y_idx})")
+    print(f"Food cache within bounds: {food_cache_in_bounds}")
     
     # Extract the corresponding clipped elevation data
     y_indices = np.where(y_mask)[0]
@@ -311,7 +443,7 @@ def main(target_resolution_m=1.0, interpolation_method='linear'):
         (-71.0023061, 42.4331649),
         (-71.0023650, 42.4332255)
     ]
-    # trees = []
+    trees = []
     print(f"\nAdding vegetation clusters using BeaversEnvironmentBackend...")
     
     # Add vegetation clusters to the rescaled matrix using environment backend
@@ -358,7 +490,7 @@ def main(target_resolution_m=1.0, interpolation_method='linear'):
                origin='lower', cmap='terrain', alpha=0.7)
     
     # Transform and plot tree positions
-    tf = Transformer.from_crs("EPSG:4326", "EPSG:2249", always_xy=True)
+    tf = Transformer.from_crs(EPSG_X, EPSG_Y, always_xy=True)
     tree_coords_xy = [tf.transform(lon, lat) for lon, lat in trees]
     tree_x_coords = [coord[0] for coord in tree_coords_xy]
     tree_y_coords = [coord[1] for coord in tree_coords_xy]
@@ -393,8 +525,23 @@ def main(target_resolution_m=1.0, interpolation_method='linear'):
         },
         'pixel_area_m2': target_resolution_m * target_resolution_m,
         'total_area_m2': float((x_clipped.max() - x_clipped.min()) * (y_clipped.max() - y_clipped.min())),
-        'coordinate_system': 'EPSG:2249 (NAD83 Massachusetts State Plane)',
+        'coordinate_system': str(EPSG_Y),
         'elevation_normalization': 'Values normalized 0-1, invalid areas marked as -1.0',
+        'food_cache': {
+            'original_coordinates': {
+                'latitude': float(food_cache_latlon[0]),
+                'longitude': float(food_cache_latlon[1])
+            },
+            'projected_coordinates': {
+                'x': float(food_cache_x),
+                'y': float(food_cache_y)
+            },
+            'matrix_indices': {
+                'x_index': int(food_cache_x_idx),
+                'y_index': int(food_cache_y_idx)
+            },
+            'within_bounds': bool(food_cache_in_bounds)
+        },
         'processing_timestamp': pd.Timestamp.now().isoformat()
     }
     
@@ -457,7 +604,7 @@ def add_vegetation_clusters_with_environment_backend(Z_matrix, X_coords, Y_coord
         The environment backend instance (for further use if needed)
     """
     # Transform tree coordinates from lat/lon to the same coordinate system
-    tf = Transformer.from_crs("EPSG:4326", "EPSG:2249", always_xy=True)
+    tf = Transformer.from_crs(EPSG_X, EPSG_Y, always_xy=True)
     tree_coords_xy = [tf.transform(lon, lat) for lon, lat in tree_positions]
     
     # Get the coordinate arrays
@@ -532,10 +679,16 @@ if __name__ == "__main__":
     parser.add_argument('--interpolation', '-i', type=str, default='linear',
                        choices=['linear', 'nearest', 'cubic'],
                        help='Interpolation method (default: linear)')
+    parser.add_argument('--output-dir', '-o', type=str, default='earth_moving/clutter/csv_analysis/output',
+                       help='Output directory path (default: earth_moving/clutter/csv_analysis/output)')
+    parser.add_argument('--input-csv', '-c', type=str, default='/home/fedeoli/Documents/Work/Projects/pushing_ws/earth_moving/earth_moving/utils/Acadia2010.csv',
+                       help='Input CSV file path (default: /home/fedeoli/Documents/Work/Projects/pushing_ws/earth_moving/earth_moving/utils/Acadia2010.csv)')
     
     args = parser.parse_args()
     
     # Run the processing with specified parameters
     print(f"Starting DEM processing with {args.resolution}m resolution using {args.interpolation} interpolation")
-    result = main(target_resolution_m=args.resolution, interpolation_method=args.interpolation)
+    print(f"Input CSV file: {args.input_csv}")
+    print(f"Output directory: {args.output_dir}")
+    result = main(target_resolution_m=args.resolution, interpolation_method=args.interpolation, output_dir=args.output_dir, input_csv=args.input_csv)
     print("Processing complete!")

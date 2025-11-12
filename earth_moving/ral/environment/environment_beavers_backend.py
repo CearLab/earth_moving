@@ -87,12 +87,13 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         self._flow_strength = flow_info.get('strength', 0)         # scalar (0-1)
         self._streams_width = flow_info.get('streams_width', 10)   # stream width in grid cells
         self._river_growth_velocity = flow_info.get('river_growth_velocity', 0.0)
+        self._river_growth_interval = flow_info.get('river_growth_interval', [-3, 0])
         self._visits_reset = self._environment.get('visits_reset')
         
         # Growth rate calculation: 2.6% growth per day, 0.00107 per hour (3 weeks to grow grass)
         # self._grass_growth_rate = 1 * 0.01 * 0.00107
         self._grass_growth_rate = self._environment.get('grass_growth_rate', 1e-5)        
-        self._grass_mode = 'percentage'  # 'additive' or 'percentage'
+        self._grass_mode = 'additive'  # 'additive' or 'percentage'
         self._grass_growth_interval = self._environment.get('grass_growth_interval')
         
         # map generation mode
@@ -384,10 +385,10 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
                 )
             # additive rate 
             elif mode == 'additive':
-                self._map[growth_mask] = self._map[growth_mask] + min(rate * self._vegetation_quality_range[1], self._vegetation_quality_range[1])
+                self._map[growth_mask] = self._map[growth_mask] + rate
                     # Clip the grown values between zero and the maximum vegetation quality
                 self._map[growth_mask] = self.np.clip(
-                    self._map[growth_mask], 0, 0.7 * self._vegetation_quality_range[1]
+                    self._map[growth_mask], 0, self._vegetation_quality_range[1]
                 )
             else:
                 raise ValueError(f"Invalid growth mode: {mode}. Must be 'percentage' or 'additive'.")
@@ -408,14 +409,14 @@ class BeaversEnvironmentBackend(BaseEnvironmentBackend):
         """
         if self._river_growth_velocity > 0:
             # Find all negative values (rivers/water)
-            negative_mask = self._map < 0
+            negative_mask = (self._map >= self._river_growth_interval[0]) & (self._map <= self._river_growth_interval[1])
             
-            if self.np.any(negative_mask):
-                # Increase magnitude of negative values by the growth velocity percentage
-                # Since values are negative, we multiply by (1 + growth_velocity) to make them more negative
-                self._map[negative_mask] = self._map[negative_mask] * (1 + self._river_growth_velocity)
-                
-                # Saturate at -streams_width to prevent unlimited deepening
-                self._map[negative_mask] = self.np.clip(self._map[negative_mask], 
-                                                               -self._streams_width, 0)
+            # Increase magnitude of negative values by the growth velocity percentage
+            # Since values are negative, we multiply by (1 + growth_velocity) to make them more negative
+            # self._map[negative_mask] = self._map[negative_mask] * (1 - self.np.sign(self._map[negative_mask]) * self._river_growth_velocity)
+            self._map[negative_mask] = self._map[negative_mask] - self._river_growth_velocity
+
+            # Saturate at -streams_width to prevent unlimited deepening
+            self._map[negative_mask] = self.np.clip(self._map[negative_mask], 
+                                                            self._river_growth_interval[0], self._river_growth_interval[1])
         

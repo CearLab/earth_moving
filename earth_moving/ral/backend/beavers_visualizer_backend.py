@@ -274,9 +274,9 @@ class BeaversVisualizerBackend(BaseBackend, Model):
         map_width = first_agent._local_map.shape[0] if first_agent._local_map is not None else self._width
         map_height = first_agent._local_map.shape[1] if first_agent._local_map is not None else self._height
         
-        box_left = plt.Rectangle((0, 0), map_width-1, map_height-1, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
-        box_middle = plt.Rectangle((0, 0), map_width-1, map_height-1, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
-        box_right = plt.Rectangle((0, 0), map_width-1, map_height-1, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
+        box_left = plt.Rectangle((0, 0), map_width, map_height, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
+        box_middle = plt.Rectangle((0, 0), map_width, map_height, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
+        box_right = plt.Rectangle((0, 0), map_width, map_height, fill=False, edgecolor='black', facecolor='white', linestyle='-', linewidth=2)
         ax1.add_patch(box_left)
         ax2.add_patch(box_middle)
         ax3.add_patch(box_right)
@@ -309,15 +309,15 @@ class BeaversVisualizerBackend(BaseBackend, Model):
             
             # Plot local_map_visits on the right (ax3)            
             im3 = ax3.imshow(local_map_visits_normalized.transpose(), origin='lower', 
-                             cmap=self._color_maps._visits_colormap, alpha=0.8,
-                             vmin=-1, vmax=1)
+                             cmap=self._color_maps._visits_colormap, alpha=1,
+                             vmin=-0.05, vmax=0.05)
             
             # Overlay negative values from local_map_normalized in very light gray
             negative_mask = local_map_normalized < 0
             if self.np.any(negative_mask):
                 negative_overlay = self.np.where(negative_mask, local_map_normalized, self.np.nan)
                 ax3.imshow(negative_overlay.transpose(), origin='lower', 
-                          cmap='gray', alpha=0.05, vmin=vmin/v_normalizer, vmax=0)
+                          cmap='gray', alpha=0.1, vmin=vmin/v_normalizer, vmax=0)
         else:
             # Fallback to environment maps if local maps not available
             map_normalized = self._environment._map_original / v_normalizer
@@ -331,15 +331,15 @@ class BeaversVisualizerBackend(BaseBackend, Model):
                              cmap=map_colormap, alpha=alpha_map,
                              vmin=vmin/v_normalizer, vmax=vmax/v_normalizer)
             im3 = ax3.imshow(visits_normalized.transpose(), origin='lower', 
-                             cmap=self._color_maps._visits_colormap, alpha=0.8,
+                             cmap=self._color_maps._visits_colormap, alpha=1,
                              vmin=-1, vmax=1)
             
             # Overlay negative values from map_normalized in very light gray (fallback case)
             negative_mask = map_normalized < 0
             if self.np.any(negative_mask):
                 negative_overlay = self.np.where(negative_mask, map_normalized, self.np.nan)
-                ax3.imshow(negative_overlay.transpose(), origin='lower', 
-                          cmap='gray', alpha=0.05, vmin=vmin/v_normalizer, vmax=0)
+                im3 = ax3.imshow(negative_overlay.transpose(), origin='lower', 
+                          cmap='gray', alpha=0.1, vmin=vmin/v_normalizer, vmax=0)
         
         # Add shared colorbar for vegetation quality (for ax1 and ax2) - positioned with more spacing
         # Create space for colorbars by adjusting subplot positions
@@ -383,12 +383,13 @@ class BeaversVisualizerBackend(BaseBackend, Model):
                             markerfacecolor= agentcolor,
                             markeredgewidth= agent_markeredgewidth,
                             alpha=           agent_markeralpha)                                        
-                    
-        for agent in self._schedule.agents:
-            # add a box around home_position (on local map - ax2)
-            if agent._home_base_position_store is not None:
-                for home_base_position in agent._home_base_position_store:
-                    local_x = home_base_position[0]
+
+        if plot_agents or True:
+            for agent in self._schedule.agents:
+                # add a box around home_position (on local map - ax2)
+                if agent._home_base_position_store is not None:
+                    for home_base_position in agent._home_base_position_store:
+                        local_x = home_base_position[0]
                     local_y = home_base_position[1]
                     # Only plot if within local map bounds
                     if (0 <= local_x < map_width and 0 <= local_y < map_height):

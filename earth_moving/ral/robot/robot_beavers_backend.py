@@ -753,14 +753,15 @@ class BeaversRobotBackend(BaseRobotBackend):
         harvesting the same location during a single exploration cycle.
         """
 
-        max_stuck_period = 24*1
+        max_stuck_period = self.np.inf #24*20
         delta_store = self.np.diff(self._load_store[-(max_stuck_period+2):-1]) if len(self._load_store) > max_stuck_period else 0
         self._delta_load = self.np.sum(delta_store == 0)
 
         # decide the task
         if  cond_atomic and \
             (self._load >= self.np.floor(self._maximum_load) or \
-                self._in_water_counter >= 0.5*max_stuck_period):
+                self._maximum_load <= 5 or \
+                self._in_water_counter >= max_stuck_period):
             self._current_task = 'store'                
         elif cond_atomic and \
             self._vegetation_removal > 0 and \
@@ -1126,8 +1127,10 @@ class BeaversRobotBackend(BaseRobotBackend):
                 self._controller._Kd = self._controller._Kd_init
                 self._controller._Ki = self._controller._Ki_init
                 self._status_task = 'FINISHED'
-                self._current_action = 'idle'                
-        
+                self._current_action = 'idle' 
+                self._in_water_counter = 0
+                self._maximum_load = self._maximum_load_init
+
     ############################################################
     # ACTIONS
     ############################################################
@@ -1238,13 +1241,9 @@ class BeaversRobotBackend(BaseRobotBackend):
                     return
         
         # Normal harvesting (either won't go negative, or river is nearby)
-        self._harvesting_actions_counter += 1
-        if self._map_quality_measure_position >= 1:
-            self._map_quality_measure_position -= self._vegetation_removal
-            self._load += self._vegetation_removal
-        else:
-            self._map_quality_measure_position -= 0.1 * self._vegetation_removal
-            self._load += 0.1 * self._vegetation_removal
+        self._harvesting_actions_counter += 1        
+        self._map_quality_measure_position -= self._vegetation_removal
+        self._load += self._vegetation_removal        
 
     # action: store_vegetation
     def store_vegetation(self, time_of_day=None, limits=None, misc=None) -> bool:
@@ -1424,7 +1423,7 @@ class BeaversRobotBackend(BaseRobotBackend):
             local_map[threshold_mask] = 1/(eps + local_map[threshold_mask])**2
         elif self._exploration_map is 'vegetation_visits':            
             local_map[~threshold_mask] = self.np.nan
-            local_map[threshold_mask] = (eps + local_visits_map[threshold_mask])**4 / (eps + local_map[threshold_mask])**2
+            local_map[threshold_mask] = (eps + local_visits_map[threshold_mask])**2 * (eps + local_map[threshold_mask])**2
         else:
             raise ValueError('Invalid exploration_map value: {}'.format(self._exploration_map))
         
