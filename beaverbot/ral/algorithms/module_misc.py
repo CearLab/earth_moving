@@ -3,7 +3,7 @@
 import numpy as np
 import random
 from scipy.interpolate import CubicSpline
-import earth_moving.constants as const
+import beaverbot.constants as const
 
 # general measure mode
 def measure(map, position, mode, step=1):

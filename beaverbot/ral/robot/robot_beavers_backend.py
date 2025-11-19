@@ -2,13 +2,13 @@
 from scipy.ndimage import gaussian_filter
 
 # backend imports
-from earth_moving.ral.robot.robot_backend import BaseRobotBackend
+from beaverbot.ral.robot.robot_backend import BaseRobotBackend
 
 # module imports
-from earth_moving.ral.robot.modules.module_control import Controller
-from earth_moving.ral.robot.modules.module_control import Dynamics
-import earth_moving.ral.algorithms.module_misc as module_misc
-import earth_moving.ral.robot.modules.module_beaver as module_beaver
+from beaverbot.ral.robot.modules.module_control import Controller
+from beaverbot.ral.robot.modules.module_control import Dynamics
+import beaverbot.ral.algorithms.module_misc as module_misc
+import beaverbot.ral.robot.modules.module_beaver as module_beaver
 
 
 class BeaversRobotBackend(BaseRobotBackend):

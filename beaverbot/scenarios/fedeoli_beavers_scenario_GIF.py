@@ -1,8 +1,8 @@
 import os
 import imageio
 from tqdm import tqdm
-from earth_moving.ral.backend.base_backend import BaseBackend
-from earth_moving.ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
+from beaverbot.ral.backend.base_backend import BaseBackend
+from beaverbot.ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
 from IPython.display import clear_output
 
 def fedeoli_beavers_scenario_GIF(config):        

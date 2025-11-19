@@ -23,7 +23,7 @@ import importlib.util
 
 # Add the earth_moving path to import the environment backend
 sys.path.append('/home/fedeoli/Documents/Work/Projects/pushing_ws/earth_moving')
-from earth_moving.ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
+from beaverbot.ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
 
 EPSG_X = 'EPSG:4326'
 EPSG_Y = 'EPSG:6483'  # 2249

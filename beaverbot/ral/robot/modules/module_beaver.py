@@ -59,7 +59,7 @@ import numpy as np
 # backend imports
 
 # module imports
-import earth_moving.ral.algorithms.module_misc as module_misc
+import beaverbot.ral.algorithms.module_misc as module_misc
 
 def exploration_gradient_DN(position, limits, local_map, N=4, home_base_store=None, eta=1, N_recovery=4, step=1):
     """

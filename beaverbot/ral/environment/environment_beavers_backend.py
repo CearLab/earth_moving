@@ -2,10 +2,10 @@
 from scipy.stats import norm
 
 # backend imports
-from earth_moving.ral.environment.environment_backend import BaseEnvironmentBackend
+from beaverbot.ral.environment.environment_backend import BaseEnvironmentBackend
 
 # module imports
-import earth_moving.ral.algorithms.module_misc as module_misc
+import beaverbot.ral.algorithms.module_misc as module_misc
 
 
 class BeaversEnvironmentBackend(BaseEnvironmentBackend):

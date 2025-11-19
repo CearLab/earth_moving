@@ -5,13 +5,13 @@ from mesa.time import RandomActivation
 from mesa.space import MultiGrid
 
 # backend imports
-from earth_moving.ral.backend.base_backend import BaseBackend
-from earth_moving.ral.robot.robot_beavers_backend import BeaversRobotBackend
-from earth_moving.ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
+from beaverbot.ral.backend.base_backend import BaseBackend
+from beaverbot.ral.robot.robot_beavers_backend import BeaversRobotBackend
+from beaverbot.ral.environment.environment_beavers_backend import BeaversEnvironmentBackend
 
 # module imports
-from earth_moving.ral.backend.modules.module_colors import ColorMaps
-import earth_moving.ral.algorithms.module_misc as module_misc
+from beaverbot.ral.backend.modules.module_colors import ColorMaps
+import beaverbot.ral.algorithms.module_misc as module_misc
 
 
 class BeaversVisualizerBackend(BaseBackend, Model):

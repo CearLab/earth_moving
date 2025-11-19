@@ -1,5 +1,5 @@
 import numpy as np
-import earth_moving.ral.algorithms.module_misc as module_misc
+import beaverbot.ral.algorithms.module_misc as module_misc
 from scipy.linalg import expm
 
 
