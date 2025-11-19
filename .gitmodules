@@ -1,3 +1,0 @@
-[submodule "earth_moving/algorithms/muzero-general"]
-	path = earth_moving/algorithms/muzero-general
-	url = https://github.com/YaronEdri/muzero-general.git
