@@ -1,0 +1,34 @@
+{
+  "target_resolution_m": 1.0,
+  "interpolation_method": "linear",
+  "matrix_shape": [
+    665,
+    669
+  ],
+  "coordinate_ranges": {
+    "x_min": 94016.95820112005,
+    "x_max": 94220.52941938723,
+    "y_min": -134028.38499875987,
+    "y_max": -133826.03231196676
+  },
+  "pixel_area_m2": 1.0,
+  "total_area_m2": 41193.18297010794,
+  "coordinate_system": "EPSG:6483",
+  "elevation_normalization": "Values normalized 0-1, invalid areas marked as -1.0",
+  "food_cache": {
+    "original_coordinates": {
+      "latitude": 42.4335,
+      "longitude": -71.002
+    },
+    "projected_coordinates": {
+      "x": 94134.90284184527,
+      "y": -133949.50919600585
+    },
+    "matrix_indices": {
+      "x_index": 387,
+      "y_index": 259
+    },
+    "within_bounds": true
+  },
+  "processing_timestamp": "2025-11-29T11:06:11.469992"
+}

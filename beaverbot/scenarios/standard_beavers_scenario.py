@@ -3,13 +3,13 @@ from beaverbot.ral.environment.environment_beavers_backend import BeaversEnviron
 from IPython.display import clear_output
 from tqdm import tqdm
 
-def fedeoli_beavers_scenario(config):        
+def standard_beavers_scenario(config):        
     
     # init backend
     Basebackend = BaseBackend()     
     Backend = Basebackend.initiate_backend(**config)    
     
-    # number of steps
+    # number of steps (in hours)
     number_of_steps = int(config.get('simulation').get('number_of_steps')) * 24    
     downsampling = config.get('simulation').get('downsampling')
     save_path = config.get('simulation').get('save_path')
