@@ -6,8 +6,8 @@ This folder contains a PyBullet-based implementation of autonomous rover navigat
 
 Two navigation approaches are implemented for a differential-drive rover:
 
-1. **Goal-Directed Navigation** (`flowfield_pybullet.py`) - Navigate to a goal position while avoiding obstacles
-2. **Path-Following Navigation** (`path_following_flowfield.py`) - Follow a predefined curved path with precise tracking
+1. **Goal-Directed Navigation** (`flowfield_pybullet.py`) - Navigate to a goal position while avoiding obstacles using Dijkstra-based flow fields
+2. **Path-Following Navigation** (`path_following_flowfield.py`) - Follow a predefined curved path with precise shovel-point tracking (not center of mass)
 
 ## Files
 
@@ -20,15 +20,16 @@ Two navigation approaches are implemented for a differential-drive rover:
 
 ### Flow Field Generation
 - **Grid-based approach**: World space discretized into a 2D grid
-- **Dijkstra's algorithm**: Computes distance field from goal position
+- **Dijkstra's algorithm**: Computes distance field from goal position (used in `flowfield_pybullet.py`)
 - **Direction field**: Gradient-based vector field pointing toward goal
-- **Obstacle handling**: Automatic stamping of forbidden regions around obstacles
+- **Obstacle avoidance**: Implemented in `flowfield_pybullet.py` for goal-directed navigation among obstacles
 
 ### Path Following
+- **Shovel-point tracking**: Path following tracks the **shovel position** (front offset point), not the rover's center of mass, ensuring the material collection point follows the desired trajectory
 - **Vector field guidance**: Creates flow field along predefined path using lateral error correction
-- **Arc-length tracking**: Monitors progress along path with ETA estimation
-- **Shovel offset tracking**: Uses front-offset tracking point for improved accuracy
+- **Arc-length tracking**: Monitors progress along path with ETA estimation and landmark detection
 - **Multiple path shapes**: Supports straight, sinusoidal, and hairpin path generation
+- **Offset distance**: Uses 0.17m forward offset from rover center to represent shovel position
 
 ### Controller
 - **Unicycle model**: Forward velocity (v) and angular velocity (ω) control
@@ -60,5 +61,5 @@ Key tunable parameters in `path_following_flowfield.py`:
 
 - **Simulation**: PyBullet physics engine
 - **Robot model**: Two-wheeled differential drive rover (0.5m wheelbase)
-- **Obstacles**: Randomly placed pebbles with 0.05m radius
-- **World scale**: Configurable (default: 5m radius circular region)
+- **World scale**: Configurable (default: 5m radius for goal-directed navigation, path-adaptive bounds for path following)
+- **Obstacles**: Optional pebble obstacles (0.05m radius) - primarily used in `flowfield_pybullet.py` for demonstrating obstacle avoidance
