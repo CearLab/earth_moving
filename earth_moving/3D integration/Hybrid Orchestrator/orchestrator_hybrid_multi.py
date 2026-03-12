@@ -235,6 +235,7 @@ class MultiAgentHybridOrchestrator:
         self.running = False
         self.executor = None
         self.executing_agents = {} # Tracks active agents executing trajectories
+        self._reservation_lock = threading.Lock()  # Guards global_reserved_cells
 
     def initialize(self):
         print("=" * 60)
@@ -468,8 +469,15 @@ class MultiAgentHybridOrchestrator:
                 agent["state"] = "IDLE"
                 continue
 
-            self.global_reserved_cells.update(res.best_reserved)
-            agent["reserved_cells"] = set(res.best_reserved)
+            # Re-validate: two plans may have been computed against the same snapshot;
+            # a second agent could have claimed overlapping cells in the same control tick.
+            with self._reservation_lock:
+                if res.best_reserved.intersection(self.global_reserved_cells):
+                    print(f"[PLAN] {agent['id']} plan conflicts with updated reservations — replanning.")
+                    agent["state"] = "IDLE"
+                    continue
+                self.global_reserved_cells.update(res.best_reserved)
+                agent["reserved_cells"] = set(res.best_reserved)
 
             agent["env_2d"] = res.env_2d
             agent["coord_converter"] = CoordinateConverter(res.env_radius, self.target_zone_radius, self.shovel_width)
@@ -560,8 +568,6 @@ class MultiAgentHybridOrchestrator:
     def _handle_auto_mode(self):
         """Auto allocate non-overlapping trajectories to idle agents."""
         for agent in self.agents:
-            if agent['index'] != 0:
-                continue # Freeze agent 1 for testing
             if agent['state'] == "IDLE":
                 self._start_planning_for_agent(agent)
 
@@ -745,12 +751,14 @@ class MultiAgentHybridOrchestrator:
         print(f"\n[SYNC] Agent {agent['id']} reached target. Going IDLE.")
         
         # Release reserved cells
-        self.global_reserved_cells.difference_update(agent['reserved_cells'])
+        with self._reservation_lock:
+            self.global_reserved_cells.difference_update(agent['reserved_cells'])
         agent['reserved_cells'] = set()
         agent['state'] = "IDLE"
         agent['selection'] = None
         
-        self.visualizer.clear_trajectory_preview()
+        # Do not call clear_trajectory_preview() globally — other agents may still be navigating.
+        # The visualizer is rebuilt each frame from live agent state in _update_visualizer.
         self._needs_redraw = True
 def main():
     # --- Configuration ---
