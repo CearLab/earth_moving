@@ -14,7 +14,7 @@
       <geometry>
         <!-- visual with box -->
         <!-- 2 cm side -->
-        <box size="1e-2 1e-2 1e-2"/>
+        <box size="2e-2 2e-2 2e-2"/>
         <!-- visual with .stl (fancy style) -->
         <!-- <mesh filename="package://pebbles/files/Key_Rock_1.stl" scale="0.002 0.002 0.002"/> -->
       </geometry>
@@ -24,7 +24,7 @@
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>
         <!-- 2 cm side -->  
-        <box size="1e-2 1e-2 1e-2"/>
+        <box size="2e-2 2e-2 2e-2"/>
       </geometry>
     </collision>
     <inertial>      

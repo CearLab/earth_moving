@@ -14,33 +14,35 @@
   <!-- Fixed reference frame for the cartesian robot -->
   <link name="base_link">
     <visual>
-      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <origin xyz="-0.5 0 0.0" rpy="0 0 0"/>
       <geometry>        
         <!-- 1 cm radius sphere -->
-        <sphere radius="1e-2"/>
+        <box size="0.1 0.1 0.1"/>
       </geometry>      
       <material name="blue" />
     </visual>
     <collision>
+      <origin xyz="-0.5 0 0.0" rpy="0 0 0"/>
       <geometry>        
         <!-- 1 cm radius sphere -->
-        <sphere radius="1e-2"/>
+        <box size="0.1 0.1 0.1"/>
       </geometry>
     </collision>
     <inertial>
+      <origin xyz="-0.5 0 0.0" rpy="0 0 0"/>
       <!-- set mass to very small to keep it nearly fixed -->
-      <mass value="1e-3"/>
-      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+      <mass value="1e4"/>
+      <inertia ixx="1e4" ixy="0" ixz="0" iyy="1e4" iyz="0" izz="1e4"/>
     </inertial>
   </link>
 
   <!-- from base to L1: prismatic joint (X motion) -->
   <joint name="base_L1_joint" type="prismatic">
     <axis xyz="1 0 0"/> 
-    <origin xyz="0 0 0" rpy="0 0 0" />
+    <origin xyz="-0.2 0 0.1" rpy="0 0 0" />
     <parent link="base_link"/>
     <child link="L1_link" />        
-    <limit lower="-10" upper="10" effort="1e2" velocity="0.005"/>
+    <limit lower="-10" upper="10" effort="1e2" velocity="0.5"/>
     <safety_controller k_position="10" k_velocity="10" soft_lower_limit="-9.5" soft_upper_limit="9.5"/>
     <dynamics damping="0.0" friction="0.1"/>
   </joint>
@@ -73,10 +75,10 @@
   <!-- from L1 to L2: prismatic joint (Y motion) -->
   <joint name="L1_L2_joint" type="prismatic">
     <axis xyz="0 1 0"/> 
-    <origin xyz="0 0 0" rpy="0 0 0" />
+    <origin xyz="0.1 0 0.1" rpy="0 0 0" />
     <parent link="L1_link"/>
     <child link="L2_link" />        
-    <limit lower="-10" upper="10" effort="1e2" velocity="0.005"/>
+    <limit lower="-10" upper="10" effort="1e2" velocity="0.5"/>
     <safety_controller k_position="10" k_velocity="10" soft_lower_limit="-9.5" soft_upper_limit="9.5"/>
     <dynamics damping="0.0" friction="0.1"/>
   </joint>
@@ -107,10 +109,10 @@
   <joint name="L2_EE_joint" type="revolute">
     <!-- rotation along z-axis -->
     <axis xyz="0 0 1"/> 
-    <origin xyz="0 0 0" rpy="0 0 0" />
+    <origin xyz="0.1 0 -0.225" rpy="0 0 0" />
     <parent link="L2_link"/>
     <child link="EE_link" />        
-    <limit lower="-3.14159" upper="3.14159" effort="1e2" velocity="0.005"/>
+    <limit lower="-3.14159" upper="3.14159" effort="1e2" velocity="0.5"/>
     <safety_controller k_position="10" k_velocity="10" soft_lower_limit="-3.14" soft_upper_limit="3.14"/>
     <dynamics damping="0.0" friction="0.1"/>
   </joint>
@@ -121,14 +123,14 @@
       <origin xyz="0 0 0" rpy="0 0 0"/>
       <geometry>        
         <!-- 10x20x10 cm box -->
-        <box size="1e-2 1e-1 5e-2"/>
+        <box size="1e-2 2e-1 5e-2"/>
       </geometry>   
       <material name="red" />   
     </visual>
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0"/> 
       <geometry>
-        <box size="1e-2 1e-1 5e-2"/>   
+        <box size="1e-2 2e-1 5e-2"/>   
       </geometry>     
     </collision>
     <inertial>      
