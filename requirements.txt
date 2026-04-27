@@ -1,6 +1,7 @@
 arrow==1.2.3
 gym==0.22.0
 gym-notices==0.0.8
+gymnasium>=1.0.0
 ipykernel==6.21.2
 ipynb==0.5.1
 ipython==8.10.0
@@ -42,3 +43,5 @@ torch==1.13.1
 torchaudio==0.13.1
 torchvision==0.2.2
 tornado==6.2
+numba
+scikit-learn==1.2.2
