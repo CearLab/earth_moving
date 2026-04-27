@@ -338,10 +338,11 @@ class ShovelController:
                 # Compute desired velocities using simple proportional control
                 # Velocity direction points toward target, magnitude is limited by max_velocity
                 kp_vel = 1.0  # Proportional gain for velocity (can be tuned)
+                kp_vel_theta = 1.0  # Proportional gain for velocity (can be tuned)
                 
                 vel_x = np.clip(kp_vel * error_x, -max_velocity, max_velocity)
                 vel_y = np.clip(kp_vel * error_y, -max_velocity, max_velocity)
-                vel_theta = np.clip(kp_vel * error_theta, -max_velocity, max_velocity)
+                vel_theta = np.clip(kp_vel_theta * error_theta, -max_velocity, max_velocity)
                 
                 target_velocities_cmd = [vel_x, vel_y, vel_theta]
                 commanded_velocities.append(target_velocities_cmd)
@@ -650,6 +651,33 @@ def load_shovel(urdf_path="./urdf/shovel/shovelFlat.urdf", start_pos=None, start
     
     return robot_id
 
+
+def scatter_pebble_pos(pebble_urdf="./urdf/pebbles/pebbles.urdf",
+                   pos=None, settle_steps=120):
+    """
+    Scatter pebbles randomly in the workspace.
+
+    :param num_pebbles: Number of pebbles to scatter
+    :param pebble_urdf: Path to pebble URDF
+    :param min_pos: Minimum position [x, y, z]
+    :param max_pos: Maximum position [x, y, z]
+    :param settle_steps: Number of simulation steps for pebbles to settle
+    :return: List of pebble IDs
+    """
+    if pos is None:
+        pos = np.array([0.2, 0.0, 0.0])
+
+    pos = np.array(pos)
+
+    start_pos = pos
+    start_pos[-1] = 0.2
+    start_quat = p.getQuaternionFromEuler([0, 0, 0])
+    pebble_id = p.loadURDF(pebble_urdf, start_pos, start_quat)
+
+    for _ in range(settle_steps):
+        p.stepSimulation()
+
+    return pebble_id
 
 def scatter_pebbles(num_pebbles=10, pebble_urdf="./urdf/pebbles/pebbles.urdf",
                    min_pos=None, max_pos=None, settle_steps=120):
