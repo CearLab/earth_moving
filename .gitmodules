@@ -2,3 +2,6 @@
 	path = earth_moving/algorithms/rl-agents
 	url = https://github.com/Lilach-Biton/rl-agents-lilach.git
 	branch = lilach-project
+[submodule "earth_moving/algorithms/LightZero"]
+	path = earth_moving/algorithms/LightZero
+	url = https://github.com/Lilach-Biton/LightZero.git
