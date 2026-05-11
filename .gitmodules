@@ -1,0 +1,4 @@
+[submodule "earth_moving/algorithms/rl-agents-lilach"]
+	path = earth_moving/algorithms/rl-agents
+	url = https://github.com/Lilach-Biton/rl-agents-lilach.git
+	branch = lilach-project
