@@ -9,7 +9,7 @@ class PushEnvironment:
     Original PushEnvironment with MCTS compatibility methods added.
     This maintains your original boundary-based physics and logic.
     """
-    def __init__(self, boundary_points, delta_s_options, theta_options, push_width, initial_pos, max_pushes, coverage_thresh, occupancy_grid, total_occupied, total_pixels_in_cell=0.0, stochasticity=False, grid_size=20):
+    def __init__(self, boundary_points, delta_s_options, theta_options, push_width, initial_pos, max_pushes, coverage_thresh, occupancy_grid, total_occupied, total_pixels_in_cell=0.0, stochasticity=False, grid_size=20, action_prune=True):
         self.boundary_points = boundary_points
         self.delta_s_options = delta_s_options
         self.theta_options = theta_options
@@ -25,6 +25,7 @@ class PushEnvironment:
         self.grid_offset = np.array([0.0, 0.0])            # Assuming grid starts at (0,0) in world coordinates
         self.stochastic_push = stochasticity
         self.total_pixels_in_cell = total_pixels_in_cell  # Only used if stochastic_push is True
+        self.action_prune = action_prune
 
         if self.stochastic_push:
             print("Stochastic push enabled.")
@@ -90,15 +91,16 @@ class PushEnvironment:
         
         return new_env
 
-    # def legal_actions(self):
-    #     """Get list of legal action indices for MCTS."""
-    #     if self.current_state['num_pushes'] >= self.max_pushes:
-    #         return []
-    #     return list(range(len(self.action_space)))
+    def legal_actions(self):
+        """Get list of legal action indices for MCTS."""
+        if self.action_prune:
+            return self.legal_actions_prune()
+        return list(range(len(self.action_space)))
+    
     def get_available_actions(self):
         return self.legal_actions()
 
-    def legal_actions(self):
+    def legal_actions_prune(self):
         """Get list of legal action indices for MCTS with dynamic pruning."""
         # print("Legal actions called")
         if self.current_state['num_pushes'] >= self.max_pushes:
