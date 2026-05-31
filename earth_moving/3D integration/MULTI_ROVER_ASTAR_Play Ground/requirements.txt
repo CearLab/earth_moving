@@ -1,0 +1,8 @@
+numpy
+pybullet
+pygame
+shapely
+scipy
+matplotlib
+jupyter
+ipykernel
