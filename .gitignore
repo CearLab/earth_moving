@@ -2,7 +2,7 @@
 # folders
 .vscode/
 __pycache__/
-
+earth-moving-venv/
 
 # files
 *.pyc

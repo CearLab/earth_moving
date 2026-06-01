@@ -78,7 +78,8 @@ class PushEnvironment:
         new_env.initial_state = self.initial_state
         new_env.shovel_type = self.shovel_type
         new_env.action_space = self.action_space
-        
+        new_env.action_prune = self.action_prune
+
         # Copy mutable state (only grid_mask array needs deep copy)
         new_env.current_state = {
             's_idx': self.current_state['s_idx'],
@@ -458,9 +459,9 @@ class PushEnvironment:
             print(f"New start idx: {new_s_idx}")
 
         if self.stochastic_push:
-            new_mask = self.apply_stochastic_rect_push(state['grid_mask'].copy(), self.shovel_type, start_point, direction, t_max, plot=print_push)
+            new_mask = self.apply_stochastic_rect_push(state['grid_mask'], self.shovel_type, start_point, direction, t_max, plot=print_push)
         else:
-            new_mask = self.apply_rect_push(state['grid_mask'].copy(), start_point, direction, t_max)
+            new_mask = self.apply_rect_push(state['grid_mask'], start_point, direction, t_max)
 
         new_state = {
             "s_idx": new_s_idx,
@@ -706,47 +707,14 @@ class PushEnvironment:
             
         # Copy current grid mask
         new_mask = grid_mask.copy()
-        alpha = np.arctan2(direction[1], direction[0])  # Angle of the push direction
-        normal = np.array([-np.sin(alpha), np.cos(alpha)])
-        rect_start = start_point
-        rect_end = start_point + direction * length
-        
-        rect = np.array([
-            rect_start - normal * (self.push_width * 0.5),
-            rect_start + normal * (self.push_width * 0.5),
-            rect_end + normal * (self.push_width * 0.5),
-            rect_end - normal * (self.push_width * 0.5),
-        ])
 
-        # Convert rectangle corners to grid coordinates
-        c1 = self._world_to_grid(rect[0])
-        c2 = self._world_to_grid(rect[1])
-        c3 = self._world_to_grid(rect[2])
-        c4 = self._world_to_grid(rect[3])
-
-        min_i = min(c1[0], c2[0], c3[0], c4[0])
-        max_i = max(c1[0], c2[0], c3[0], c4[0])
-        min_j = min(c1[1], c2[1], c3[1], c4[1])
-        max_j = max(c1[1], c2[1], c3[1], c4[1])
-        
-        # Early exit if bounding box is outside grid bounds
-        if min_i >= self.grid_size or max_i < 0 or min_j >= self.grid_size or max_j < 0:
-            return new_mask
-            
-        # Clamp bounding box to grid bounds
-        min_i = max(0, min_i)
-        max_i = min(self.grid_size - 1, max_i)
-        min_j = max(0, min_j)
-        max_j = min(self.grid_size - 1, max_j)
-        
-        # Extract occupied cells in the bounding box region
-        bbox_mask = new_mask[min_i:max_i+1, min_j:max_j+1]
-        occupied_indices = np.where(bbox_mask)
+        # Extract occupied cells
+        occupied_indices = np.where(new_mask)
         
         if len(occupied_indices[0]) > 0:
             # Convert to absolute grid coordinates
-            i_coords = occupied_indices[0] + min_i
-            j_coords = occupied_indices[1] + min_j
+            i_coords = occupied_indices[0]
+            j_coords = occupied_indices[1]
             
             # Convert to world coordinates
             x_coords, y_coords = self._grid_to_world((i_coords, j_coords))
@@ -787,8 +755,8 @@ class PushEnvironment:
             # push_dir = direction
             # push_normal = normal
             # fwd_prob = 0.9
-            fwd_prob = 0.65
-            # fwd_prob = 0.7
+            # fwd_prob = 0.65
+            fwd_prob = 0.75
             remaining_split_right = 0.5
         elif shovel_type == 'angled_right_15':
             # angle_offset = np.pi / 12  # 15 degrees to the right
@@ -1049,7 +1017,7 @@ class PushEnvironment:
         # plt.grid(True)
         plt.show()
 
-    def draw_real_environment(self, perticles, pushes=[], current_push=None):
+    def draw_real_environment(self, perticles, pushes=[], current_push=None, save_path=None):
         plt.figure(figsize=(8,8))
         plt.xlim(0.0, self.BB_SIZE)
         plt.ylim(0.0, self.BB_SIZE)
@@ -1103,7 +1071,11 @@ class PushEnvironment:
         plt.xlabel("X")
         plt.ylabel("Y")
         # plt.grid(True)
-        plt.show()
+        if save_path is not None:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            plt.close()
+        else:
+            plt.show()
 
     def animate_grid_push(self, action):
 
@@ -1213,7 +1185,7 @@ class PushEnvironment:
 
         return new_state
 
-    def draw_grid_environment(self, grid_mask, pushes=[], current_push=None):
+    def draw_grid_environment(self, grid_mask, pushes=[], current_push=None, save_path=None):
         plt.figure(figsize=(8, 8))
         plt.xlim(-0.05, 1.05)
         plt.ylim(-0.05, 1.05)
@@ -1265,7 +1237,12 @@ class PushEnvironment:
             x = i * self.grid_res
             plt.axvline(x=x, color='lightgray', linewidth=0.5, alpha=0.7)
             plt.axhline(y=x, color='lightgray', linewidth=0.5, alpha=0.7)
-        plt.show()
+
+        if save_path is not None:
+            plt.savefig(save_path, bbox_inches='tight')
+            plt.close()
+        else:
+            plt.show()
 
     # def _draw_push(self, s_idx, delta_s, theta, color='cyan', alpha=0.3):
     def _draw_push(self, start_point, direction, color='cyan', alpha=0.3):

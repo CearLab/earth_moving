@@ -58,9 +58,12 @@ class PreprocessEnvironment:
                     
                     # Slice the block from the binary grid
                     block = binary_img[r_start:r_end, c_start:c_end]
+
+                    # Calculate density
+                    filled_pixels = np.sum(block)
+                    density = (filled_pixels / (self.total_pixels_in_cell))
                     
-                    # If any pixel in the block is filled, mark the cell as occupied
-                    if np.any(block):
+                    if density > 0.01:
                         grid_mask[c, r] = True
                         total_occupied += 1
         else:
@@ -94,13 +97,13 @@ class PreprocessEnvironment:
         if self.binary_grid:
             grid_mask = np.zeros((self.grid_size, self.grid_size), dtype=bool)
             for p in particles:
-                i, j = self._world_to_grid(p)
-                if not grid_mask[i, j]:
-                    grid_mask[i, j] = True
+                idx = self._world_to_grid(p)
+                if idx is not None and not grid_mask[idx]:
+                    grid_mask[idx] = True
                     total_occupied += 1
         else:
             grid_mask = np.zeros((self.grid_size, self.grid_size), dtype=float)
-            binary_img = self.particles_to_density_grid(particles, binary_grid_size=1000, bounding_box=((0,0), (1,1)), particle_radius_world=0.003)
+            binary_img = self.particles_to_binary_img(particles, binary_grid_size=1000, bounding_box=((0,0), (1,1)), particle_radius_world=0.003)
             binary_img_size = binary_img.shape[0]
     
             # Calculate how many fine-grid pixels fit into one sim-grid cell
@@ -158,7 +161,7 @@ class PreprocessEnvironment:
     #                 particles.extend(zip(x_coords, y_coords))
     #     return np.array(particles)
 
-    def particles_to_density_grid(self,particles, binary_grid_size, bounding_box, particle_radius_world=0.003):
+    def particles_to_binary_img(self,particles, binary_grid_size, bounding_box, particle_radius_world=0.003):
         """
         Converts particles to a fine binary grid.
         """
@@ -198,7 +201,7 @@ class PreprocessEnvironment:
             if 0 <= row_idx < binary_grid_size and 0 <= col_idx < binary_grid_size:
                 binary_grid[r_min:r_max, c_min:c_max] = 1
                 
-        print("Rasterization complete. Downsampling to simulation grid...")
+        print("Rasterization complete.")
         return binary_grid
 
     def hsv_binary_mask(self, rect_env_img):
@@ -322,9 +325,11 @@ class PreprocessEnvironment:
         if grid_size is None:
             grid_size = self.grid_size
         x, y = pos
-        i = min(max(int(x * grid_size), 0), grid_size - 1)
-        j = min(max(int(y * grid_size), 0), grid_size - 1)
-        return i, j
+        i = int(x * grid_size)
+        j = int(y * grid_size)
+        if 0 <= i < grid_size and 0 <= j < grid_size:
+            return i, j
+        return None
     
     def _grid_to_world(self, grid_pos):
         i, j = grid_pos
@@ -623,7 +628,7 @@ class PreprocessEnvironment:
         return new_state
 
 
-    def draw_grid_environment(self, grid_mask, pushes=[], current_push=None):
+    def draw_grid_environment(self, grid_mask, pushes=[], current_push=None, save_path=None):
         plt.figure(figsize=(8, 8))
         plt.xlim(-0.05, 1.05)
         plt.ylim(-0.05, 1.05)
@@ -675,7 +680,12 @@ class PreprocessEnvironment:
             x = i * self.grid_res
             plt.axvline(x=x, color='lightgray', linewidth=0.5, alpha=0.7)
             plt.axhline(y=x, color='lightgray', linewidth=0.5, alpha=0.7)
-        plt.show()
+        
+        if save_path is not None:
+            plt.savefig(save_path, bbox_inches='tight')
+            plt.close()
+        else:
+            plt.show()
 
     # def _draw_push(self, s_idx, delta_s, theta, color='cyan', alpha=0.3):
     def _draw_push(self, start_point, direction, color='cyan', alpha=0.3):

@@ -32,7 +32,8 @@ class PushEnvironmentGym(gym.Env):
                  total_occupied,
                  total_pixels_in_cell=0.0,
                  stochasticity=False,
-                 grid_size=20):
+                 grid_size=20,
+                 action_prune=True):
         """Initialize with same parameters as your original PushEnvironment."""
         super().__init__()
         
@@ -49,7 +50,8 @@ class PushEnvironmentGym(gym.Env):
             total_occupied=total_occupied,
             total_pixels_in_cell=total_pixels_in_cell,
             stochasticity=stochasticity,
-            grid_size=grid_size
+            grid_size=grid_size,
+            action_prune=action_prune
         )
 
         self.initial_state = self.push_env.initial_state
@@ -143,9 +145,9 @@ class PushEnvironmentGym(gym.Env):
         """Get the underlying PushEnvironment for direct access."""
         return self.push_env
     
-    def get_refined_actions(self, coarse_action):
-        """Get refined actions from the underlying environment."""
-        return self.push_env.get_refined_actions(coarse_action)
+    # def get_refined_actions(self, coarse_action):
+    #     """Get refined actions from the underlying environment."""
+    #     return self.push_env.get_refined_actions(coarse_action)
     
     def compute_coverage(self, grid_mask):
         """Compute current coverage using your original method."""

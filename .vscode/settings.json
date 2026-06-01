@@ -7,5 +7,8 @@
         "opengl",
         "pybullet",
         "urdf"
+    ],
+    "python.analysis.extraPaths": [
+        "./earth_moving/clutter/mcts_vanilla_v1"
     ]
 }
