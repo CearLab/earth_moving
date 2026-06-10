@@ -9,7 +9,7 @@ class PushEnvironment:
     Original PushEnvironment with MCTS compatibility methods added.
     This maintains your original boundary-based physics and logic.
     """
-    def __init__(self, boundary_points, delta_s_options, theta_options, push_width, initial_pos, max_pushes, coverage_thresh, occupancy_grid, total_occupied, total_pixels_in_cell=0.0, stochasticity=False, grid_size=20, action_prune=True):
+    def __init__(self, boundary_points, delta_s_options, theta_options, push_width, initial_pos, max_pushes, coverage_thresh, occupancy_grid, total_occupied, total_pixels_in_cell=0.0, stochasticity=False, grid_size=20, action_prune=True, k=2.0, gamma=0.8):
         self.boundary_points = boundary_points
         self.delta_s_options = delta_s_options
         self.theta_options = theta_options
@@ -26,6 +26,12 @@ class PushEnvironment:
         self.stochastic_push = stochasticity
         self.total_pixels_in_cell = total_pixels_in_cell  # Only used if stochastic_push is True
         self.action_prune = action_prune
+        self.gamma = gamma
+        
+        self.alpha = 0.0   # coverage weight in the potential
+        self.beta = 0.0   # length weight in the potential  (guides toward efficient paths)
+        self.k = k   # efficiency knob of the terminal ratio
+        self.max_length = (np.sqrt(2) * self.grid_size + max(self.delta_s_options))
 
         if self.stochastic_push:
             print("Stochastic push enabled.")
@@ -45,11 +51,11 @@ class PushEnvironment:
 
         self.shovel_type = 'flat'  # Default shovel type
         # self.shovel_type = 'angled_left_25'
-        self.current_state = self.initial_state.copy()
+        self.current_state = copy.deepcopy(self.initial_state)
         self.action_space = [(delta_s, theta) for delta_s in delta_s_options for theta in theta_options]
 
     def reset(self):
-        self.current_state = self.initial_state.copy()
+        self.current_state = copy.deepcopy(self.initial_state)
         return self.current_state
 
     # MCTS Compatibility Methods
@@ -79,6 +85,11 @@ class PushEnvironment:
         new_env.shovel_type = self.shovel_type
         new_env.action_space = self.action_space
         new_env.action_prune = self.action_prune
+        new_env.gamma = self.gamma
+        new_env.alpha = self.alpha
+        new_env.beta = self.beta
+        new_env.k = self.k
+        new_env.max_length = self.max_length
 
         # Copy mutable state (only grid_mask array needs deep copy)
         new_env.current_state = {
@@ -213,7 +224,7 @@ class PushEnvironment:
     def is_terminal(self):
         """Check if current state is terminal."""
         coverage = self.compute_coverage(self.current_state['grid_mask'])
-        return (coverage >= self.coverage_thresh or 
+        return (coverage >= 0.999 or 
                 self.current_state['num_pushes'] >= self.max_pushes)
 
 
@@ -506,11 +517,14 @@ class PushEnvironment:
             uncovered = np.count_nonzero(grid_mask)
         return 1.0 - uncovered / self.total_occupied
     
-    def potential_function(self, state, coverage, lambd=0.8):
+    def potential_function(self, state, coverage):
         """
         Compute the potential function based on the current state.
         """
-        phi = (lambd * coverage * self.total_occupied - (1-lambd) * (state["length"] * self.push_width * self.grid_size)) * (self.grid_res)
+        # phi = (lambd * coverage * self.total_occupied - (1-lambd) * (state["length"] * self.push_width * self.grid_size)) * (self.grid_res)
+        cov = np.clip(coverage, 0.0, 1.0)
+        length_normed = np.clip(state['length'] / self.max_length, 0.0, 1.0)
+        phi = (self.alpha * cov) - (self.beta * length_normed)
 
         return phi
     
@@ -521,96 +535,28 @@ class PushEnvironment:
         If all particles are covered, the reward is zero.
         """
         reward = 0.0
-        w1 = 2.5
-        w2 = 1.0
+        # w1 = 2.5
+        # w2 = 1.0
         # alpha = 0.85
 
-        # if new_state['length'] > 0.0 and new_coverage > 0.0:
-        #     if new_coverage < 0.9:
-        #         # Penalize for uncovered area
-        #         reward += -(((new_state['length'] * self.push_width * self.grid_size) * 20.0) / ((new_coverage) * self.total_occupied))
-        #     else:
-        #         # Reward for good coverage
-        #         reward += ((new_coverage * self.total_occupied) / ((new_state['length'] * self.push_width * self.grid_size) * 20.0))
-
-        # if new_state['length'] > 0.0 and new_coverage > 0.0:
-        #     reward = ((new_coverage) * self.total_occupied * self.grid_res) / (((new_state['len_pushes'] * self.push_width * self.grid_size) + new_state['len_path']) * self.grid_res)
-        
-
-        # if new_state['length'] > 0.0 and new_coverage > 0.0:
-        #     reward = ((new_coverage) * self.total_occupied * self.grid_res) - 0.2 * (new_state['length'] * self.push_width * self.grid_size * self.grid_res)
-
-
-
         # potential based reward
-        # pre_coverage = self.compute_coverage(state['grid_mask'])
-        # reward += self.potential_function(new_state, new_coverage) - self.potential_function(state, pre_coverage)
+        pre_coverage = self.compute_coverage(state['grid_mask'])
+        reward = self.gamma * self.potential_function(new_state, new_coverage) - self.potential_function(state, pre_coverage)
+ 
         # max_coverage = self.total_occupied
 
-        max_length = (np.sqrt(2) * self.grid_size + max(self.delta_s_options))
-        delta_length = new_state['length'] - state['length']
-        delta_coverage_normed = new_coverage - self.compute_coverage(state['grid_mask'])
-
-        if delta_coverage_normed <= 0.0:
-            return -0.5    # Heavy penalty for no coverage improvement
-        delta_length_normed = delta_length / max_length
-
-        reward = w1 * delta_coverage_normed - w2 * delta_length_normed
-
-        # uncovered = 1.0 - new_coverage
-        # if delta_length:
-        #     inv_delta_length = 1.0 / (delta_length)  # Avoid division by zero
-        # else:
-        #     inv_delta_length = 0.0
-        # if inv_delta_length > 1.0:
-        #     print("Warning: inv_delta_length > 1.0,", inv_delta_length, "delta_length:", delta_length, "new_state['length']:", new_state['length'], "state['length']:", state['length'])
-        
-        # delta_coverage = (new_coverage - self.compute_coverage(state['grid_mask'])) * self.total_occupied
-        # norm_term = max_length + max_coverage
-
-        # delta_uncovered = (1-new_coverage) - (1-self.compute_coverage(state['grid_mask'])) * self.total_occupied
-        # epsilon = 0.05 * max_length
-        # epsilon = 1.0
-        # length_normed = new_state['length'] / max_length_tot
-        # reward = - uncovered - length_normed
-
-        # if new_coverage >= self.coverage_thresh:
-        #     reward = new_coverage / length_normed
-        # max_coverage = self.total_occupied
+        # max_length = (np.sqrt(2) * self.grid_size + max(self.delta_s_options))
         # delta_length = new_state['length'] - state['length']
-
-        # # if delta_length:
-        # #     inv_delta_length = 1.0 / (delta_length)  # Avoid division by zero
-        # # else:
-        # #     inv_delta_length = 0.0
-        # # if inv_delta_length > 1.0:
-        # #     print("Warning: inv_delta_length > 1.0,", inv_delta_length, "delta_length:", delta_length, "new_state['length']:", new_state['length'], "state['length']:", state['length'])
-        
-        # # delta_coverage = (new_coverage - self.compute_coverage(state['grid_mask'])) * self.total_occupied
-        # # norm_term = max_length + max_coverage
-
-        # # delta_uncovered = (1-new_coverage) - (1-self.compute_coverage(state['grid_mask'])) * self.total_occupied
-
         # delta_coverage_normed = new_coverage - self.compute_coverage(state['grid_mask'])
-        # epsilon = 0.05 * max_length 
-        # # epsilon = 1.0
 
-        # if delta_length <= epsilon:
-        #     # print("Warning: delta_length <= epsilon, setting to epsilon", "delta_length:", delta_length, "new_state['length']:", new_state['length'], "state['length']:", state['length'])
-        #     delta_length = epsilon
+        # if delta_coverage_normed <= 0.0:
+        #     return -0.5    # Heavy penalty for no coverage improvement
+        # delta_length_normed = delta_length / max_length
 
-        # delta_length_normed = (epsilon * (max_length - delta_length)) / (delta_length * (max_length - epsilon))
+        # reward = w1 * delta_coverage_normed - w2 * delta_length_normed
 
-        # reward = (alpha * delta_coverage_normed + (1 - alpha) * delta_length_normed)
-
-        # reward = delta_uncovered - (delta_length * self.push_width * self.grid_size)
-        # reward = (alpha * (delta_coverage / norm_term) + (1-alpha) * (inv_delta_length / norm_term)) * 100.0
-        # reward = (alpha * (delta_coverage / norm_term) - (1-alpha) * (delta_length / norm_term)) * 100.0
-
-        # if reward > 1.0:
-        #     print("Warning: reward > 1.0,", reward, "new_coverage:", new_coverage, "new_state['length']:", new_state['length'], "state['length']:", state['length'])
-
-        return reward
+        # return reward
+        return 0.0
     
     def get_terminal_reward(self, new_state, state, new_coverage):
         """
@@ -618,80 +564,39 @@ class PushEnvironment:
         """
         reward = 0.0
         # alpha = 0.85
-        w1 = 2.5
-        w2 = 1.0
+        # w1 = 2.5
+        # w2 = 1.0
+        w3 = 2.0
+
+        if new_state['num_pushes'] == 0:
+            return 0.0
+
+        # max_length = (np.sqrt(2) * self.grid_size + max(self.delta_s_options))
+        # delta_length = new_state['length'] - state['length']
+        # delta_coverage_normed = new_coverage - self.compute_coverage(state['grid_mask'])
+        # delta_length_normed = delta_length / max_length
+        max_length_tot = self.max_length * new_state['num_pushes']
+        length_normed = np.clip(new_state['length'] / max_length_tot, 0.0, 1.0)
+
+        excess = np.clip((new_coverage - self.coverage_thresh) / (1.0 - self.coverage_thresh), 0.0, 1.0)
+
+        reward = ((new_coverage + w3 * excess) / (1.0 + self.k * length_normed))
 
         # Compute potential-based reward
         # pre_coverage = self.compute_coverage(state['grid_mask'])
-        # reward += self.potential_function(new_state, new_coverage) - self.potential_function(state, pre_coverage)
+        # reward += - self.potential_function(state, pre_coverage)
 
-        # if new_state['length'] > 0.0 and new_coverage > 0.0:
-        # if new_state['length'] > 0.0 and new_coverage > 0.0:
-        #     if new_coverage < 0.9:
-        #         # Penalize for uncovered area
-        #         reward += - (((new_state['length'] * self.push_width * self.grid_size) * 30.0) / ((new_coverage) * self.total_occupied)) * 10.0
-        #     else:
-        #         # Reward for good coverage
-        #         reward += ((new_coverage * self.total_occupied) / ((new_state['length'] * self.push_width * self.grid_size) * 30.0)) * 10.0
+        # if delta_coverage_normed <= 0.0:
+        #     return -0.5    # Heavy penalty for no coverage improvement
 
-        max_length_tot = (np.sqrt(2) * self.grid_size + max(self.delta_s_options)) * new_state['num_pushes']
-        max_length = (np.sqrt(2) * self.grid_size + max(self.delta_s_options))
-        delta_length = new_state['length'] - state['length']
-        delta_coverage_normed = new_coverage - self.compute_coverage(state['grid_mask'])
-        delta_length_normed = delta_length / max_length
+        # reward = w1 * delta_coverage_normed - w2 * delta_length_normed
 
-        if delta_coverage_normed <= 0.0:
-            return -0.5    # Heavy penalty for no coverage improvement
-
-        reward = w1 * delta_coverage_normed - w2 * delta_length_normed
-        # uncovered = 1.0 - new_coverage
-        # if delta_length:
-        #     inv_delta_length = 1.0 / (delta_length)  # Avoid division by zero
-        # else:
-        #     inv_delta_length = 0.0
-        # if inv_delta_length > 1.0:
-        #     print("Warning: inv_delta_length > 1.0,", inv_delta_length, "delta_length:", delta_length, "new_state['length']:", new_state['length'], "state['length']:", state['length'])
-        
-        # delta_coverage = (new_coverage - self.compute_coverage(state['grid_mask'])) * self.total_occupied
-        # norm_term = max_length + max_coverage
-
-        # delta_uncovered = (1-new_coverage) - (1-self.compute_coverage(state['grid_mask'])) * self.total_occupied
-        # delta_coverage_normed = new_coverage - self.compute_coverage(state['grid_mask'])
-        # epsilon = 0.05 * max_length
-        # epsilon = 1.0
-        length_normed = (new_state['length']) / max_length_tot
-        # reward = - uncovered - length_normed
-
-        if new_coverage >= self.coverage_thresh:
-            reward += (w1 * new_coverage) / (length_normed)
+        # if new_coverage >= self.coverage_thresh:
+        #     excess = np.clip((new_coverage - self.coverage_thresh) / (1.0 - self.coverage_thresh), 0.0, 1.0)
+        #     reward += w3 * excess
+            # reward += (w1 * new_coverage) / (length_normed)
         # else:
         #     reward = w1 * new_coverage - w2 * length_normed
-
-        # reward = w1 * new_coverage - w2 * length_normed
-        # if delta_length <= epsilon:
-        #     # print("Warning: delta_length <= epsilon, setting to epsilon", "delta_length:", delta_length, "new_state['length']:", new_state['length'], "state['length']:", state['length'])
-        #     delta_length = epsilon
-
-        # delta_length_normed = (epsilon * (max_length - delta_length)) / (delta_length * (max_length - epsilon))
-
-        # reward = (alpha * delta_coverage_normed + (1 - alpha) * delta_length_normed)
-
-        # reward = delta_uncovered - (delta_length * self.push_width * self.grid_size)
-
-        # reward = (alpha * (delta_coverage / norm_term) + (1-alpha) * (inv_delta_length / norm_term)) * 100.0
-        # reward = (alpha * (delta_coverage / norm_term) - (1-alpha) * (delta_length / norm_term)) * 100.0
-
-        # if reward > 1.0:
-        #     print("Warning: reward > 1.0,", reward, "new_coverage:", new_coverage, "new_state['length']:", new_state['length'], "state['length']:", state['length'])
-
-
-        # if new_state['length'] > 0.0 and new_coverage > 0.0:
-        #     reward = ((new_coverage) * self.total_occupied * self.grid_res) - 0.2 * (new_state['length'] * self.push_width * self.grid_size * self.grid_res)
-
-        # if new_coverage >= 0.99:
-        #     # Success reward
-        #     # reward += 10.0 * (new_coverage * self.total_occupied * self.grid_res)
-        #     reward += 10.0
 
         return reward
     

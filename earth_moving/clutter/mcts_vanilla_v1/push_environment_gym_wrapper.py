@@ -33,7 +33,9 @@ class PushEnvironmentGym(gym.Env):
                  total_pixels_in_cell=0.0,
                  stochasticity=False,
                  grid_size=20,
-                 action_prune=True):
+                 action_prune=True,
+                 k=2.0,
+                 gamma=0.8):
         """Initialize with same parameters as your original PushEnvironment."""
         super().__init__()
         
@@ -51,7 +53,9 @@ class PushEnvironmentGym(gym.Env):
             total_pixels_in_cell=total_pixels_in_cell,
             stochasticity=stochasticity,
             grid_size=grid_size,
-            action_prune=action_prune
+            action_prune=action_prune,
+            k=k,
+            gamma=gamma
         )
 
         self.initial_state = self.push_env.initial_state
