@@ -1,6 +1,6 @@
 ﻿"""Persistent, rover-specific planning overlays built from one canonical heatmap."""
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 import heapq
 import math
@@ -42,6 +42,8 @@ class OverlayTaskCandidate:
     expected_spillage: float
     expected_collected_objects: float = 0.0
     expected_collected_mass: float = 0.0
+    is_root_source: bool = True
+    upstream_source_keys: tuple = ()
 
 @dataclass(frozen=True)
 class ProfileOverlaySnapshot:
@@ -312,6 +314,64 @@ def _best_guide(env_2d, source, task_type):
         choices.append((delivered, raw, -float(info.get("distance", len(path))), member, info))
     return max(choices, default=None, key=lambda value: value[:3])
 
+
+def _mark_target_root_candidates(candidates):
+    """Annotate target candidates with their upstream source relationships.
+
+    Source B is upstream of source A when B is farther along the push graph
+    and B's rover-specific swept collection corridor includes one or more
+    canonical object cells belonging to A. In that case, starting at B can
+    collect A on the way to the target, so A is not a root source.
+    """
+    target_candidates = [
+        candidate for candidate in candidates if candidate.task_type == "target"
+    ]
+    source_cells = {
+        candidate.source.key: {
+            _cell_key(cell) for cell in candidate.source.canonical_cells
+        }
+        for candidate in target_candidates
+    }
+    path_distance = {
+        candidate.source.key: float(candidate.path_info.get("distance", 0.0))
+        for candidate in target_candidates
+    }
+    upstream_by_source = {}
+    for candidate in target_candidates:
+        current_cells = source_cells.get(candidate.source.key, set())
+        current_distance = path_distance.get(candidate.source.key, 0.0)
+        upstream_keys = []
+        for other in target_candidates:
+            if other.source.key == candidate.source.key:
+                continue
+            if path_distance.get(other.source.key, 0.0) <= current_distance + 1e-9:
+                continue
+            if current_cells.intersection(other.reserved_object_cells):
+                upstream_keys.append(other.source.key)
+        upstream_by_source[candidate.source.key] = tuple(sorted(set(upstream_keys)))
+
+    annotated = []
+    for candidate in candidates:
+        if candidate.task_type != "target":
+            annotated.append(candidate)
+            continue
+        upstream_keys = upstream_by_source.get(candidate.source.key, ())
+        is_root = not upstream_keys
+        path_info = dict(candidate.path_info)
+        path_info.update({
+            "is_root_source": is_root,
+            "upstream_source_keys": list(upstream_keys),
+            "root_source_rule": "no_upstream_target_corridor_collects_source",
+        })
+        annotated.append(replace(
+            candidate,
+            path_info=path_info,
+            is_root_source=is_root,
+            upstream_source_keys=upstream_keys,
+        ))
+    return tuple(annotated)
+
+
 def build_profile_overlay_snapshot(map_epoch, env_2d, converter, rover_type, material_value_mode=DEFAULT_MATERIAL_VALUE_MODE):
     """Build all source cells and physically-supported task candidates once."""
     geometry = rover_type.geometry
@@ -390,9 +450,10 @@ def build_profile_overlay_snapshot(map_epoch, env_2d, converter, rover_type, mat
                 source, task_type, representative, path_info, frozenset(reserved_path),
                 frozenset(reserved_objects), expected_collected, expected_delivered,
                 expected_spillage, expected_collected_objects, expected_collected_mass))
+    candidates = _mark_target_root_candidates(candidates)
     return ProfileOverlaySnapshot(int(map_epoch), rover_type.overlay_cache_key,
                                   float(geometry.shovel_width), float(geometry.overlay_cell_size),
-                                  sources, tuple(candidates))
+                                  sources, candidates)
 
 
 

@@ -40,7 +40,9 @@ import multi_astar_priority_scheduling3 as sched
 from rover_profiles import ROVER_PROFILES, resolve_profiles
 from rover_planning_overlay import bounded_approach_gate, world_path_is_sane
 from multi_agent_collision_safety import SafetyAgentContext
-from cooperative_collision_recovery import CooperativeRecoveryManager, RecoveryAgent
+from cooperative_collision_recovery import (
+    CooperativeRecoveryConfig, CooperativeRecoveryManager, RecoveryAgent,
+)
 from simulation_event_logger import SimulationEventLogger
 from pebble_profiles import (
     DEFAULT_MATERIAL_VALUE_MODE, DEFAULT_PEBBLE_DISTRIBUTION,
@@ -117,6 +119,9 @@ FLOW_FIELD_VIS_MODE = "never"      # "never", "ask", or "always".
 DEFAULT_PUSH_EXTRA_DISTANCE = 0.25 # Extra meters at the end of each 2D push path.
 DEFAULT_MAP_UPDATE_INTERVAL = 12.0 # Minimum seconds between completed-path 2D map rebuilds.
 DEFAULT_APPROACH_REPLAN_INTERVAL = 2.5 # Seconds between approach-only A* replans.
+DEFAULT_NAVIGATION_OUTSIDE_MARGIN = 1.00 # Approach/recovery room beyond the material map.
+# None = use each rover profile; True/False = override all rover profiles.
+TARGET_ROOT_SOURCES_ONLY = None
 ENABLE_EVENT_LOG = True             # Automatic JSONL telemetry + CSV task summary.
 DEFAULT_EVENT_LOG_POSE_INTERVAL = 0.50
 PEBBLE_MATERIAL_MODE = DEFAULT_MATERIAL_VALUE_MODE  # "mass" or "count" thesis comparison.
@@ -709,6 +714,7 @@ class MultiAStarScheduledHybridOrchestrator(_shared.SharedPlanningDeadlockOrches
         draw_execution_paths: bool = DRAW_EXECUTION_PATHS_DEFAULT,
         push_extra_distance: float = DEFAULT_PUSH_EXTRA_DISTANCE,
         approach_replan_interval: float = DEFAULT_APPROACH_REPLAN_INTERVAL,
+        navigation_outside_margin: float = DEFAULT_NAVIGATION_OUTSIDE_MARGIN,
         event_log_dir: Optional[str] = None,
         event_log_pose_interval: float = DEFAULT_EVENT_LOG_POSE_INTERVAL,
         enable_event_log: bool = ENABLE_EVENT_LOG,
@@ -720,7 +726,12 @@ class MultiAStarScheduledHybridOrchestrator(_shared.SharedPlanningDeadlockOrches
         if hasattr(self.safety.config, "enable_reverse_recovery"):
             self.safety.config.enable_reverse_recovery = False
         sched.BACKOFF_ESCAPE_ENABLED = False
-        self.cooperative_recovery = CooperativeRecoveryManager()
+        self.navigation_outside_margin = max(0.0, float(navigation_outside_margin))
+        self.cooperative_recovery = CooperativeRecoveryManager(
+            CooperativeRecoveryConfig(
+                navigation_outside_margin=self.navigation_outside_margin,
+            )
+        )
         self.scheduler_replan_workers = max(0, int(scheduler_replan_workers))
         self.scheduler_allow_replans = bool(scheduler_allow_replans)
         self.draw_scheduler_conflicts = bool(draw_scheduler_conflicts)
@@ -782,6 +793,7 @@ class MultiAStarScheduledHybridOrchestrator(_shared.SharedPlanningDeadlockOrches
             f"replans={self.scheduler_allow_replans}, "
             f"push_extra={self.push_extra_distance:.2f}m, "
             f"approach_replan={self.approach_replan_interval:.1f}s, "
+            f"outside_margin={self.navigation_outside_margin:.2f}m, "
             f"draw_paths={self.draw_execution_paths})"
         )
         if self.scheduler_allow_replans:
@@ -806,6 +818,8 @@ class MultiAStarScheduledHybridOrchestrator(_shared.SharedPlanningDeadlockOrches
                 pebble_summary=summarize_instances(self.pebble_instances),
                 initial_material_progress=self._get_material_progress(),
                 env_radius=self.env_radius,
+                navigation_outside_margin=self.navigation_outside_margin,
+                target_root_sources_only=self.target_root_sources_only,
                 target_zone_radius=self.target_zone_radius,
                 target_zone=self.target_zone.to_dict(),
                 scenario_name=self.scenario_name,
@@ -892,7 +906,7 @@ class MultiAStarScheduledHybridOrchestrator(_shared.SharedPlanningDeadlockOrches
             S0,
             v_path,
             float(GATE_CONFIG["gate_back"]),
-            planning_radius + 0.15,
+            planning_radius + self.navigation_outside_margin,
         )
         G = np.array(gate_xy, dtype=float)
         if gate_clipped:
@@ -2290,6 +2304,28 @@ def _parse_args():
         ),
     )
     parser.add_argument(
+        "--navigation-outside-margin",
+        type=float,
+        default=DEFAULT_NAVIGATION_OUTSIDE_MARGIN,
+        help=(
+            "Meters outside the material-map radius available for approach, "
+            "turning, detours, and cooperative collision recovery."
+        ),
+    )
+    parser.add_argument(
+        "--target-root-sources-only",
+        dest="target_root_sources_only",
+        action="store_true",
+        default=TARGET_ROOT_SOURCES_ONLY,
+        help="Allow direct target tasks only from upstream/root source cells.",
+    )
+    parser.add_argument(
+        "--allow-non-root-target-sources",
+        dest="target_root_sources_only",
+        action="store_false",
+        help="Allow any valid source cell for direct target tasks.",
+    )
+    parser.add_argument(
         "--v-max",
         type=float,
         default=sched.V_MAX,
@@ -2387,6 +2423,8 @@ def main():
         f"SchedulerReplans={args.experimental_scheduler_replans and not args.no_scheduler_replans}, "
         f"PushExtra={args.push_extra_distance:.2f}m, "
         f"ApproachReplan={args.approach_replan_interval:.1f}s, "
+        f"NavigationOutsideMargin={args.navigation_outside_margin:.2f}m, "
+        f"TargetRootOnly={args.target_root_sources_only if args.target_root_sources_only is not None else 'profile'}, "
         f"DrawPaths={not args.no_draw_execution_paths}, "
         f"Vmax={sched.V_MAX:.2f}m/s, "
         f"Wmax={sched.W_MAX:.2f}rad/s, "
@@ -2418,6 +2456,8 @@ def main():
         draw_execution_paths=not args.no_draw_execution_paths,
         push_extra_distance=args.push_extra_distance,
         approach_replan_interval=args.approach_replan_interval,
+        navigation_outside_margin=args.navigation_outside_margin,
+        target_root_sources_only=args.target_root_sources_only,
         event_log_dir=args.event_log_dir,
         event_log_pose_interval=args.event_log_pose_interval,
         enable_event_log=not args.no_event_log,

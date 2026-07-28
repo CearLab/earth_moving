@@ -60,6 +60,8 @@ class PathAllocationRequest:
     shovel_width: float = 0.22
     overlay_cell_size: float = 0.0
     reservation_radius: float = 0.14
+    # None uses the rover profile policy; True/False overrides it for this run.
+    target_root_sources_only: Optional[bool] = None
 
 
 @dataclass
@@ -183,6 +185,11 @@ def allocate_path_from_shared_map(snapshot, request):
             else rover_type.capabilities.capacity_objects
         )
         overlay = get_profile_overlay(snapshot, rover_type)
+        root_sources_only = (
+            bool(policy.target_root_sources_only)
+            if request.target_root_sources_only is None
+            else bool(request.target_root_sources_only)
+        )
         blocked_paths = set(request.reserved_path_cells)
         blocked_objects = set(request.reserved_object_cells)
         blocked_objects.update(request.consumed_object_cells)
@@ -199,6 +206,12 @@ def allocate_path_from_shared_map(snapshot, request):
         }
         for candidate in overlay.candidates:
             if not policy.permits(candidate.task_type):
+                continue
+            if (
+                root_sources_only
+                and candidate.task_type == TARGET_TASK
+                and not candidate.is_root_source
+            ):
                 continue
             candidate_tier = tier_by_task.get(candidate.task_type, len(selection_tiers))
             if candidate_tier > best_tier:
@@ -246,6 +259,7 @@ def allocate_path_from_shared_map(snapshot, request):
         path_info["rover_type"] = rover_type.name
         path_info["policy_allowed_tasks"] = sorted(policy.allowed_tasks)
         path_info["policy_fallback_order"] = list(policy.task_fallback_order)
+        path_info["policy_target_root_sources_only"] = root_sources_only
         path_info["selected_task_tier"] = int(best_tier)
         path_info["material_value_mode"] = snapshot.material_value_mode
         path_info["capacity_quantity"] = capacity

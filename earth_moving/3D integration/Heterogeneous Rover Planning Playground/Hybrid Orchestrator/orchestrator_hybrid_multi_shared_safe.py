@@ -60,6 +60,7 @@ class SharedPlanningDeadlockOrchestrator(_safe.SafeMultiAgentHybridOrchestrator)
         self,
         *args,
         map_update_interval: float = 12.0,
+        target_root_sources_only: Optional[bool] = None,
         deadlock_safety_config: Optional[DeadlockPolicyConfig] = None,
         **kwargs,
     ):
@@ -71,6 +72,10 @@ class SharedPlanningDeadlockOrchestrator(_safe.SafeMultiAgentHybridOrchestrator)
         self.safety = DeadlockAwareCollisionSafety(safety_config)
 
         self.map_update_interval = float(map_update_interval)
+        self.target_root_sources_only = (
+            None if target_root_sources_only is None
+            else bool(target_root_sources_only)
+        )
         self.map_executor = None
         self.shared_map = None
         self.shared_map_future = None
@@ -212,6 +217,7 @@ class SharedPlanningDeadlockOrchestrator(_safe.SafeMultiAgentHybridOrchestrator)
             shovel_width=(float(profile.shovel_width) if profile is not None else self.shovel_width),
             overlay_cell_size=(float(profile.overlay_cell_size) if profile is not None else 0.0),
             reservation_radius=(float(profile.reservation_radius) if profile is not None else self.shovel_width / 2.0 + 0.03),
+            target_root_sources_only=self.target_root_sources_only,
         )
         agent["state"] = "PLANNING"
         agent["future"] = self.executor.submit(allocate_path_job, self.shared_map, req)
@@ -219,6 +225,11 @@ class SharedPlanningDeadlockOrchestrator(_safe.SafeMultiAgentHybridOrchestrator)
         preference_label = (
             ">".join(profile.policy.task_fallback_order)
             if profile is not None and profile.policy.task_fallback_order else "score"
+        )
+        root_only = (
+            bool(profile.policy.target_root_sources_only)
+            if self.target_root_sources_only is None and profile is not None
+            else bool(self.target_root_sources_only)
         )
         capacity = (
             profile.capacity_mass if profile is not None and self.material_value_mode == "mass"
@@ -230,6 +241,7 @@ class SharedPlanningDeadlockOrchestrator(_safe.SafeMultiAgentHybridOrchestrator)
             agent_pose=rover_xy, overlay_cell_size=req.overlay_cell_size,
             capacity=capacity, allowed_tasks=policy_label,
             preference=preference_label,
+            target_root_sources_only=root_only,
             reserved_path_cells=len(reserved_path),
             reserved_object_cells=len(reserved_objects),
             consumed_object_cells=len(consumed_objects),
@@ -237,7 +249,8 @@ class SharedPlanningDeadlockOrchestrator(_safe.SafeMultiAgentHybridOrchestrator)
         print(
             f"[ALLOC] Submitted path allocation for {agent['id']} "
             f"(plan_id={pid}, map_epoch={req.map_epoch}, overlay={req.overlay_cell_size:.3f}m, "
-            f"capacity={capacity} {self.material_value_mode}, policy={policy_label}, preference={preference_label})"
+            f"capacity={capacity} {self.material_value_mode}, policy={policy_label}, "
+            f"preference={preference_label}, target_root_only={root_only})"
         )
 
     def _poll_planning_results(self):
@@ -350,6 +363,8 @@ class SharedPlanningDeadlockOrchestrator(_safe.SafeMultiAgentHybridOrchestrator)
                 plan_id=res.plan_id, map_epoch=res.map_epoch,
                 task_type=res.best_choice,
                 source_cell=(res.best_cell.x, res.best_cell.y),
+                is_root_source=res.best_path_info.get("is_root_source"),
+                target_root_sources_only=res.best_path_info.get("policy_target_root_sources_only"),
                 reserved_path_cells=len(res.reserved_path_cells),
                 reserved_object_cells=len(res.reserved_object_cells),
             )
@@ -359,6 +374,7 @@ class SharedPlanningDeadlockOrchestrator(_safe.SafeMultiAgentHybridOrchestrator)
                 f"[ALLOC] {agent['id']} -> NAVIGATING "
                 f"(task={res.best_choice}, cell=({res.best_cell.x},{res.best_cell.y}), "
                 f"source_cells={len(res.best_path_info.get('source_canonical_cells', []))}, "
+                f"root_source={res.best_path_info.get('is_root_source', 'n/a')}, "
                 f"expected={res.best_path_info.get('expected_collected', 0.0):.1f}/"
                 f"{res.best_path_info.get('capacity_quantity', 0.0):.0f} "
                 f"{res.best_path_info.get('material_value_mode', 'count')}, "

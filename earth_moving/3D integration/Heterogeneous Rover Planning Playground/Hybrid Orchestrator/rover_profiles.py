@@ -93,6 +93,9 @@ class TaskPolicy:
     allowed_tasks: frozenset[str] = field(default_factory=lambda: frozenset({TARGET_TASK, HIGHWAY_TASK}))
     # Earlier entries are strict preferences; later entries are fallbacks only.
     task_fallback_order: tuple[str, ...] = ()
+    # When enabled, direct-to-target work starts only at an upstream/root source:
+    # no other source corridor may collect this source on its way to the target.
+    target_root_sources_only: bool = False
     delivered_weight: float = 10.0
     target_weight: float = 1.0
     highway_weight: float = 0.7
@@ -182,6 +185,7 @@ ROVER_TYPES = {
         RoverCapabilities(capacity_objects=12, capacity_mass=18, supported_tasks=frozenset({TARGET_TASK, HIGHWAY_TASK})),
         TaskPolicy(
             allowed_tasks=frozenset({TARGET_TASK}),
+            target_root_sources_only=True,
             target_weight=1.4,
             highway_weight=0.0,
             capacity_utilization_weight=3.0,

@@ -49,6 +49,8 @@ class CooperativeRecoveryConfig:
     total_max_time: float = 4.50
     cooldown: float = 1.50
     boundary_margin: float = 0.05
+    # Recovery may leave the material-map radius, but not this navigation envelope.
+    navigation_outside_margin: float = 1.00
     target_buffer: float = 0.10
     pebble_radius: float = 0.05
     other_rover_clearance: float = 0.44
@@ -489,7 +491,12 @@ class CooperativeRecoveryManager:
                 float(start[1]) + t * (float(target[1]) - float(start[1])),
             )
             radial = math.hypot(*sample)
-            if radial > float(env_radius) - self.config.boundary_margin:
+            navigation_limit = (
+                float(env_radius)
+                + max(0.0, float(self.config.navigation_outside_margin))
+                - max(0.0, float(self.config.boundary_margin))
+            )
+            if radial > navigation_limit:
                 return False
             sample_clearance = zone.signed_distance_world(*sample)
             if start_clearance >= self.config.target_buffer and sample_clearance < self.config.target_buffer:
