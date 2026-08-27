@@ -16,3 +16,7 @@ core.*
 *.mp4
 *.env
 .venv/
+
+# simulation run outputs (Hybrid Orchestrator playground)
+generated_rovers/
+playground_logs/
