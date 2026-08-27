@@ -1,0 +1,22 @@
+# Requirements for the Hybrid Orchestrator playground only.
+# Scoped separately from the repo-root requirements.txt, which pins
+# 2023-era numpy/tensorflow/torch that have no Python 3.12 wheels and
+# aren't needed here anyway (this playground doesn't import them).
+#
+# Tested against Python 3.12.3.
+#
+# Setup:
+#   python3 -m venv .venv
+#   source .venv/bin/activate
+#   pip install -r requirements.txt
+
+numpy==2.5.1
+scipy==1.18.0
+matplotlib==3.11.1
+shapely==2.1.2
+pybullet==3.2.7
+pygame==2.6.1
+
+# notebook support (MULTI_ROVER_THESIS_PLAYGROUND.ipynb)
+jupyter==1.1.1
+ipykernel==7.3.0
