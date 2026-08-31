@@ -1,0 +1,9 @@
+# Keep experiment source and analysis tools, not generated run artifacts.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.test_artifacts/
+results/
+simulation_logs/
+playground_logs/
+generated_rovers/

@@ -1,0 +1,15 @@
+name: earth_moving_lab
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - numpy
+  - scipy
+  - matplotlib
+  - pygame
+  - shapely
+  - pyyaml
+  - psutil
+  - pip
+  - pip:
+      - pybullet

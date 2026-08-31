@@ -1,0 +1,8 @@
+numpy
+scipy
+matplotlib
+pygame
+pybullet
+shapely
+PyYAML
+psutil

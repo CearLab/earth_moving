@@ -1,0 +1,92 @@
+schema: 1
+experiment_name: single_rover_direct_path_v1
+simulation_dir: ../Hybrid Orchestrator
+results_root: results
+
+fixed_conditions:
+  pebble_count: 60
+  material_mode: count
+  uniform_small_pebbles: true
+  core_deployment: uniform_area
+  rover_count: 1
+  highway_tasks: false
+  capacity_scoring_mode: uncapped_corridor
+  map_update_interval_s: 12.0
+  runtime_mode: headless_fast
+  max_sim_time_s: 7200.0
+  max_no_delivery_time_s: 1200.0
+  max_wall_time_s: 10800.0
+  benchmark_images: milestone_only
+  save_compressed_environment_snapshots: true
+
+seeds: [41, 42, 43, 44, 45]
+rover_profiles: [small, large]
+targets:
+  - {id: circle_center, scenario: lab_circle_center}
+  - {id: circle_offcenter, scenario: lab_circle_offcenter}
+  - {id: rectangle_center, scenario: lab_rectangle_center}
+  - {id: rectangle_offcenter, scenario: lab_rectangle_offcenter}
+  - {id: amorphous_center, scenario: lab_amorphous_center}
+  - {id: amorphous_offcenter, scenario: lab_amorphous_offcenter}
+  - {id: l_center, scenario: lab_l_center}
+  - {id: l_offcenter, scenario: lab_l_offcenter}
+
+planners:
+  - id: B00_straight_hull_source
+    path_mode: straight_nearest
+    source_mode: convex_hull
+    candidate_value_mode: source_only
+    visibility_angle_deg: 1.0
+    max_path_length_factor: 1.01
+  - id: B05_narrow_hull_source
+    path_mode: material_aware
+    source_mode: convex_hull
+    candidate_value_mode: source_only
+    visibility_angle_deg: 5.0
+    max_path_length_factor: 1.05
+  - {id: A30_hull_source, path_mode: material_aware, source_mode: convex_hull, candidate_value_mode: source_only, visibility_angle_deg: 30.0, max_path_length_factor: 2.5}
+  - {id: A30_hull_material, path_mode: material_aware, source_mode: convex_hull, candidate_value_mode: material_aware, visibility_angle_deg: 30.0, max_path_length_factor: 2.5}
+  - {id: A30_all_source, path_mode: material_aware, source_mode: all, candidate_value_mode: source_only, visibility_angle_deg: 30.0, max_path_length_factor: 2.5}
+  - {id: A30_all_material, path_mode: material_aware, source_mode: all, candidate_value_mode: material_aware, visibility_angle_deg: 30.0, max_path_length_factor: 2.5}
+  - {id: A45_hull_source, path_mode: material_aware, source_mode: convex_hull, candidate_value_mode: source_only, visibility_angle_deg: 45.0, max_path_length_factor: 2.5}
+  - {id: A45_hull_material, path_mode: material_aware, source_mode: convex_hull, candidate_value_mode: material_aware, visibility_angle_deg: 45.0, max_path_length_factor: 2.5}
+  - {id: A45_all_source, path_mode: material_aware, source_mode: all, candidate_value_mode: source_only, visibility_angle_deg: 45.0, max_path_length_factor: 2.5}
+  - {id: A45_all_material, path_mode: material_aware, source_mode: all, candidate_value_mode: material_aware, visibility_angle_deg: 45.0, max_path_length_factor: 2.5}
+  - {id: A60_hull_source, path_mode: material_aware, source_mode: convex_hull, candidate_value_mode: source_only, visibility_angle_deg: 60.0, max_path_length_factor: 2.5}
+  - {id: A60_hull_material, path_mode: material_aware, source_mode: convex_hull, candidate_value_mode: material_aware, visibility_angle_deg: 60.0, max_path_length_factor: 2.5}
+  - {id: A60_all_source, path_mode: material_aware, source_mode: all, candidate_value_mode: source_only, visibility_angle_deg: 60.0, max_path_length_factor: 2.5}
+  - {id: A60_all_material, path_mode: material_aware, source_mode: all, candidate_value_mode: material_aware, visibility_angle_deg: 60.0, max_path_length_factor: 2.5}
+
+extended_stages:
+  selected_planners:
+    - B00_straight_hull_source
+    - A30_hull_material
+    - A45_all_material
+    - A60_all_material
+  deployment_robustness:
+    deployments: [clustered, near_target, outer_ring]
+    target_ids: [circle_center, circle_offcenter, rectangle_center, rectangle_offcenter, amorphous_center, amorphous_offcenter, l_center, l_offcenter]
+  density_robustness:
+    pebble_counts: [30, 90]
+    deployment: uniform_area
+    target_ids: [circle_center, rectangle_center, amorphous_center, l_center]
+
+runner:
+  default_workers: 4
+  infrastructure_retries: 1
+  stop_on_infrastructure_failure: false
+  blas_threads_per_worker: 1
+
+local_validation:
+  pebble_count: 6
+  max_sim_time_s: 8.0
+  max_no_delivery_time_s: 8.0
+  max_wall_time_s: 300.0
+  cases:
+    - {stage: core, planner: B00_straight_hull_source, target: circle_center, deployment: uniform_area, rover: small, seed: 41}
+    - {stage: core, planner: A45_hull_material, target: circle_center, deployment: uniform_area, rover: large, seed: 41}
+    - {stage: core, planner: A45_all_material, target: l_offcenter, deployment: uniform_area, rover: small, seed: 42}
+    - {stage: core, planner: A60_all_source, target: rectangle_offcenter, deployment: uniform_area, rover: large, seed: 42}
+    - {stage: deployment_robustness, planner: B00_straight_hull_source, target: circle_center, deployment: clustered, rover: small, seed: 41}
+    - {stage: deployment_robustness, planner: A30_hull_material, target: amorphous_center, deployment: near_target, rover: small, seed: 42}
+    - {stage: deployment_robustness, planner: A45_all_material, target: l_center, deployment: outer_ring, rover: large, seed: 43}
