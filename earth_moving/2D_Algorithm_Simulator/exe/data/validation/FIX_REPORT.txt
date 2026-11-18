@@ -1,0 +1,60 @@
+SELECTIVE UPDATE REPAIR — 14 November 2026
+
+Changed active root implementation only; dated working copies and historical
+results remain unchanged. The current simulator imports this root implementation.
+
+Observed causes and corrections
+1. Staging search expanded child.visible_cells_highway, whose entries could
+   belong to that child's own anchor or to a previous calculation. It now builds
+   a per-search successor cache for the single chosen anchor at every node.
+   No planner path may silently terminate at another source's cached destination.
+2. Staging fields were left populated when a source was skipped after its heat
+   changed. All staging-derived fields are reset before the global staging pass.
+3. Target invalidation only found direct observers of touched cells. It now
+   closes reverse visibility dependencies transitively, using old edges and
+   geometric eligibility to include disappeared and newly occupied material.
+4. Incremental max propagation could not remove obsolete contributions. All
+   derived path values and child links are rebuilt from retained target routes.
+   This is a global derived-data pass, not a full target-search recalculation.
+5. Target processing/neighbor ordering is deterministic. Reusable raw suffixes
+   are restricted to nodes that precede the source in the same near-to-far order
+   as a fresh build, and are disabled in spillage mode.
+6. Heavier-pile spill tests revealed endpoint contamination: material already
+   delivered was included in later spill predictions. Target contents are now
+   excluded from pickup estimates and preserved during spillage execution.
+
+Validation
+96 sequential actions across 12 configurations (8 actions each), alternating
+target and staging. Includes the original 55-object positions, varied larger
+counts, fixed/dynamic visibility, moved target, range and alignment changes,
+and spillage on/off. Tests use update_environment directly and never the UI's
+full-rebuild fallback. All comparisons and conservation checks pass.
+
+Comparison checks: material, grid heat, occupied-source target/staging paths,
+yields, distances, headings, propagated and own/incoming heat values, selected
+anchors, and predicted deposits. Unselected target-path object identities are
+retained; each staging path ends at its selected anchor. All 96 actions used
+fewer target-search sources than a fresh build. See validation.json for counts.
+Existing material-transfer tests and heat-component tests also pass. The UI
+smoke test covers edits, undo, spillage, parameters, visibility and display layers.
+
+The default scene's tested first delivery uses 8 target searches versus 47 fresh,
+with full agreement. Counts are not a timing measurement. The algorithm still
+rebuilds propagated values, heat and staging paths globally; the UI additionally
+performs a full calculation to verify the selective result. Retain fallback for
+untested cases. Finite tests do not prove equivalence for every possible state.
+
+Presentation consequence
+Use the revised implementation and regenerated examples. Historical policy or
+physics results were produced with older code; these fixes do not retroactively
+validate or replace those results. Do not claim all map processing is local.
+
+Display correction
+Updates ON resets Unchanged OFF. E/D/R/S mark emptied, changed occupied,
+dependency-affected and spill cells. Unchanged is a separate optional U overlay.
+Green filled pile markers are material, not update indicators.
+
+Guides
+thesis/seminar/SIMULATOR_QUICK_GUIDE.html — controls and all 14 parameter meanings.
+thesis/seminar/SIMULATOR_ALGORITHM_GUIDE.html — intuition, formulas, dependency
+closure, model limitations and verification. Open with F1/F2 in the simulator.

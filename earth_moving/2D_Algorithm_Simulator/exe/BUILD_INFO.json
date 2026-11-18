@@ -1,0 +1,28 @@
+{
+  "build_date": "2026-11-15",
+  "python": "3.10.21 | packaged by conda-forge | (main, Aug 21 2026, 22:38:44) [MSC v.1944 64 bit (AMD64)]",
+  "packages": {
+    "numpy": "2.2.6",
+    "scipy": "1.15.2",
+    "pygame": "2.6.1",
+    "shapely": "2.1.2",
+    "matplotlib": "3.10.9",
+    "pillow": "12.3.0",
+    "contourpy": "1.3.2",
+    "cycler": "0.12.1",
+    "fonttools": "4.63.0",
+    "kiwisolver": "1.5.1",
+    "packaging": "26.3",
+    "pyparsing": "3.3.2",
+    "python-dateutil": "2.9.0.post0",
+    "six": "1.17.0",
+    "pyinstaller": "6.22.3"
+  },
+  "source_sha256": {
+    "thesis\\scripts\\interactive_scenario.py": "c24bdc43a6fb6868983b6931c030151b0f34939ef1f8be9936d676c880c4c162",
+    "thesis\\scripts\\seminar_scenario.py": "0a4928372eda7cee16f8867c6ae32180cb0ca4fc9a1577c9005d4faf8428a421",
+    "Hybrid Orchestrator\\env.py": "b2b7f2d5f05c3bb1e3e69fc9cc3dbfd34e225f524642bc1600e7caad218e1bbc",
+    "Hybrid Orchestrator\\search.py": "bb0051777223018674001b267b29598e316c7fc4b4a32a4bce33183b3bb7086d",
+    "Hybrid Orchestrator\\spillage_model.py": "458f6d44d5c4235fe23bc3faa0522c2e25910f5f8da2e138b3941767be403ebe"
+  }
+}

@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.venv/
+Logs/
+Saved Scenarios/
+interactive_saved/
+self_test_output/

@@ -1,0 +1,20 @@
+{
+  "archive": "2D_Algorithm_Simulator_Windows_x64_20261115.zip",
+  "zip_megabytes": 240.7,
+  "extracted_executable_passed": true,
+  "clean_search_path": "C:\\Windows\\System32",
+  "all_python_modules_from_bundle": true,
+  "native_desktop_launch_passed": true,
+  "tests": [
+    "seminar_action",
+    "selective_full_agreement",
+    "mouse_editing",
+    "target_movement",
+    "undo",
+    "display_layers",
+    "spillage",
+    "dynamic_visibility",
+    "save_reload",
+    "offline_assets"
+  ]
+}

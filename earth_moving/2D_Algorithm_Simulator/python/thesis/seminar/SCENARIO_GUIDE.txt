@@ -1,0 +1,117 @@
+CONFIGURABLE SEMINAR EXAMPLES
+
+QUICK START
+Open PowerShell and run:
+  Set-Location -LiteralPath 'C:\Users\ilnir\Documents\Recovered Codex Projects\OneDrive Documents\Thesis code implementation\thesis\seminar'
+  & '.\Generate example.cmd'
+  Start-Process '.\running_example\index.html'
+
+MAKE YOUR OWN COPY
+  Copy-Item '.\scenarios\corridor.json' '.\scenarios\my_example.json'
+  notepad '.\scenarios\my_example.json'
+After saving:
+  & '.\Generate example.cmd' '.\scenarios\my_example.json' '.\my_example'
+  Start-Process '.\my_example\index.html'
+
+Each material entry is [x cell index, y cell index, number of objects].
+For grid_size 22, indices run from 0 to 21. A pile at [8,3,5] occupies cell
+(8,3), is drawn at its center (8.5,3.5), and contains five objects. Add or remove
+entries to add or remove piles; do not duplicate cell coordinates. x increases
+rightward and y upward in these exported figures. The older Pygame window uses
+screen coordinates with y increasing downward; do not compare orientations
+without accounting for this difference.
+
+The target center/radius are continuous grid coordinates, not cell indices:
+  "target": {"center": [9.5, 19.5], "radius": 2.0}
+For your first changes, keep the target inside the grid and away from the two
+selected source cells. It must contain at least one cell center. Keep JSON
+commas between entries but no trailing comma after the final entry.
+
+If you move the action pile, change action_source to its new [x,y] too. Likewise
+focus_source must remain an occupied cell outside the target. The action source
+needs a valid route: a high-heat source may have no highway connector. An error
+then means choose another source or use action_type "target"; it does not mean
+you should disable the verification checks.
+
+THREE GENERATED EXAMPLES TO COMPARE
+scenarios/corridor.json → running_example/index.html
+  Simple empty destination, 16 objects, 3 selective searches versus 5 fresh.
+scenarios/occupied_destination.json → occupied_destination_example/index.html
+  Side pile joins an existing pile, 16 objects, 2 searches versus 4 fresh.
+scenarios/shifted_target.json → shifted_target_example/index.html
+  Target moved right/enlarged, side pile increased to 4; 18 objects, 3 versus 5.
+All three currently pass conservation and fresh-recalculation comparisons.
+
+Figure 08 now distinguishes E (emptied), D (material changed and still occupied),
+R (dependent source requiring recalculation), and U (reused source path).
+The first three categories are derived from actual state changes and the
+recorded search calls. Heat and connector selection still refresh globally.
+
+OLD VISUALIZATION LOCATED
+In the Desktop "2D Algorithm and Benchmark" folder:
+core_visualizer.py: draw_affected_cells / draw_recalculation_cells /
+draw_spillage_cells draw magenta A, yellow R and purple S markers.
+demo_main.py and demo_interactive_comprehensive.py pass update diagnostics
+to that visualizer after an action. core_env.py's direct_affected_cells is
+actually the emptied-cell set, not all changed occupied cells. The new diagram
+also marks the changed occupied destination explicitly. No spill cells occur
+in these no-spillage action examples; the last panel is a separate estimator.
+demo_main.py starts a 25×25 grid with 55 random objects, seed 31 and radius 3.
+That is a reproducible old entry point, but it does not establish which exact
+saved state/action sequence produced the published figures.
+
+Yes: the figure generator is separate from the rover application. It runs the
+real 2D planner headlessly. It does not run a physics mission or invent heat.
+
+Start with scenarios/corridor.json. Copy it under another name before editing.
+Change material entries [x,y,count], grid_size, target center/radius, focus_source
+(the source whose successor cone and main route are explained), action_source,
+and planner parameters. action_type can be highway or target. Choose an occupied
+source with an actual path. The generator uses the saved spillage setting (off when omitted). Its last
+panel separately evaluates the source's target route using the configured
+coefficient and threshold (defaults .05 and .03).
+
+From PowerShell in this folder:
+  & '.\Generate example.cmd'
+
+For the original bug scenario, now fixed:
+  & '.\Generate example.cmd' '.\scenarios\occupied_destination.json' '.\occupied_destination_example'
+
+For the .cmd launcher, pass a python.exe path as the third argument to choose
+a different environment. The .ps1 alternative accepts -Python but requires
+PowerShell script execution to be allowed. The .cmd launcher requires no
+PowerShell execution-policy change. Required libraries:
+numpy, scipy, shapely and matplotlib. The launcher supplies the Windows conda
+library path for this process. No package installation is performed.
+
+Outputs include nine PNG/SVG pairs, example_data.json and planner_log.txt.
+The JSON contains inputs, selected routes, headings, heat values before/after,
+spillage outputs, source hashes and a comparison with a fresh recalculation.
+The comparison checks material, heat, target AND highway routes, yields,
+distances and headings for occupied non-target sources. It fails generation
+if they disagree. A failure on another configuration is a diagnostic, not a
+reason to silently replace selective results with a fresh calculation.
+
+The original corridor example still uses an empty staging destination. The
+occupied_destination example now conserves 16 objects and matches a fresh
+recalculation, using 2 target searches instead of 4. Its spillage illustration
+also predicts one deposited object and six at the target endpoint. These are
+model outputs, not measured rover outcomes.
+
+Use a separate output folder for each new scenario. Image geometry and displayed
+paths follow the configuration. Descriptive slide titles remain generic teaching
+captions, and the 45-minute storyboard's numerical speaker notes refer to the
+default corridor scene; review those notes before substituting a new scene.
+Every output folder now includes index.html to browse all nine figures. The
+default walkthrough also uses the regenerated PNGs automatically.
+
+Code entry points:
+  thesis/scripts/build_seminar_example_20261114.py — rendering and CLI
+  thesis/scripts/seminar_scenario.py — reusable build/compare API, no import-time run
+  Hybrid Orchestrator/test_material_transfer.py — conservation/update regressions
+
+Seminar scope: 22 minutes for context, the 2D foundation and computation;
+23 minutes for rover control, collision avoidance/recovery, action policies,
+lookahead, multi-rover allocation, timing and synthesis. The later studies
+already recorded in PROJECT_STATUS.md are evidence to select, not all future
+experiments. Final plot/clip selection and remaining conclusions stay explicit.

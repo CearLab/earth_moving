@@ -1,0 +1,773 @@
+{
+  "actions": 96,
+  "records": [
+    {
+      "mode": 0,
+      "step": 0,
+      "kind": "target",
+      "selective": 11,
+      "full": 49,
+      "match": true
+    },
+    {
+      "mode": 0,
+      "step": 1,
+      "kind": "highway",
+      "selective": 14,
+      "full": 44,
+      "match": true
+    },
+    {
+      "mode": 0,
+      "step": 2,
+      "kind": "target",
+      "selective": 9,
+      "full": 42,
+      "match": true
+    },
+    {
+      "mode": 0,
+      "step": 3,
+      "kind": "highway",
+      "selective": 16,
+      "full": 42,
+      "match": true
+    },
+    {
+      "mode": 0,
+      "step": 4,
+      "kind": "target",
+      "selective": 14,
+      "full": 40,
+      "match": true
+    },
+    {
+      "mode": 0,
+      "step": 5,
+      "kind": "highway",
+      "selective": 1,
+      "full": 40,
+      "match": true
+    },
+    {
+      "mode": 0,
+      "step": 6,
+      "kind": "target",
+      "selective": 7,
+      "full": 38,
+      "match": true
+    },
+    {
+      "mode": 0,
+      "step": 7,
+      "kind": "highway",
+      "selective": 8,
+      "full": 38,
+      "match": true
+    },
+    {
+      "mode": 1,
+      "step": 0,
+      "kind": "target",
+      "selective": 9,
+      "full": 48,
+      "match": true
+    },
+    {
+      "mode": 1,
+      "step": 1,
+      "kind": "highway",
+      "selective": 2,
+      "full": 48,
+      "match": true
+    },
+    {
+      "mode": 1,
+      "step": 2,
+      "kind": "target",
+      "selective": 7,
+      "full": 46,
+      "match": true
+    },
+    {
+      "mode": 1,
+      "step": 3,
+      "kind": "highway",
+      "selective": 5,
+      "full": 45,
+      "match": true
+    },
+    {
+      "mode": 1,
+      "step": 4,
+      "kind": "target",
+      "selective": 15,
+      "full": 43,
+      "match": true
+    },
+    {
+      "mode": 1,
+      "step": 5,
+      "kind": "highway",
+      "selective": 9,
+      "full": 43,
+      "match": true
+    },
+    {
+      "mode": 1,
+      "step": 6,
+      "kind": "target",
+      "selective": 5,
+      "full": 42,
+      "match": true
+    },
+    {
+      "mode": 1,
+      "step": 7,
+      "kind": "highway",
+      "selective": 5,
+      "full": 41,
+      "match": true
+    },
+    {
+      "mode": 2,
+      "step": 0,
+      "kind": "target",
+      "selective": 18,
+      "full": 46,
+      "match": true
+    },
+    {
+      "mode": 2,
+      "step": 1,
+      "kind": "highway",
+      "selective": 1,
+      "full": 44,
+      "match": true
+    },
+    {
+      "mode": 2,
+      "step": 2,
+      "kind": "target",
+      "selective": 7,
+      "full": 40,
+      "match": true
+    },
+    {
+      "mode": 2,
+      "step": 3,
+      "kind": "highway",
+      "selective": 9,
+      "full": 40,
+      "match": true
+    },
+    {
+      "mode": 2,
+      "step": 4,
+      "kind": "target",
+      "selective": 3,
+      "full": 38,
+      "match": true
+    },
+    {
+      "mode": 2,
+      "step": 5,
+      "kind": "highway",
+      "selective": 12,
+      "full": 36,
+      "match": true
+    },
+    {
+      "mode": 2,
+      "step": 6,
+      "kind": "target",
+      "selective": 14,
+      "full": 33,
+      "match": true
+    },
+    {
+      "mode": 2,
+      "step": 7,
+      "kind": "highway",
+      "selective": 3,
+      "full": 33,
+      "match": true
+    },
+    {
+      "mode": 3,
+      "step": 0,
+      "kind": "target",
+      "selective": 12,
+      "full": 47,
+      "match": true
+    },
+    {
+      "mode": 3,
+      "step": 1,
+      "kind": "highway",
+      "selective": 6,
+      "full": 47,
+      "match": true
+    },
+    {
+      "mode": 3,
+      "step": 2,
+      "kind": "target",
+      "selective": 9,
+      "full": 45,
+      "match": true
+    },
+    {
+      "mode": 3,
+      "step": 3,
+      "kind": "highway",
+      "selective": 13,
+      "full": 45,
+      "match": true
+    },
+    {
+      "mode": 3,
+      "step": 4,
+      "kind": "target",
+      "selective": 10,
+      "full": 43,
+      "match": true
+    },
+    {
+      "mode": 3,
+      "step": 5,
+      "kind": "highway",
+      "selective": 1,
+      "full": 43,
+      "match": true
+    },
+    {
+      "mode": 3,
+      "step": 6,
+      "kind": "target",
+      "selective": 11,
+      "full": 42,
+      "match": true
+    },
+    {
+      "mode": 3,
+      "step": 7,
+      "kind": "highway",
+      "selective": 3,
+      "full": 41,
+      "match": true
+    },
+    {
+      "mode": 4,
+      "step": 0,
+      "kind": "target",
+      "selective": 11,
+      "full": 47,
+      "match": true
+    },
+    {
+      "mode": 4,
+      "step": 1,
+      "kind": "highway",
+      "selective": 2,
+      "full": 45,
+      "match": true
+    },
+    {
+      "mode": 4,
+      "step": 2,
+      "kind": "target",
+      "selective": 0,
+      "full": 42,
+      "match": true
+    },
+    {
+      "mode": 4,
+      "step": 3,
+      "kind": "highway",
+      "selective": 2,
+      "full": 41,
+      "match": true
+    },
+    {
+      "mode": 4,
+      "step": 4,
+      "kind": "target",
+      "selective": 1,
+      "full": 36,
+      "match": true
+    },
+    {
+      "mode": 4,
+      "step": 5,
+      "kind": "highway",
+      "selective": 1,
+      "full": 36,
+      "match": true
+    },
+    {
+      "mode": 4,
+      "step": 6,
+      "kind": "target",
+      "selective": 3,
+      "full": 32,
+      "match": true
+    },
+    {
+      "mode": 4,
+      "step": 7,
+      "kind": "highway",
+      "selective": 1,
+      "full": 32,
+      "match": true
+    },
+    {
+      "mode": 5,
+      "step": 0,
+      "kind": "target",
+      "selective": 9,
+      "full": 47,
+      "match": true
+    },
+    {
+      "mode": 5,
+      "step": 1,
+      "kind": "highway",
+      "selective": 8,
+      "full": 47,
+      "match": true
+    },
+    {
+      "mode": 5,
+      "step": 2,
+      "kind": "target",
+      "selective": 11,
+      "full": 45,
+      "match": true
+    },
+    {
+      "mode": 5,
+      "step": 3,
+      "kind": "highway",
+      "selective": 1,
+      "full": 45,
+      "match": true
+    },
+    {
+      "mode": 5,
+      "step": 4,
+      "kind": "target",
+      "selective": 6,
+      "full": 43,
+      "match": true
+    },
+    {
+      "mode": 5,
+      "step": 5,
+      "kind": "highway",
+      "selective": 3,
+      "full": 43,
+      "match": true
+    },
+    {
+      "mode": 5,
+      "step": 6,
+      "kind": "target",
+      "selective": 1,
+      "full": 41,
+      "match": true
+    },
+    {
+      "mode": 5,
+      "step": 7,
+      "kind": "highway",
+      "selective": 7,
+      "full": 39,
+      "match": true
+    },
+    {
+      "mode": 6,
+      "step": 0,
+      "kind": "target",
+      "selective": 9,
+      "full": 47,
+      "match": true
+    },
+    {
+      "mode": 6,
+      "step": 1,
+      "kind": "highway",
+      "selective": 9,
+      "full": 45,
+      "match": true
+    },
+    {
+      "mode": 6,
+      "step": 2,
+      "kind": "target",
+      "selective": 6,
+      "full": 43,
+      "match": true
+    },
+    {
+      "mode": 6,
+      "step": 3,
+      "kind": "highway",
+      "selective": 12,
+      "full": 41,
+      "match": true
+    },
+    {
+      "mode": 6,
+      "step": 4,
+      "kind": "target",
+      "selective": 13,
+      "full": 37,
+      "match": true
+    },
+    {
+      "mode": 6,
+      "step": 5,
+      "kind": "highway",
+      "selective": 8,
+      "full": 36,
+      "match": true
+    },
+    {
+      "mode": 6,
+      "step": 6,
+      "kind": "target",
+      "selective": 3,
+      "full": 31,
+      "match": true
+    },
+    {
+      "mode": 6,
+      "step": 7,
+      "kind": "highway",
+      "selective": 4,
+      "full": 31,
+      "match": true
+    },
+    {
+      "mode": 7,
+      "step": 0,
+      "kind": "target",
+      "selective": 17,
+      "full": 52,
+      "match": true
+    },
+    {
+      "mode": 7,
+      "step": 1,
+      "kind": "highway",
+      "selective": 8,
+      "full": 51,
+      "match": true
+    },
+    {
+      "mode": 7,
+      "step": 2,
+      "kind": "target",
+      "selective": 10,
+      "full": 53,
+      "match": true
+    },
+    {
+      "mode": 7,
+      "step": 3,
+      "kind": "highway",
+      "selective": 1,
+      "full": 53,
+      "match": true
+    },
+    {
+      "mode": 7,
+      "step": 4,
+      "kind": "target",
+      "selective": 9,
+      "full": 51,
+      "match": true
+    },
+    {
+      "mode": 7,
+      "step": 5,
+      "kind": "highway",
+      "selective": 2,
+      "full": 51,
+      "match": true
+    },
+    {
+      "mode": 7,
+      "step": 6,
+      "kind": "target",
+      "selective": 17,
+      "full": 50,
+      "match": true
+    },
+    {
+      "mode": 7,
+      "step": 7,
+      "kind": "highway",
+      "selective": 2,
+      "full": 49,
+      "match": true
+    },
+    {
+      "mode": 8,
+      "step": 0,
+      "kind": "target",
+      "selective": 20,
+      "full": 47,
+      "match": true
+    },
+    {
+      "mode": 8,
+      "step": 1,
+      "kind": "highway",
+      "selective": 4,
+      "full": 47,
+      "match": true
+    },
+    {
+      "mode": 8,
+      "step": 2,
+      "kind": "target",
+      "selective": 12,
+      "full": 45,
+      "match": true
+    },
+    {
+      "mode": 8,
+      "step": 3,
+      "kind": "highway",
+      "selective": 12,
+      "full": 45,
+      "match": true
+    },
+    {
+      "mode": 8,
+      "step": 4,
+      "kind": "target",
+      "selective": 17,
+      "full": 40,
+      "match": true
+    },
+    {
+      "mode": 8,
+      "step": 5,
+      "kind": "highway",
+      "selective": 1,
+      "full": 40,
+      "match": true
+    },
+    {
+      "mode": 8,
+      "step": 6,
+      "kind": "target",
+      "selective": 7,
+      "full": 38,
+      "match": true
+    },
+    {
+      "mode": 8,
+      "step": 7,
+      "kind": "highway",
+      "selective": 11,
+      "full": 38,
+      "match": true
+    },
+    {
+      "mode": 9,
+      "step": 0,
+      "kind": "target",
+      "selective": 29,
+      "full": 54,
+      "match": true
+    },
+    {
+      "mode": 9,
+      "step": 1,
+      "kind": "highway",
+      "selective": 1,
+      "full": 54,
+      "match": true
+    },
+    {
+      "mode": 9,
+      "step": 2,
+      "kind": "target",
+      "selective": 9,
+      "full": 51,
+      "match": true
+    },
+    {
+      "mode": 9,
+      "step": 3,
+      "kind": "highway",
+      "selective": 3,
+      "full": 50,
+      "match": true
+    },
+    {
+      "mode": 9,
+      "step": 4,
+      "kind": "target",
+      "selective": 22,
+      "full": 49,
+      "match": true
+    },
+    {
+      "mode": 9,
+      "step": 5,
+      "kind": "highway",
+      "selective": 2,
+      "full": 48,
+      "match": true
+    },
+    {
+      "mode": 9,
+      "step": 6,
+      "kind": "target",
+      "selective": 17,
+      "full": 47,
+      "match": true
+    },
+    {
+      "mode": 9,
+      "step": 7,
+      "kind": "highway",
+      "selective": 1,
+      "full": 47,
+      "match": true
+    },
+    {
+      "mode": 10,
+      "step": 0,
+      "kind": "target",
+      "selective": 4,
+      "full": 48,
+      "match": true
+    },
+    {
+      "mode": 10,
+      "step": 1,
+      "kind": "highway",
+      "selective": 7,
+      "full": 48,
+      "match": true
+    },
+    {
+      "mode": 10,
+      "step": 2,
+      "kind": "target",
+      "selective": 7,
+      "full": 44,
+      "match": true
+    },
+    {
+      "mode": 10,
+      "step": 3,
+      "kind": "highway",
+      "selective": 10,
+      "full": 41,
+      "match": true
+    },
+    {
+      "mode": 10,
+      "step": 4,
+      "kind": "target",
+      "selective": 5,
+      "full": 40,
+      "match": true
+    },
+    {
+      "mode": 10,
+      "step": 5,
+      "kind": "highway",
+      "selective": 5,
+      "full": 38,
+      "match": true
+    },
+    {
+      "mode": 10,
+      "step": 6,
+      "kind": "target",
+      "selective": 1,
+      "full": 33,
+      "match": true
+    },
+    {
+      "mode": 10,
+      "step": 7,
+      "kind": "highway",
+      "selective": 7,
+      "full": 30,
+      "match": true
+    },
+    {
+      "mode": 11,
+      "step": 0,
+      "kind": "target",
+      "selective": 12,
+      "full": 49,
+      "match": true
+    },
+    {
+      "mode": 11,
+      "step": 1,
+      "kind": "highway",
+      "selective": 2,
+      "full": 48,
+      "match": true
+    },
+    {
+      "mode": 11,
+      "step": 2,
+      "kind": "target",
+      "selective": 3,
+      "full": 44,
+      "match": true
+    },
+    {
+      "mode": 11,
+      "step": 3,
+      "kind": "highway",
+      "selective": 11,
+      "full": 44,
+      "match": true
+    },
+    {
+      "mode": 11,
+      "step": 4,
+      "kind": "target",
+      "selective": 11,
+      "full": 43,
+      "match": true
+    },
+    {
+      "mode": 11,
+      "step": 5,
+      "kind": "highway",
+      "selective": 3,
+      "full": 42,
+      "match": true
+    },
+    {
+      "mode": 11,
+      "step": 6,
+      "kind": "target",
+      "selective": 2,
+      "full": 41,
+      "match": true
+    },
+    {
+      "mode": 11,
+      "step": 7,
+      "kind": "highway",
+      "selective": 1,
+      "full": 41,
+      "match": true
+    }
+  ]
+}

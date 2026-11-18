@@ -1,0 +1,637 @@
+{
+  "brotli_0.txt": {
+    "package": "brotli",
+    "version": "1.2.0",
+    "original": "LICENSE"
+  },
+  "brotli-bin_0.txt": {
+    "package": "brotli-bin",
+    "version": "1.2.0",
+    "original": "LICENSE"
+  },
+  "bullet-cpp_0.txt": {
+    "package": "bullet-cpp",
+    "version": "3.25",
+    "original": "LICENSE.txt"
+  },
+  "bzip2_0.txt": {
+    "package": "bzip2",
+    "version": "1.0.8",
+    "original": "LICENSE"
+  },
+  "ca-certificates_0.txt": {
+    "package": "ca-certificates",
+    "version": "2026.7.22",
+    "original": "LICENSE"
+  },
+  "cairo_0.txt": {
+    "package": "cairo",
+    "version": "1.18.4",
+    "original": "COPYING"
+  },
+  "cairo_1.txt": {
+    "package": "cairo",
+    "version": "1.18.4",
+    "original": "COPYING-LGPL-2.1"
+  },
+  "cairo_2.txt": {
+    "package": "cairo",
+    "version": "1.18.4",
+    "original": "COPYING-MPL-1.1"
+  },
+  "contourpy_0.txt": {
+    "package": "contourpy",
+    "version": "1.3.2",
+    "original": "LICENSE"
+  },
+  "cycler_0.txt": {
+    "package": "cycler",
+    "version": "0.12.1",
+    "original": "LICENSE"
+  },
+  "double-conversion_0.txt": {
+    "package": "double-conversion",
+    "version": "3.3.1",
+    "original": "LICENSE"
+  },
+  "font-ttf-dejavu-sans-mon_0.txt": {
+    "package": "font-ttf-dejavu-sans-mono",
+    "version": "2.37",
+    "original": "LICENSE"
+  },
+  "font-ttf-inconsolata_0.txt": {
+    "package": "font-ttf-inconsolata",
+    "version": "3.000",
+    "original": "OFL.txt"
+  },
+  "font-ttf-source-code-pro_0.txt": {
+    "package": "font-ttf-source-code-pro",
+    "version": "2.038",
+    "original": "LICENSE.md"
+  },
+  "font-ttf-ubuntu_0.txt": {
+    "package": "font-ttf-ubuntu",
+    "version": "0.83",
+    "original": "LICENCE.txt"
+  },
+  "fontconfig_0.txt": {
+    "package": "fontconfig",
+    "version": "2.18.3",
+    "original": "COPYING"
+  },
+  "fonts-conda-ecosystem_0.txt": {
+    "package": "fonts-conda-ecosystem",
+    "version": "1",
+    "original": "LICENSE.txt"
+  },
+  "fonts-conda-forge_0.txt": {
+    "package": "fonts-conda-forge",
+    "version": "1",
+    "original": "LICENSE.txt"
+  },
+  "fonttools_0.txt": {
+    "package": "fonttools",
+    "version": "4.63.0",
+    "original": "LICENSE"
+  },
+  "freetype_0.txt": {
+    "package": "freetype",
+    "version": "2.14.3",
+    "original": "docs\\FTL.TXT"
+  },
+  "freetype_1.txt": {
+    "package": "freetype",
+    "version": "2.14.3",
+    "original": "docs\\GPLv2.TXT"
+  },
+  "geos_0.txt": {
+    "package": "geos",
+    "version": "3.14.1",
+    "original": "COPYING"
+  },
+  "graphite2_0.txt": {
+    "package": "graphite2",
+    "version": "1.3.15",
+    "original": "COPYING"
+  },
+  "harfbuzz_0.txt": {
+    "package": "harfbuzz",
+    "version": "11.5.1",
+    "original": "COPYING"
+  },
+  "icu_0.txt": {
+    "package": "icu",
+    "version": "75.1",
+    "original": "LICENSE"
+  },
+  "kiwisolver_0.txt": {
+    "package": "kiwisolver",
+    "version": "1.5.1",
+    "original": "LICENSE"
+  },
+  "krb5_0.txt": {
+    "package": "krb5",
+    "version": "1.21.3",
+    "original": "doc\\notice.rst"
+  },
+  "lcms2_0.txt": {
+    "package": "lcms2",
+    "version": "2.19.1",
+    "original": "LICENSE"
+  },
+  "lerc_0.txt": {
+    "package": "lerc",
+    "version": "4.2.0",
+    "original": "LICENSE"
+  },
+  "libblas_0.txt": {
+    "package": "libblas",
+    "version": "3.11.0",
+    "original": "LICENSE.txt"
+  },
+  "libbrotlicommon_0.txt": {
+    "package": "libbrotlicommon",
+    "version": "1.2.0",
+    "original": "LICENSE"
+  },
+  "libbrotlidec_0.txt": {
+    "package": "libbrotlidec",
+    "version": "1.2.0",
+    "original": "LICENSE"
+  },
+  "libbrotlienc_0.txt": {
+    "package": "libbrotlienc",
+    "version": "1.2.0",
+    "original": "LICENSE"
+  },
+  "libcblas_0.txt": {
+    "package": "libcblas",
+    "version": "3.11.0",
+    "original": "LICENSE.txt"
+  },
+  "libclang13_0.txt": {
+    "package": "libclang13",
+    "version": "22.1.8",
+    "original": "clang\\LICENSE.TXT"
+  },
+  "libdeflate_0.txt": {
+    "package": "libdeflate",
+    "version": "1.25",
+    "original": "COPYING"
+  },
+  "libexpat_0.txt": {
+    "package": "libexpat",
+    "version": "2.8.1",
+    "original": "COPYING"
+  },
+  "libffi_0.txt": {
+    "package": "libffi",
+    "version": "3.5.2",
+    "original": "LICENSE"
+  },
+  "libglib_0.txt": {
+    "package": "libglib",
+    "version": "2.86.2",
+    "original": "COPYING"
+  },
+  "libhwloc_0.txt": {
+    "package": "libhwloc",
+    "version": "2.13.0",
+    "original": "COPYING"
+  },
+  "libiconv_0.txt": {
+    "package": "libiconv",
+    "version": "1.18",
+    "original": "COPYING.LIB"
+  },
+  "libintl_0.txt": {
+    "package": "libintl",
+    "version": "0.22.5",
+    "original": "COPYING"
+  },
+  "libjpeg-turbo_0.txt": {
+    "package": "libjpeg-turbo",
+    "version": "3.2.0",
+    "original": "LICENSE.md"
+  },
+  "liblapack_0.txt": {
+    "package": "liblapack",
+    "version": "3.11.0",
+    "original": "LICENSE.txt"
+  },
+  "liblzma_0.txt": {
+    "package": "liblzma",
+    "version": "5.8.3",
+    "original": "COPYING"
+  },
+  "liblzma_1.txt": {
+    "package": "liblzma",
+    "version": "5.8.3",
+    "original": "COPYING.0BSD"
+  },
+  "libpng_0.txt": {
+    "package": "libpng",
+    "version": "1.6.58",
+    "original": "LICENSE"
+  },
+  "libtiff_0.txt": {
+    "package": "libtiff",
+    "version": "4.7.2",
+    "original": "LICENSE.md"
+  },
+  "libvulkan-loader_0.txt": {
+    "package": "libvulkan-loader",
+    "version": "1.4.357.0",
+    "original": "LICENSE.txt"
+  },
+  "libwebp-base_0.txt": {
+    "package": "libwebp-base",
+    "version": "1.6.0",
+    "original": "COPYING"
+  },
+  "libwinpthread_0.txt": {
+    "package": "libwinpthread",
+    "version": "12.0.0.r4.gg4f2fc60ca",
+    "original": "COPYING.MinGW-w64\\COPYING.MinGW-w64.txt"
+  },
+  "libwinpthread_1.txt": {
+    "package": "libwinpthread",
+    "version": "12.0.0.r4.gg4f2fc60ca",
+    "original": "mingw-w64-libraries\\winpthreads\\COPYING"
+  },
+  "libxcb_0.txt": {
+    "package": "libxcb",
+    "version": "1.17.0",
+    "original": "COPYING"
+  },
+  "libxml2-16_0.txt": {
+    "package": "libxml2-16",
+    "version": "2.15.1",
+    "original": "Copyright"
+  },
+  "libxml2_0.txt": {
+    "package": "libxml2",
+    "version": "2.15.1",
+    "original": "Copyright"
+  },
+  "libxslt_0.txt": {
+    "package": "libxslt",
+    "version": "1.1.43",
+    "original": "Copyright"
+  },
+  "libzlib_0.txt": {
+    "package": "libzlib",
+    "version": "1.3.2",
+    "original": "LICENSE"
+  },
+  "llvm-openmp_0.txt": {
+    "package": "llvm-openmp",
+    "version": "23.1.1",
+    "original": "openmp\\LICENSE.TXT"
+  },
+  "matplotlib_0.txt": {
+    "package": "matplotlib",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE"
+  },
+  "matplotlib_1.txt": {
+    "package": "matplotlib",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_AMSFONTS"
+  },
+  "matplotlib_2.txt": {
+    "package": "matplotlib",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_BAKOMA"
+  },
+  "matplotlib_3.txt": {
+    "package": "matplotlib",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_CARLOGO"
+  },
+  "matplotlib_4.txt": {
+    "package": "matplotlib",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_COLORBREWER"
+  },
+  "matplotlib_5.txt": {
+    "package": "matplotlib",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_COURIERTEN"
+  },
+  "matplotlib_6.txt": {
+    "package": "matplotlib",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_JSXTOOLS_RESIZE_OBSERVER"
+  },
+  "matplotlib_7.txt": {
+    "package": "matplotlib",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_QT4_EDITOR"
+  },
+  "matplotlib_8.txt": {
+    "package": "matplotlib",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_SOLARIZED"
+  },
+  "matplotlib_9.txt": {
+    "package": "matplotlib",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_STIX"
+  },
+  "matplotlib_10.txt": {
+    "package": "matplotlib",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_YORICK"
+  },
+  "matplotlib-base_0.txt": {
+    "package": "matplotlib-base",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE"
+  },
+  "matplotlib-base_1.txt": {
+    "package": "matplotlib-base",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_AMSFONTS"
+  },
+  "matplotlib-base_2.txt": {
+    "package": "matplotlib-base",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_BAKOMA"
+  },
+  "matplotlib-base_3.txt": {
+    "package": "matplotlib-base",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_CARLOGO"
+  },
+  "matplotlib-base_4.txt": {
+    "package": "matplotlib-base",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_COLORBREWER"
+  },
+  "matplotlib-base_5.txt": {
+    "package": "matplotlib-base",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_COURIERTEN"
+  },
+  "matplotlib-base_6.txt": {
+    "package": "matplotlib-base",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_JSXTOOLS_RESIZE_OBSERVER"
+  },
+  "matplotlib-base_7.txt": {
+    "package": "matplotlib-base",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_QT4_EDITOR"
+  },
+  "matplotlib-base_8.txt": {
+    "package": "matplotlib-base",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_SOLARIZED"
+  },
+  "matplotlib-base_9.txt": {
+    "package": "matplotlib-base",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_STIX"
+  },
+  "matplotlib-base_10.txt": {
+    "package": "matplotlib-base",
+    "version": "3.10.9",
+    "original": "LICENSE\\LICENSE_YORICK"
+  },
+  "mkl_0.txt": {
+    "package": "mkl",
+    "version": "2026.1.0",
+    "original": "mkl\\info\\licenses\\license.txt"
+  },
+  "mkl_1.txt": {
+    "package": "mkl",
+    "version": "2026.1.0",
+    "original": "mkl\\info\\licenses\\tpp.txt"
+  },
+  "munkres_0.txt": {
+    "package": "munkres",
+    "version": "1.1.4",
+    "original": "LICENSE.md"
+  },
+  "numpy_0.txt": {
+    "package": "numpy",
+    "version": "2.2.6",
+    "original": "LICENSE.txt"
+  },
+  "openjpeg_0.txt": {
+    "package": "openjpeg",
+    "version": "2.5.4",
+    "original": "LICENSE"
+  },
+  "openssl_0.txt": {
+    "package": "openssl",
+    "version": "3.6.4",
+    "original": "LICENSE.txt"
+  },
+  "packaging_0.txt": {
+    "package": "packaging",
+    "version": "26.3",
+    "original": "LICENSE"
+  },
+  "pcre2_0.txt": {
+    "package": "pcre2",
+    "version": "10.46",
+    "original": "COPYING"
+  },
+  "pillow_0.txt": {
+    "package": "pillow",
+    "version": "12.3.0",
+    "original": "LICENSE"
+  },
+  "pip_0.txt": {
+    "package": "pip",
+    "version": "26.2.1",
+    "original": "LICENSE.txt"
+  },
+  "pixman_0.txt": {
+    "package": "pixman",
+    "version": "0.46.4",
+    "original": "COPYING"
+  },
+  "psutil_0.txt": {
+    "package": "psutil",
+    "version": "7.2.2",
+    "original": "LICENSE"
+  },
+  "pthread-stubs_0.txt": {
+    "package": "pthread-stubs",
+    "version": "0.4",
+    "original": "COPYING"
+  },
+  "pybullet_0.txt": {
+    "package": "pybullet",
+    "version": "3.25",
+    "original": "LICENSE.txt"
+  },
+  "pyparsing_0.txt": {
+    "package": "pyparsing",
+    "version": "3.3.2",
+    "original": "LICENSE"
+  },
+  "pyside6_0.txt": {
+    "package": "pyside6",
+    "version": "6.9.2",
+    "original": "LICENSES\\LGPL-3.0-only.txt"
+  },
+  "python_0.txt": {
+    "package": "python",
+    "version": "3.10.21",
+    "original": "LICENSE"
+  },
+  "python-dateutil_0.txt": {
+    "package": "python-dateutil",
+    "version": "2.9.0.post0",
+    "original": "LICENSE"
+  },
+  "python_abi_0.txt": {
+    "package": "python_abi",
+    "version": "3.10",
+    "original": "LICENSE"
+  },
+  "pyyaml_0.txt": {
+    "package": "pyyaml",
+    "version": "6.0.3",
+    "original": "LICENSE"
+  },
+  "qhull_0.txt": {
+    "package": "qhull",
+    "version": "2020.2",
+    "original": "COPYING.txt"
+  },
+  "qt6-main_0.txt": {
+    "package": "qt6-main",
+    "version": "6.9.2",
+    "original": "LICENSES\\LGPL-3.0-only.txt"
+  },
+  "scipy_0.txt": {
+    "package": "scipy",
+    "version": "1.15.2",
+    "original": "LICENSE.txt"
+  },
+  "setuptools_0.txt": {
+    "package": "setuptools",
+    "version": "84.0.0",
+    "original": "LICENSE"
+  },
+  "shapely_0.txt": {
+    "package": "shapely",
+    "version": "2.1.2",
+    "original": "LICENSE.txt"
+  },
+  "six_0.txt": {
+    "package": "six",
+    "version": "1.17.0",
+    "original": "LICENSE"
+  },
+  "tbb_0.txt": {
+    "package": "tbb",
+    "version": "2023.1.0",
+    "original": "LICENSE.txt"
+  },
+  "tbb_1.txt": {
+    "package": "tbb",
+    "version": "2023.1.0",
+    "original": "third-party-programs.txt"
+  },
+  "tk_0.txt": {
+    "package": "tk",
+    "version": "8.6.13",
+    "original": "tcl8.6.13\\license.terms"
+  },
+  "tornado_0.txt": {
+    "package": "tornado",
+    "version": "6.5.8",
+    "original": "LICENSE"
+  },
+  "tzdata_0.txt": {
+    "package": "tzdata",
+    "version": "2026c",
+    "original": "LICENSE"
+  },
+  "ucrt_0.txt": {
+    "package": "ucrt",
+    "version": "10.0.26100.0",
+    "original": "LICENSE.txt"
+  },
+  "unicodedata2_0.txt": {
+    "package": "unicodedata2",
+    "version": "17.0.1",
+    "original": "LICENSE"
+  },
+  "vc14_runtime_0.txt": {
+    "package": "vc14_runtime",
+    "version": "14.51.36247",
+    "original": "LICENSE.DOCX"
+  },
+  "vc14_runtime_1.txt": {
+    "package": "vc14_runtime",
+    "version": "14.51.36247",
+    "original": "LICENSE.RTF"
+  },
+  "vc14_runtime_2.txt": {
+    "package": "vc14_runtime",
+    "version": "14.51.36247",
+    "original": "LICENSE.TXT"
+  },
+  "vcomp14_0.txt": {
+    "package": "vcomp14",
+    "version": "14.51.36247",
+    "original": "LICENSE.DOCX"
+  },
+  "vcomp14_1.txt": {
+    "package": "vcomp14",
+    "version": "14.51.36247",
+    "original": "LICENSE.RTF"
+  },
+  "vcomp14_2.txt": {
+    "package": "vcomp14",
+    "version": "14.51.36247",
+    "original": "LICENSE.TXT"
+  },
+  "wheel_0.txt": {
+    "package": "wheel",
+    "version": "0.48.0",
+    "original": "LICENSE.txt"
+  },
+  "xorg-libxau_0.txt": {
+    "package": "xorg-libxau",
+    "version": "1.0.12",
+    "original": "COPYING"
+  },
+  "xorg-libxdmcp_0.txt": {
+    "package": "xorg-libxdmcp",
+    "version": "1.1.5",
+    "original": "COPYING"
+  },
+  "yaml_0.txt": {
+    "package": "yaml",
+    "version": "0.2.5",
+    "original": "License"
+  },
+  "zlib_0.txt": {
+    "package": "zlib",
+    "version": "1.3.2",
+    "original": "LICENSE"
+  },
+  "zlib-ng_0.txt": {
+    "package": "zlib-ng",
+    "version": "2.3.3",
+    "original": "LICENSE.md"
+  },
+  "zstd_0.txt": {
+    "package": "zstd",
+    "version": "1.5.7",
+    "original": "LICENSE"
+  },
+  "_openmp_mutex_0.txt": {
+    "package": "_openmp_mutex",
+    "version": "4.5",
+    "original": "LICENSE"
+  }
+}

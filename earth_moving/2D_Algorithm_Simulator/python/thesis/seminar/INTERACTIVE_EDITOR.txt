@@ -1,0 +1,144 @@
+2D ALGORITHM SIMULATOR
+
+DISPLAY PANEL AND LIVE DEMO
+Display > now groups Heat, Paths, Vectors, Scope, Scope lines, Updates,
+Unchanged and the Visibility only preset. Parameters > remains separate.
+Scope lines OFF hides straight successor connections but retains the cone and
+successor circles. In Move piles mode, clicking an empty cell clears the
+selected preview without editing material or recalculating. Global layers
+(all paths/scopes) remain governed by their display controls. Add/Erase/Move
+target modes retain their editing behavior on empty cells.
+
+Start seminar demo.cmd opens a pinned 55-object scene with source (0,15)
+selected and a clean visibility view. live_demo/DEMO_RUNBOOK.html contains
+the six-minute sequence and verified backup screenshots. The demo occupies
+talk minutes 11–17; the later-work block remains minutes 22–45.
+
+F1 opens SIMULATOR_QUICK_GUIDE.html; F2 opens SIMULATOR_ALGORITHM_GUIDE.html.
+Updates ON turns Unchanged OFF. Green filled circles are ordinary material;
+colored borders indicate update categories. Selective-update bugs were repaired;
+96 sequence checks now pass. See research/selective_update_20261114/FIX_REPORT.txt.
+
+DISPLAY LAYERS
+Vectors toggles short arrows at occupied sources, using velocity_target or
+velocity_highway according to T/H. They show direction, not rover speed. Sources
+inside the target or with zero vectors have no arrow.
+Paths cycles selected / all / off for the current T/H path type.
+Scope cycles selected / all / off. Selected mode lets you click each pile in
+turn; all mode overlays every occupied source's scope and successors.
+Visibility only sets target mode, enables selected scope, and hides heat,
+paths, vectors and update markers. Use it for the first explanation stage.
+With heat off the scope is blue on white so it remains visible.
+Updates independently hides/shows the E/D/R/S overlay; Reused controls U.
+These are DISPLAY controls: toggling them does not recompute or remove stored
+paths. The planner still computes them when you edit the scene. Visibility-only
+therefore illustrates the pre-path stage visually, rather than stopping the
+algorithm at that stage.
+
+"Reused" means sources skipped by selective target-path recalculation, typically
+because the update rule found no dependency on the changed material. It does
+not mean their heat is unchanged, or that they contain newly moved material.
+If the verification mismatch causes a full rebuild, U labels refer only to the
+selective attempt, not to reuse in the full result being displayed.
+
+NEW CONTROLS (restart the editor to load them)
+Visibility shows the selected target source's cone/range and the actual stored
+successors; for staging, it shows actual stored successors toward that anchor.
+The cone alone is not the complete eligibility test: progress and other rules
+still apply. White circles/lines indicate successors, not affected cells.
+Reused outlines are OFF by default. Only E/D/R/S update categories are shown;
+the Reused toggle adds U. If fallback occurs, these categories describe the
+selective attempt, and the sidebar explicitly says that a FULL rebuild is shown.
+
+Parameters opens a panel with +/- controls for target/staging angles, dynamic
+angle bounds, visibility range, route-length factor, own-path heat weight,
+alignment exponent, radial gate, minimum anchor heat, high-heat threshold,
+heat/proximity weighting, spillage coefficient and minimum spill threshold.
+Scope switches both target and staging visibility between fixed and dynamic.
+In dynamic mode, the dynamic bounds apply instead of the fixed angles.
+Changing any model parameter rebuilds the environment to clear old-mode caches.
+Heat and proximity weights are complementary in these controls.
+
+Spillage switches the CURRENT curvature estimator on/off for path selection
+and action execution. It is an approximate model, not rover physics, and its
+active branch does not enforce capacity. S marks non-endpoint predicted deposits.
+Turning spillage off does not remove deposits already produced by an action;
+Undo returns to the previous scene. Saved JSON retains model/parameter choices.
+
+Recalculation behavior:
+  Mouse edits / parameter changes: full rebuild.
+  Action: selective update attempt, then full rebuild for verification ALWAYS.
+  Match: keep selective result. Mismatch: show fresh result and save diagnostics.
+Thus a successful selective check still incurs full calculation in this editor;
+the displayed search counts are not a timing benchmark.
+
+Double-click "Open interactive editor.cmd" in this folder.
+Alternatively, from PowerShell in this folder:
+  & '.\Open interactive editor.cmd'
+
+To open a specific JSON scene:
+  & '.\Open interactive editor.cmd' '.\scenarios\corridor.json'
+
+The default recreates the layout settings in the old Desktop folder's
+2D Algorithm and Benchmark/demo_main.py:
+25×25 grid; 55 individual objects; random seed 31; target center (12,12),
+radius 3; target visibility 45°, highway visibility 60°; detour factor 2.
+Random samples inside the target are rejected; repeated cells accumulate
+objects. This is the old entry-point layout, not proof of the exact saved
+action sequence used for any published figure. Planning uses the CURRENT
+root Hybrid Orchestrator implementation, including the transfer fix.
+
+MOUSE CONTROLS
+- Move piles: select this mode, then drag an occupied cell. Dropping on another
+  occupied cell merges the counts. A click selects a pile without moving it.
+- Move target: select this mode and drag/click its new center. Wheel changes
+  the radius. The circle is kept inside the grid. Moving over a pile changes
+  whether it is considered delivered; no material is deleted.
+- Add pile: each click adds one object. Erase pile: click to remove that pile.
+- Mouse wheel over the grid changes that cell's count, except in target mode.
+- Right-click a cell to remove its pile.
+- Edits rebuild the planner after mouse release. Editing pauses during work;
+  the window continues drawing while the planner runs in a worker thread.
+
+PREVIEW AND EXECUTE
+Select an occupied pile in Move piles mode. T previews a target-delivery route;
+H previews a staging route. The orange arrows show the current candidate.
+Enter executes the selected route, then updates and checks the environment.
+Some sources have no staging path: the editor explains this instead of silently
+choosing a different source. Actions use the chosen spillage setting; they are
+abstract transfers or estimator predictions, not rover physics.
+
+V toggles the heat layer. U undoes an edit/action. Reset restores the scene
+opened at startup. S saves JSON, a screenshot and planner log under
+interactive_saved. L opens the latest scene saved there. Use the launcher with
+a JSON argument to choose another saved file. Saved configurations can also be
+passed to Generate example.cmd for the nine exported derivation figures.
+
+VISUAL STYLE AND UPDATE DIAGNOSTICS
+The editor follows the old Pygame style: blue-to-red heat, green counted piles,
+red target outline and screen coordinates with y increasing downward.
+Heat colors rescale per state, as in the original visualizer; the sidebar shows
+the current numerical range. For scientific before/after figures, the static
+generator remains preferable because it fixes the heat scale.
+
+E (magenta): emptied cell. D (cyan): changed occupied destination.
+R (yellow): dependent source selected for target-search recalculation.
+U (light green): source skipped by selective target search.
+Heat and staging selection still refresh globally.
+
+Every action checks conservation and compares selective results with a fresh
+calculation (material, heat, target/staging routes, yields, distances, headings).
+If they differ, the sidebar explicitly reports a mismatch, the displayed state
+uses the fresh rebuild, and a timestamped diagnostic is saved. In this case
+E/D/R/U describe the SELECTIVE ATTEMPT, not actual reuse in the displayed full
+rebuild. Do not use that action as evidence of selective-update equivalence.
+
+The original 55-object mismatch has been repaired in the active planner.
+The tested first action now matches (8 target searches versus 47 fresh).
+Fallback is retained for any future verification failure.
+
+Validation: default layout/count, isolated worker copy, pile move/merge,
+target movement, undo, real mouse event handlers, action conservation, fresh
+fallback equality and rendered preview were checked using SDL's headless mode.
+The application uses the installed earth_moving Python environment and pygame.
+No PowerShell execution-policy changes are needed.

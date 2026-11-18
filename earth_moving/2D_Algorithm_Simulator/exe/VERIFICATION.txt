@@ -1,0 +1,23 @@
+STANDALONE BUILD VERIFICATION — 15 November 2026
+
+Passed on the build computer with a relocated application folder and a clean
+process environment. PATH contained only Windows/System32; PYTHONPATH,
+PYTHONHOME and Conda variables were absent; Python user-site loading disabled.
+
+The bundled executable (not python.exe) passed:
+- Original 55-object layout and pinned seminar action.
+- Selective/full agreement, material conservation and isolated worker state.
+- Mouse editing, target movement, undo, display layers and parameters.
+- Spillage and dynamic visibility.
+- Screenshot creation, JSON saving and reloading.
+- Resolution of packaged scenarios and both offline guides.
+
+A separate native desktop launch displayed the real simulator window. All
+222 loaded native modules came from the application folder or Windows;
+python310.dll and the scientific packages came from the bundle.
+
+This demonstrates independence from the installed Python environment. It is
+not a separate-machine/clean-Windows certification or a promise that every
+organization's application-control policy permits this unsigned executable.
+
+The algorithm's 96-action differential validation is in data/validation.

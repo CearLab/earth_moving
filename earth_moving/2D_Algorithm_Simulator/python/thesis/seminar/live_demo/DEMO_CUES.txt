@@ -1,0 +1,17 @@
+SIX-MINUTE LIVE DEMO (talk minutes 11–17)
+
+0:00–0:40 | Start the prepared scene | Use Start seminar demo.cmd before the talk. The selected pile is (0,15): the far-left column, row 15 from the top. State that this is the old 55-object layout, running the current algorithm.
+
+0:40–1:30 | Explain visibility | Display panel: Scope selected, Scope lines off. Point to cone/range and circled successors. Briefly enable Scope lines if needed, then disable them. Do not change parameters during the main demo.
+
+1:30–2:20 | Reveal the target route | Scope off; Paths selected. Explain the route gathering 4 new objects. Its saved cell sequence is [[0, 15], [6, 10], [8, 10], [9, 10]]. Click an empty cell once to clear the preview, then reselect (0,15).
+
+2:20–3:10 | Reveal direction and heat | Paths off; Vectors on briefly. Then Vectors off, Heat on, Paths selected. Explain that heat scores a transport opportunity, not material already in a cell. The palette auto-rescales per state.
+
+3:10–4:40 | Execute and show the selective update | Return to Scene controls; Target mode (T); press Enter exactly once. Open Display: Heat off, Paths off, Scope off, Updates ON. Read the verification message: 8 target searches / 47 fresh. Matches fresh calculation. Point to E/D/R; unchanged sources have no colored borders. Green circles are still piles.
+
+4:40–5:20 | State what is reused | Target searches rerun for the dependency closure; other target paths are retained. Propagated values, heat and staging routes still rebuild globally. Full recalculation also runs here for verification, so this is not a timing benchmark.
+
+5:20–6:00 | Return to the wider thesis | Leave the verified result on screen, then switch back to slides: a useful 2D opportunity still needs rover approach, alignment, tracking, collision avoidance and action selection. No further live actions in the main talk.
+
+If behind: skip vectors. If failure: use DEMO_RUNBOOK.html screenshots. Stop by minute 17. Later work starts at minute 22.

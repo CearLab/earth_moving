@@ -1,0 +1,167 @@
+2D ALGORITHM AND BENCHMARK REVIEW
+7 November 2026
+
+Scope
+Read the publication experiment section and table sources, the three detailed
+benchmark exports, the September 16 analysis, both summary reports, the benchmark
+runner/tracker/configuration and plotting code, and the core path, heat, update
+and spillage routines. Recomputed descriptive summaries from saved records.
+No benchmark campaign was launched and no original source file was changed.
+Source paths and SHA-256 hashes are in source_manifest.json. This is an inspection
+of the supplied files; the archive does not identify an immutable code revision
+proving that every historical record used the exact source now present.
+
+Main finding
+There is substantial existing 2D computational evidence worth explaining, but
+the archive mixes first construction, cached calls, instrument overhead and
+different operation families. The evidence supports a historical computational
+study, not yet a clean measurement of every claimed optimization.
+
+ALGORITHM TRACE
+core_env.py:96 _spawn_objects_randomly seeds the generator and places discrete
+object units in non-target cells. Multiple units can occupy a cell.
+demo_interactive_comprehensive.py:98 configures a target radius max(2, grid//8),
+path-length factor 2, target angle 45 degrees, highway angle 60 degrees, source
+heat ratio .3, threshold ratio .5, and heat/proximity weights .7/.3.
+The supplied current benchmark defaults differ from the recorded grid/count
+range, so historical settings must come from saved records, not current defaults.
+
+demo_interactive_comprehensive.py:175 calculate_on_demand builds visibility,
+then potential/selected paths, velocity headings, heat and highway connectors.
+core_env.py:151 calculate_potential_field orders source cells near-to-far,
+generates target candidates and optionally ranks them through a spillage model.
+core_search.py:4 uses a maximum-reward queue, cell-level reward dominance and
+optional continuation stitching when spillage is off. This archive does not
+have the explicit path-membership cycle rejection shown in the later integrated
+pseudocode. Do not silently treat the two code versions as identical.
+core_env.py:1423 and :1531 implement cone/progress/range-based successors.
+core_env.py:541 computes maximum incoming directional contributions with a
+75-degree receiving-cell gate and first-child range check. This archive's heat
+uses linear alignment and no separately weighted own-heat term. Later p/omega
+controls in the thesis describe the integrated extension, not the benchmarked
+archive by default. Target heat is cleared.
+core_env.py:1056 updates affected sources and sources in their visibility scope,
+including emptied-cell dependencies. It then refreshes heat globally and
+recalculates highway connectors. Runtime is not O(affected cells) alone.
+core_spillage_model.py:8 fits splines and derives curvature, with an artificial
+curvature fallback for short/failed fits. The loss evaluator is a planning model,
+not a calibrated granular-dynamics experiment.
+
+ARCHIVE INVENTORY AND DENOMINATORS
+September 13 export: 36 result groups, 720 iteration records.
+September 14 export: 272 result groups, 1,592 iteration records.
+September 16 export: 1,808 result groups, 9,200 iteration records.
+These exports are separate cohorts and have not been pooled.
+The September 16 runner summary counts 1,328 configured scenarios; individual
+spillage comparisons produce two result groups. The analyzer excludes groups
+without grid_size metadata, retaining 848 groups and 7,280 records. This
+explains the smaller denominator in the report. It is not 7,280 independent
+random environments. The 1,920 excluded records are spillage operation records
+whose parameters omit grid_size and object_count.
+The system metadata records Windows, Python 3.10.17, 8 logical CPUs and about
+15.86 GiB RAM, with memory profiling enabled. CPU model, frozen source revision
+and effective parallel setting are not established by the exported metadata.
+
+Full-calculation subset: 320 groups, five repeats each, 1,600 records.
+Update subset: 96 groups, ten repeats each, 960 records.
+Both have grids 25,35,45,65 and counts 50,75,100,125.
+The separate optimization matrix adds grid 30 and count 55 to pooled figures.
+Full-calculation group parameters save spillage and strategy labels, but not
+seed. Update group parameters save only grid/count. Seed-to-scenario mapping
+cannot safely be reconstructed from current defaults alone.
+
+REPRODUCED DESCRIPTIVE VALUES
+Grid      mean full label (ms)  mean update label (ms)  ratio of means
+25        631.83                74.40                   8.49
+35        866.17                111.44                  7.77
+45       1157.84               147.59                   7.85
+65       1809.13               259.15                   6.98
+These reproduce the legacy graph and summary means. They are unpaired pooled
+ratios, not same-state selective/full speedups or median paired speedups.
+See operation_summary.csv for exact values and record counts.
+
+First-call medians vs later-call medians within full-labelled groups (ms):
+25: 1959.77 vs 82.43; 35: 2941.11 vs 121.87;
+45: 4155.99 vs 164.23; 65: 7091.57 vs 285.43.
+Each first-call value summarizes 80 groups; each later value summarizes 320
+repeats. first_vs_repeated_calls.pdf/png plots these descriptive values.
+
+MEASUREMENT FINDINGS
+1. Cache reset: benchmark_runner.py:88 calls calculate_strategic_fields_now on
+   the same demo across repeats. Its optional clear_all_cached_data method is
+   absent from the supplied orchestrator. The demo alias at :209 calls
+   calculate_on_demand, guarded by absence of env._fields_calculated. The first
+   call sets the flag; later calls skip construction. This explains the observed
+   first/repeat pattern in the inspected code. It is not ordinary CPU warm-up.
+2. Timer boundary: PerformanceTracker.measure_operation starts the timer before
+   CPU/RSS reads and tracemalloc snapshots. It stops after the callback. Thus
+   recorded time includes instrumentation before computation. The full callback
+   additionally invokes garbage collection inside the timer. Console prints
+   remain in called routines. An isolated kernel, stabilized warm-up protocol
+   and exclusion of all I/O are not established by this source.
+3. Update timing excludes pre-executed pushes, which is appropriate for a
+   computation measure. But the wrapper also restores state and gathers
+   metrics inside its timed callback. It deep-copies the grid separately from
+   shallow-copied cell lists and affected lists. That risks inconsistent cell
+   identity. Restored backups are assigned directly and may be mutated. A
+   common immutable post-action snapshot is needed for a controlled comparison.
+4. Custom metrics: run_benchmark tries to attach callback metadata before the
+   context manager creates the current metrics record. All 9,200 saved custom
+   metric dictionaries are empty. Consequently affected-cell counts, update
+   success flags and path statistics cannot be recovered from those fields.
+   A callback returning a failure dictionary is not necessarily a failed
+   runner scenario, so 'zero failed scenarios' is not an update-correctness test.
+5. Flags: use_affected_only_updates is accepted by create_simulation_quick but
+   is not applied to an environment control in that function. The matrix test
+   calls field construction, not a paired update/full routine. The saved
+   suffix/matrix parameters omit the optimization flags. These facts prevent
+   treating their labels as verified optimization ablations.
+6. Memory: memory_peak_mb is max of sampled endpoint RSS values, not a sampled
+   high-water mark throughout each operation. The optional monitoring thread
+   is not started by run_benchmark. The 410 MB reported average is an endpoint
+   process-footprint summary and does not prove a peak bound or absence of leaks.
+
+PUBLICATION / ANALYSIS RECONCILIATION
+The publication table gives full medians 420/980/1910 ms and update medians
+49/129/273 ms for grids 25/45/65. These do not match the selected archive's
+pooled means or medians. No matching seed-level bootstrap calculation was
+identified. Retain them as previously reported, pending provenance reconciliation.
+
+The report's 19.49055% and p=0.0091628 are stored in spillage_analysis.comparison:
+With Spillage n=800 versus Without Spillage n=6480. They are not stored as a
+suffix-reuse test. The analyzer uses Welch's independent t-test, not Wilcoxon.
+Missing use_spillage fields default to false, pooling unrelated operation
+families into the second group. Therefore even the spillage attribution is
+confounded. Do not transfer this percentage or p-value to continuation reuse.
+
+The original time_per_object_efficiency graph uses the analyzer's full retained
+dataframe, without filtering to construction. Its 30-grid/55-object points
+come from the matrix cohort. The curves visibly decrease for several grids;
+the graph does not establish constant per-object construction cost.
+R-squared 0.9881097 is from an ordinary linear fit to five grid-size pooled
+mean times, not evidence of a log-log slope 1.03 for construction. Polynomial
+fit labels do not establish asymptotic complexity.
+
+RECOMMENDED CLEAN BENCHMARK (SPECIFICATION ONLY)
+Freeze source/configuration and record hashes, environment, CPU and concurrency.
+Separate cold construction, intentional cached queries and selective updates.
+Restore one canonical object graph per replicate; verify counts and identity.
+Time explicit computational stages with logging/profiling outside the interval.
+Predeclare warm-up and repetition handling; aggregate within environment first.
+Pair selective and full rebuilding on exactly the same post-action snapshot.
+Compare candidate paths, values, headings, heat and connector decisions before
+reporting a speedup as equivalent work. Include decreased rewards and spill.
+Test reuse on/off in raw mode with an effective flag, same inputs and cache
+reset. Record node expansions, queue size and returned-path accounting.
+Persist seed, flags, failure state and affected-source fraction in every record.
+Use paired environment-level uncertainty and distinguish memory RSS from peak.
+Keep this future validation separate from the recovered historical results.
+
+THESIS AND SEMINAR USE
+Chapter 4: algorithm and explicit historical/later-version distinction.
+Chapter 7: benchmark questions, archived setup, measurement unit and limitations.
+Chapter 8: original graphs, recovered operation means and iteration diagnostic,
+with previously reported values clearly separated from reconstructed evidence.
+Seminar: explain the material-path and heatmap mechanism visually first. Show
+historical computational observations with one concise limitation statement.
+Keep provenance details and benchmark-repair checklist in backup material.

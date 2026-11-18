@@ -1,0 +1,70 @@
+SIMULATOR RESEARCH HANDOFF — 18 November 2026
+
+Purpose
+Nir met with his advisors and reports that the simulator may support important
+research insights. This dedicated conversation owns simulator development and
+reproducible investigation. The specific meeting observations have not yet been
+provided: ask Nir about them before deciding what scientific claim to pursue.
+The simulator is now more than a seminar illustration, but exploratory behavior
+is not yet an experimental conclusion.
+
+Start in the existing shared project; do not create another active copy of the
+planner. Paths below are relative to the project root. Read in this order:
+1. This file and CODE_AND_EVIDENCE.txt beside it.
+2. thesis/seminar/SIMULATOR_QUICK_GUIDE.html
+3. thesis/seminar/SIMULATOR_ALGORITHM_GUIDE.html
+4. research/selective_update_20261114/FIX_REPORT.txt
+5. thesis/scripts/interactive_scenario.py and seminar_scenario.py
+6. Hybrid Orchestrator/env.py, search.py, cell.py, spillage_model.py
+7. PROJECT_STATUS.md for concurrent rover research and thesis coordination.
+
+Launch
+Double-click thesis/seminar/Start seminar demo.cmd for the pinned scene, or
+thesis/seminar/Open interactive editor.cmd for general exploration.
+These launchers configure the existing earth_moving Python environment.
+For computers without Python, extract the entire archive:
+thesis/releases/2D_Algorithm_Simulator_Windows_x64_20261115.zip
+Then open 2D Algorithm Simulator.exe, keeping _internal and data beside it.
+The executable is a frozen November 15 version; edits to source do not update it.
+
+Verified demonstration
+seminar_live_55.json: 25 x 25 grid, 55 objects, original seed-31 layout,
+target center (12,12), radius 3. Select source (0,15), target route, execute.
+Route: (0,15) -> (6,10) -> (8,10) -> (9,10).
+Recorded result: four newly delivered objects; eight target searches versus
+47 in a fresh calculation; material and heat/path comparison agree.
+See thesis/seminar/live_demo/verified_action.json and DEMO_RUNBOOK.html.
+
+Critical interpretation
+Mouse edits and parameter changes rebuild the environment. After an action,
+target searches are selective, but propagation, heat and staging are rebuilt
+globally. The UI ALSO performs a fresh calculation for verification and falls
+back to it if a mismatch occurs. UI elapsed time is therefore not a selective
+update benchmark. Search counts are not speedup measurements. Regression tests
+cover finite cases, not a proof of universal equivalence or optimality.
+
+Controls and highlights
+Move piles/target with the mouse; T/H select target/staging; Enter executes;
+U undo; S save; L latest save; F1/F2 user/math guides. In Move piles mode an
+empty click clears the preview. Display groups heat, paths, arrows, scope,
+straight scope lines, update overlays and optional unchanged cells.
+E pink = emptied; D cyan = changed occupied; R yellow = dependency affected;
+S purple = spill; U green border = optional unchanged. Green filled piles are
+material markers, not evidence of being updated. Updates ON hides U by default.
+Source saves: thesis/seminar/interactive_saved. Preserve the user's saved scenes.
+
+Suggested next discussion
+Ask what Nir and the advisors noticed, which scene/action showed it, and what
+they would like to infer. Save that exact scenario and parameter configuration.
+Then formulate a hypothesis and a controlled comparison before running trials.
+Potential questions include dependency size versus layout, heat/visibility
+effects on route selection, direct versus staging choices, and sensitivity to
+the spill model. These are options, not agreed goals or established findings.
+Keep later rover control, collision avoidance and time estimation in view;
+this abstract 2D simulator does not validate physical rover performance.
+
+Scope and preservation
+Keep the thesis/seminar writing workflow coordinated, rather than rewriting
+chapters automatically. Do not launch a large experiment campaign on handoff.
+Retain historical results, saved scenarios and original benchmark sources.
+The source snapshot is an archival reference, not a second working checkout.

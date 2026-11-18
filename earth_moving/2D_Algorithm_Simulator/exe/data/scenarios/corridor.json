@@ -1,0 +1,22 @@
+{
+  "name": "A side pile joins a collection corridor",
+  "grid_size": 22,
+  "target": {"center": [8.5, 19.5], "radius": 1.6},
+  "material": [[8,3,5], [8,7,4], [8,11,3], [8,15,2], [15,8,2]],
+  "focus_source": [8,3],
+  "action_source": [15,8],
+  "action_type": "highway",
+  "planner": {
+    "target_angle_tolerance": 30,
+    "highway_angle_tolerance": 60,
+    "max_path_length_factor": 2.5,
+    "target_zone_gate_factor": 1.0,
+    "own_path_heat_weight": 0.0,
+    "heat_alignment_power": 1.0,
+    "heat_radial_gate_angle_deg": 75,
+    "highway_min_heat_ratio": 0.30,
+    "highway_threshold_ratio": 0.50,
+    "highway_heat_weight": 0.70,
+    "highway_distance_weight": 0.30
+  }
+}

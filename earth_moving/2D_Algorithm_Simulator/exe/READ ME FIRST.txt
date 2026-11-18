@@ -1,0 +1,34 @@
+2D ALGORITHM SIMULATOR — WINDOWS x64
+Standalone advisor edition — 15 November 2026
+
+1. Extract the ENTIRE ZIP to a folder on your computer.
+2. Double-click "2D Algorithm Simulator.exe".
+No Python installation, terminal commands or internet connection is required.
+Keep the executable, _internal and data folders together. Do not run inside
+the ZIP preview and do not send the executable by itself.
+
+The app opens the prepared 55-object seminar scene. Select a pile in Move piles
+mode, press T for a target route or H for staging, and Enter to execute.
+Display > controls heat, paths, vectors, visibility and update highlights.
+Parameters > changes the model settings. Clicking an empty cell clears preview.
+F1 opens the user guide. F2 opens the algorithm/mathematics guide.
+
+S saves the edited scene, screenshot and log into "Saved Scenarios" beside
+the executable. L loads the most recent saved scene. If the extracted folder
+is read-only, saved data goes to LocalAppData/2D Algorithm Simulator instead.
+Close/reopen the executable to restore the prepared seminar scene.
+Other prepared JSON scenes are in data/scenarios.
+
+Offline live-demo cues and backup images: data/live_demo/DEMO_RUNBOOK.html.
+The verified seminar action starts at (0,15), delivers four new objects, and
+matches a full rebuild with 8 target searches versus 47. The editor ALWAYS
+performs a full verification calculation; it is not a timing benchmark.
+
+This is a Windows x64 build, not a macOS/Linux application. It is unsigned.
+Managed computers may require IT approval for downloaded executables.
+If it fails to start, preserve the message and the Logs folder for diagnosis.
+Do not disable antivirus or organization security controls.
+
+The package contains the simulator runtime, scenarios and documentation only;
+it does not contain the thesis workspace, private experiment archives or chats.
+Third-party license texts are included in THIRD_PARTY_LICENSES.

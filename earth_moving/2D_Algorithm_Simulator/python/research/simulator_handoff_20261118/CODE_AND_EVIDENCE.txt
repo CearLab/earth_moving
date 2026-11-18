@@ -1,0 +1,91 @@
+CODE, REFERENCES AND REPRODUCTION — 18 November 2026
+All paths are relative to the existing project root unless absolute.
+
+Active implementation
+thesis/scripts/interactive_scenario.py — Pygame UI, worker-owned cloned state,
+  mouse actions, display/parameter menus, selective/full verification, self-test.
+thesis/scripts/seminar_scenario.py — import-safe build/material/xy/compare API.
+thesis/scripts/simulator_paths.py — source/frozen resources and writable saves.
+Hybrid Orchestrator/env.py — visibility, target search orchestration, propagated
+  values, heat, staging, action execution and dependency invalidation.
+Hybrid Orchestrator/search.py — target search and anchor-specific staging search.
+Hybrid Orchestrator/cell.py — cell state.
+Hybrid Orchestrator/spillage_model.py — replaceable approximate prediction model.
+
+Algorithm qualifications
+Heat is a directional planning score, not material mass or predicted mission
+time. Search is reward-directed and should not be described as globally optimal.
+The current spill approximation uses sampled spline curvature and load; it is
+not a calibrated physical model. Review its sample-count dependence, threshold,
+rounding/correction behavior and unused capacity argument before interpreting
+parameter sweeps physically. Alternative models require consistent prediction,
+execution and accounting contracts, not merely replacing a plotted curve.
+
+Repairs and evidence
+research/selective_update_20261114/FIX_REPORT.txt and validation.json:
+  96 sequential target/staging actions across 12 configurations agreed with full
+  recalculation, without the UI fallback, including material conservation and
+  retained target-path identities. Each recorded case used fewer target searches.
+  Reverse visibility dependencies close transitively over old/current geometry;
+  propagated maxima are rebuilt from retained routes; staging uses one anchor
+  throughout each query; stale staging fields are cleared; traversal is stable;
+  raw suffix reuse is restricted and disabled for spillage.
+Hybrid Orchestrator/test_material_transfer.py — destination double-counting,
+  stale predicted yield and previously delivered material regressions.
+Hybrid Orchestrator/test_heatmap_self_contribution.py — heat component checks.
+Hybrid Orchestrator/test_selective_recalculation.py — 96-action differential test.
+  CAUTION: running this test overwrites its historical validation.json output.
+  Preserve that file first or change the output location before a new campaign.
+Historical code/results were not retroactively validated by these repairs.
+
+Useful generation and documentation code
+thesis/scripts/build_seminar_example_20261114.py — static scenario figures.
+thesis/scripts/prepare_live_demo.py — pinned demo and screenshot/runbook assets.
+thesis/scripts/update_seminar_storyboard_20261114.py — 45-minute storyboard.
+thesis/scripts/write_simulator_guides.py — quick and mathematical HTML guides.
+thesis/seminar/scenarios/ — corridor, occupied destination, shifted target,
+  original 55-object layout and seminar_live_55.json.
+thesis/seminar/live_demo/ — runbook, verified action, backup images.
+thesis/seminar/storyboard_45min.html — live demo occupies minutes 11–17;
+  later work retains minutes 22–45. Do not let simulator expansion consume it.
+
+Source test command (PowerShell, from project root)
+$env:PATH = 'C:\Users\ilnir\miniforge3\envs\earth_moving\Library\bin;' + $env:PATH
+& 'C:\Users\ilnir\miniforge3\envs\earth_moving\python.exe' 'thesis/scripts/interactive_scenario.py' --self-test --test-output 'research/simulator_handoff_20261118/new_self_test'
+Choose a fresh output folder for subsequent runs. The packaged self-test is
+available through the same --self-test --test-output arguments on the exe.
+
+Standalone build and verification
+thesis/scripts/standalone_entry.py — windowed entry, logs, errors, plotting backend.
+thesis/scripts/build_standalone_windows.py — PyInstaller one-folder build.
+Run with the Python environment and PATH above. It uses packaging tools already
+installed in build/standalone_windows_20261115/packaging_tools, and writes to
+build/standalone_windows_20261115/dist/2D Algorithm Simulator. Paths/date are
+currently fixed; review them before creating another release. Final archive
+assembly and verification were additional steps, not a fully automatic pipeline.
+thesis/releases/Windows_build_verification_20261115.json — delivered ZIP tests.
+thesis/releases/2D_Algorithm_Simulator_Windows_x64_20261115.sha256.txt — checksum.
+The extracted executable passed the scenario/UI/offline-resource self-test with
+Python/Conda environment variables removed and PATH restricted to Windows.
+A native desktop launch was checked; loaded Python modules came from the bundle.
+No separate clean Windows PC/VM test was performed. Windows x64 only.
+Save location is Saved Scenarios beside the exe, with LocalAppData fallback.
+
+Original sources and context
+C:\Users\ilnir\Desktop\Nir\Master Degree\Thesis\Code\earth_moving\earth_moving\2D Algorithm and Benchmark
+  Original default scene and affected-cell visualization; historical reference,
+  not the active repaired code. Do not silently run its older planner instead.
+C:\Users\ilnir\Desktop\Nir\Master Degree\Thesis\AAMAS 2026
+  Published paper, LaTeX, figures and bibliography.
+tmp/lab_presentation_review/original.pptx — earlier lab presentation local copy.
+research/benchmark_2d_review_20261107/REVIEW.txt — audit of historical benchmark
+  interpretation, caching and measurement issues. Read before reusing speedups.
+PROJECT_STATUS.md — other current experiments; later rover work is independent
+  evidence and must be connected with explicit assumptions.
+
+Handoff snapshot
+source_manifest.json lists SHA-256 hashes of the selected current files.
+simulator_source_snapshot_20261118.zip keeps their project-relative layout.
+It includes code, tests, scenarios, guides, demo assets and evidence, not Python
+or the large Windows runtime. Use the release ZIP for Python-free sharing.
+This handoff records existing evidence; it does not claim a new regression run.

@@ -1,0 +1,209 @@
+{
+  "date": "2026-11-18",
+  "files": [
+    {
+      "path": "Hybrid Orchestrator/cell.py",
+      "sha256": "f2f8f9cc0b946155ce223400453a6f3ba64c9fe5dbdf120c7c7bb8b85f07fad7"
+    },
+    {
+      "path": "Hybrid Orchestrator/env.py",
+      "sha256": "b2b7f2d5f05c3bb1e3e69fc9cc3dbfd34e225f524642bc1600e7caad218e1bbc"
+    },
+    {
+      "path": "Hybrid Orchestrator/search.py",
+      "sha256": "bb0051777223018674001b267b29598e316c7fc4b4a32a4bce33183b3bb7086d"
+    },
+    {
+      "path": "Hybrid Orchestrator/spillage_model.py",
+      "sha256": "458f6d44d5c4235fe23bc3faa0522c2e25910f5f8da2e138b3941767be403ebe"
+    },
+    {
+      "path": "Hybrid Orchestrator/test_heatmap_self_contribution.py",
+      "sha256": "8fa682c2d007957242934bb053bcc94f0fdf5f3fecf99e7c8b98353d7db9e99a"
+    },
+    {
+      "path": "Hybrid Orchestrator/test_material_transfer.py",
+      "sha256": "e2555cb19d07441f245eeff3a451b513f76add424d2db4fb7dd0add9e02f3894"
+    },
+    {
+      "path": "Hybrid Orchestrator/test_selective_recalculation.py",
+      "sha256": "d9f6b47807363de445abe6959c8933a96f56deb96532ed5856620dba0050284b"
+    },
+    {
+      "path": "README.md",
+      "sha256": "febcd25c809ef11c48d4065d104e415996525d18e6fc52d0d8cedbc3aaf4a0c3"
+    },
+    {
+      "path": "requirements.txt",
+      "sha256": "bb6047aabe1489b238880136b1c1860c48743004826ecf90bbcc88e69bfa46cf"
+    },
+    {
+      "path": "research/benchmark_2d_review_20261107/REVIEW.txt",
+      "sha256": "5fe697f7974855bca3cf24c493f168bfdd752aef531e1c520c00ee63f672a5fe"
+    },
+    {
+      "path": "research/selective_update_20261114/FIX_REPORT.txt",
+      "sha256": "15388235f4fbc2cf4e075b7c0c57f109aeb14b7d6a39140f278e8f85a2e81a77"
+    },
+    {
+      "path": "research/selective_update_20261114/source_hashes.json",
+      "sha256": "ef97b41882155ca5811943e23b822580ec220ace986e77915e029f4f34924edb"
+    },
+    {
+      "path": "research/selective_update_20261114/validation.json",
+      "sha256": "3eb9d539564038f9e2a8d5152b3cb030ee542fa2dc2de034f58f86f4c22d66ff"
+    },
+    {
+      "path": "research/simulator_handoff_20261118/CODE_AND_EVIDENCE.txt",
+      "sha256": "167fdde8000d5cbd4dba2a43faba917365d59f44968f29ba723bb00ef69e54ef"
+    },
+    {
+      "path": "research/simulator_handoff_20261118/START_HERE.txt",
+      "sha256": "697591db28972587519602db8cd58a74eed54b6de4faabcb25548c84a78383ac"
+    },
+    {
+      "path": "Start simulator.cmd",
+      "sha256": "a0a50ca089c41d0744a66290e56b7599235c176eb5eed812f56b8a2e3521dbe2"
+    },
+    {
+      "path": "thesis/releases/Windows_build_verification_20261115.json",
+      "sha256": "2d3fc8dca1362614ad750eea8897dd0086991201f6071600e539aa6e7cd5d7f3"
+    },
+    {
+      "path": "thesis/scripts/build_seminar_example_20261114.py",
+      "sha256": "dd7fbb663b4d094ccf3312572a3b79aa90d021f362d5a88828d8dbb5869c80b6"
+    },
+    {
+      "path": "thesis/scripts/build_standalone_windows.py",
+      "sha256": "896fbd9e24faa2da1b3b0a0401abac06dac355955ad134be4d168d60f59e5fe9"
+    },
+    {
+      "path": "thesis/scripts/interactive_scenario.py",
+      "sha256": "c24bdc43a6fb6868983b6931c030151b0f34939ef1f8be9936d676c880c4c162"
+    },
+    {
+      "path": "thesis/scripts/prepare_live_demo.py",
+      "sha256": "c7800e4a9dc2d66d97c5282d3256587759a318b5b313add655edebf70e660ee2"
+    },
+    {
+      "path": "thesis/scripts/seminar_scenario.py",
+      "sha256": "0a4928372eda7cee16f8867c6ae32180cb0ca4fc9a1577c9005d4faf8428a421"
+    },
+    {
+      "path": "thesis/scripts/simulator_paths.py",
+      "sha256": "2f34fe75782a065ca9092c555db9e4448985bfce560ae1ee33a3eba9d75e08ee"
+    },
+    {
+      "path": "thesis/scripts/standalone_entry.py",
+      "sha256": "d25354233bb9b1adb0952b504ace73cf358967d447b104041d0c8228c85e6976"
+    },
+    {
+      "path": "thesis/scripts/update_seminar_storyboard_20261114.py",
+      "sha256": "b438a504386d1bd71575b1e04d89ce2a6add4bbd7dd37919296c78fdbf8d604d"
+    },
+    {
+      "path": "thesis/scripts/write_simulator_guides.py",
+      "sha256": "02b0f1db87194b4af93731f4457462201ae88d0e1eb9c01c64f0847a96ba606e"
+    },
+    {
+      "path": "thesis/seminar/Generate example.cmd",
+      "sha256": "59662eae63db65f4272571402355af6d94d2c36cf68f4213633c11eb4da64add"
+    },
+    {
+      "path": "thesis/seminar/Generate example.ps1",
+      "sha256": "613f1b4b2014e7052fd5a1a1c00c30194d9227d66af8e7e9458d49d0f4de22f6"
+    },
+    {
+      "path": "thesis/seminar/INTERACTIVE_EDITOR.txt",
+      "sha256": "c04c8e9881a83ae224b12d75db1721e4e19697da8f176e6d93f08380a6b87f79"
+    },
+    {
+      "path": "thesis/seminar/live_demo/01_scene.png",
+      "sha256": "cfb6a004fe75a3f98832e8579cde56215120cb6ba2a32a2be447086f862334c8"
+    },
+    {
+      "path": "thesis/seminar/live_demo/02_scope.png",
+      "sha256": "68e4d1a020653d49492bdb1a2a7fc402ba4b2ba0b33d5c5c22fe372c3e413ec6"
+    },
+    {
+      "path": "thesis/seminar/live_demo/03_route.png",
+      "sha256": "02905a1a66430029cc47d330175fa336c2797a780284ab1da7c0b7e270e46b15"
+    },
+    {
+      "path": "thesis/seminar/live_demo/04_vectors.png",
+      "sha256": "a1484914c8b0e31fa3a240ebaa4de4d5ca7ab8f5f96296c8e4cd9f203db2c2e0"
+    },
+    {
+      "path": "thesis/seminar/live_demo/05_heat.png",
+      "sha256": "2e5d02f95a91793fed45346dae86d2f43201ca6c846317b5110825c2c53927d2"
+    },
+    {
+      "path": "thesis/seminar/live_demo/06_update.png",
+      "sha256": "e45bd3705f1ff5f3493f8df3796f24bcfb4e332f90f2ffb54b32fd7ea5a85d07"
+    },
+    {
+      "path": "thesis/seminar/live_demo/DEMO_CUES.txt",
+      "sha256": "7096f69e28e4be7532059013c6c8d4298a5059f6ca023562b2db5381fa3f38aa"
+    },
+    {
+      "path": "thesis/seminar/live_demo/DEMO_RUNBOOK.html",
+      "sha256": "b35e4e506a52aa40c72b68d1a5cdc3623cf648c10de3410a73ff7c3933f94f25"
+    },
+    {
+      "path": "thesis/seminar/live_demo/verified_action.json",
+      "sha256": "dc8a75ee8c69fe397d3eac7f9ebec7e248453f7622ffc5626851da3d3a1022f8"
+    },
+    {
+      "path": "thesis/seminar/Open interactive editor.cmd",
+      "sha256": "44c51386715ecfb1603650a0b3d05ff49d0b58d5aaa7c5053f5925ed76765bd4"
+    },
+    {
+      "path": "thesis/seminar/SCENARIO_GUIDE.txt",
+      "sha256": "0f6894ada10aa8a8a37e3ccb0bd1e6b60eb2815703972cf59e0011d5bf2b7a4c"
+    },
+    {
+      "path": "thesis/seminar/scenarios/corridor.json",
+      "sha256": "3937e26571754d3585fae4caa4bcb05b576fcc7e43851662acd244541e494280"
+    },
+    {
+      "path": "thesis/seminar/scenarios/occupied_destination.json",
+      "sha256": "0c1345e04160c7c1de6acc851bebf539d1bce0ce15b970cdcb334847097f20ab"
+    },
+    {
+      "path": "thesis/seminar/scenarios/original_demo_55.json",
+      "sha256": "8f6f726f65377ab0a0578e8e0d6d8fc82ebe5a284efee93e8c8e76aa92c3b02b"
+    },
+    {
+      "path": "thesis/seminar/scenarios/seminar_live_55.json",
+      "sha256": "c7a79f979c12070224a36535f3aa12555a862d7617ca91119e75737c9faa33aa"
+    },
+    {
+      "path": "thesis/seminar/scenarios/shifted_target.json",
+      "sha256": "4450db4a66724a0b91e7a949a87e6cb28baf7b3cbc6142bbd3bd3db479edd1aa"
+    },
+    {
+      "path": "thesis/seminar/SEMINAR_STORY_45_MIN.txt",
+      "sha256": "5f7c43c30467ab76bc6f027434c308db332830b58d4788f9fa837dce5c17f55f"
+    },
+    {
+      "path": "thesis/seminar/SIMULATOR_ALGORITHM_GUIDE.html",
+      "sha256": "1ad87bacd00a2f9159cf0a9e5b20ec5e1919bf5962c3cd82eba8ca5b6dd663e7"
+    },
+    {
+      "path": "thesis/seminar/SIMULATOR_QUICK_GUIDE.html",
+      "sha256": "6624d6afea1be755d7d31abd70613103a247439a0551d3bc83e5d5ac00e7c978"
+    },
+    {
+      "path": "thesis/seminar/Start seminar demo.cmd",
+      "sha256": "f4f5ad3bba31903548bad3749d413e300c1017cb98308161c8b79f84f01e96fa"
+    },
+    {
+      "path": "thesis/seminar/storyboard_45min.html",
+      "sha256": "71fac81aa707cc4fd907f0c047f94dfff20513d5eb817e3fa1d231cf6d80242e"
+    },
+    {
+      "path": "thesis/seminar/storyboard_45min.json",
+      "sha256": "ce6dcca53933c5ff03d643cb3cca1d4b64a474f2c5dd68ab796251de166ebf65"
+    }
+  ]
+}
